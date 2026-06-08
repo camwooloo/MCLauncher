@@ -1,0 +1,33 @@
+[package]
+name = "launcher-desktop"
+description = "Aurora Launcher — multi-game desktop launcher (Tauri)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "aurora-launcher"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+launcher-core.workspace = true
+reqwest.workspace = true
+flate2.workspace = true
+open = "5"
+sysinfo = "0.32"
+fastnbt = "2"
+
+[features]
+# Enable Tauri's custom-protocol in release (used by the bundler).
+custom-protocol = ["tauri/custom-protocol"]

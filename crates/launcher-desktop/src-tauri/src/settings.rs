@@ -1,0 +1,54 @@
+//! Persisted launcher settings, stored in the launcher data dir.
+
+use std::path::Path;
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Settings {
+    /// Maximum JVM heap in MiB (Minecraft).
+    pub max_memory_mb: u32,
+    /// Last selected loader ("vanilla" / "fabric" / "quilt").
+    pub last_loader: String,
+    /// Last selected Minecraft version.
+    pub last_version: String,
+    /// UI theme: "dark" | "light".
+    pub theme: String,
+    /// UI style/look: "aurora" | "liquidglass".
+    pub ui_style: String,
+    /// Background mode: "static" | "pulsing".
+    pub background: String,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            max_memory_mb: 4096,
+            last_loader: "vanilla".to_string(),
+            last_version: String::new(),
+            theme: "dark".to_string(),
+            ui_style: "aurora".to_string(),
+            background: "pulsing".to_string(),
+        }
+    }
+}
+
+impl Settings {
+    pub async fn load(path: &Path) -> Self {
+        match tokio::fs::read(path).await {
+            Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+            Err(_) => Self::default(),
+        }
+    }
+
+    pub async fn save(&self, path: &Path) -> Result<(), String> {
+        if let Some(parent) = path.parent() {
+            let _ = tokio::fs::create_dir_all(parent).await;
+        }
+        let bytes = serde_json::to_vec_pretty(self).map_err(|e| e.to_string())?;
+        tokio::fs::write(path, bytes)
+            .await
+            .map_err(|e| e.to_string())
+    }
+}

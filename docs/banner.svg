@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" width="1200" height="340" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#070a12"/>
+      <stop offset="1" stop-color="#0d1322"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2ee6b0"/>
+      <stop offset="0.55" stop-color="#46d8ff"/>
+      <stop offset="1" stop-color="#8b7bff"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="38"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="340" rx="24" fill="url(#bg)"/>
+
+  <!-- aurora ribbons -->
+  <g filter="url(#soft)" opacity="0.55">
+    <path d="M-50 250 C 250 120, 450 300, 750 170 S 1150 60, 1280 180 L 1280 360 L -50 360 Z" fill="#1f9d83"/>
+    <path d="M-50 300 C 300 200, 600 360, 900 230 S 1200 150, 1280 250 L 1280 360 L -50 360 Z" fill="#5b46c9"/>
+    <ellipse cx="180" cy="120" rx="220" ry="120" fill="#2ee6b0" opacity="0.25"/>
+    <ellipse cx="980" cy="120" rx="240" ry="130" fill="#8b7bff" opacity="0.25"/>
+  </g>
+
+  <!-- logo mark: rounded cube -->
+  <g transform="translate(96,118)">
+    <rect x="-2" y="-2" width="104" height="104" rx="26" fill="url(#brand)"/>
+    <g stroke="#0a0c14" stroke-width="6" fill="none" stroke-linejoin="round" stroke-linecap="round" transform="translate(50,50) scale(2.0)">
+      <path d="M0 -16 L14 -8 L14 8 L0 16 L-14 8 L-14 -8 Z"/>
+      <path d="M-14 -8 L0 0 L14 -8 M0 0 L0 16"/>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <text x="232" y="158" font-size="78" font-weight="800" fill="url(#brand)" letter-spacing="-1">Aurora</text>
+  <text x="236" y="200" font-size="26" font-weight="600" fill="#aeb6cc" letter-spacing="7">LAUNCHER</text>
+  <text x="238" y="246" font-size="20" fill="#7e879e">A beautiful liquid-glass launcher for Minecraft · Skyrim · Elden Ring</text>
+
+  <!-- tag chips -->
+  <g font-size="15" font-weight="600">
+    <g transform="translate(238,272)">
+      <rect width="92" height="32" rx="16" fill="#10213a" stroke="#2ee6b0" stroke-opacity="0.4"/>
+      <text x="46" y="21" text-anchor="middle" fill="#2ee6b0">Rust</text>
+    </g>
+    <g transform="translate(340,272)">
+      <rect width="100" height="32" rx="16" fill="#10213a" stroke="#46d8ff" stroke-opacity="0.4"/>
+      <text x="50" y="21" text-anchor="middle" fill="#46d8ff">Tauri 2</text>
+    </g>
+    <g transform="translate(450,272)">
+      <rect width="118" height="32" rx="16" fill="#10213a" stroke="#8b7bff" stroke-opacity="0.4"/>
+      <text x="59" y="21" text-anchor="middle" fill="#9b8cff">React + TS</text>
+    </g>
+  </g>
+</svg>

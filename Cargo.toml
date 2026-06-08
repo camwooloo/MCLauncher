@@ -1,0 +1,54 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/launcher-core",
+    "crates/launcher-gui",
+    "crates/launcher-desktop/src-tauri",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["MCLauncher contributors"]
+rust-version = "1.80"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "fs", "process", "io-util", "sync", "time"] }
+futures = "0.3"
+
+# HTTP
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "multipart", "rustls-tls"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Hashing / archives
+sha1 = "0.10"
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+flate2 = "1"
+tar = "0.4"
+
+# Errors / logging
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Paths
+dirs = "5"
+
+# Misc
+url = "2"
+
+# Internal
+launcher-core = { path = "crates/launcher-core" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true

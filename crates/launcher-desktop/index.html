@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aurora Launcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Paint dark immediately so secondary windows never flash white before
+         the CSS bundle loads. -->
+    <!-- Pre-paint only the background to avoid a white flash; text color comes
+         from the theme (var(--text)) so light mode stays readable. -->
+    <style>
+      html, body, #root { margin: 0; height: 100%; background: #05060d; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

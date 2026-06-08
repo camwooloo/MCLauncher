@@ -1,0 +1,39 @@
+# Rust build output
+/target/
+**/target/
+
+# Node / Vite
+node_modules/
+crates/launcher-desktop/dist/
+crates/launcher-desktop/node_modules/
+
+# Build artifacts / installers
+*.exe
+*.msi
+*.nsis.zip
+Aurora-Launcher-Setup.exe
+
+# Logs & temp
+*.log
+tauri_build*.log
+mcl_*.txt
+
+# Test / scratch output (downloaded JREs, server jars, worlds)
+mc-host-test/
+**/.minecraft/
+aurora-data/
+
+# Tooling / session config
+.claude/
+
+# Local secrets / config (never commit)
+**/secrets_local.rs
+*.env
+.env*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
