@@ -24,6 +24,20 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 
 ---
 
+## 📸 Screenshots
+
+| Minecraft — instances | Server hosting — plugin browser |
+|:---:|:---:|
+| ![Minecraft instances](docs/screenshots/01-minecraft.png) | ![Server plugins](docs/screenshots/06-plugins.png) |
+| **Skyrim — SKSE & Skyrim Together** | **Elden Ring — Seamless Co-op** |
+| ![Skyrim](docs/screenshots/02-skyrim.png) | ![Elden Ring](docs/screenshots/03-elden-ring.png) |
+| **Content browser (per instance)** | **Themes & settings** |
+| ![Content browser](docs/screenshots/05-content.png) | ![Settings](docs/screenshots/04-settings.png) |
+
+> The whole UI re-tints to each game — green for Minecraft, blue for Skyrim, gold for Elden Ring.
+
+---
+
 ## 🎮 Features
 
 ### 🟩 Minecraft
