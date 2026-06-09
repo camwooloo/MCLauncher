@@ -86,7 +86,10 @@ interface Launcher {
 
   launchSkyrim: (mode: string) => Promise<void>;
   launchEldenRing: (mode: string) => Promise<void>;
+  launchCyberpunk: (mode: string) => Promise<void>;
   setEldenRingPassword: (pw: string) => Promise<void>;
+  installTool: (tool: string) => Promise<void>;
+  installTogether: () => Promise<void>;
 }
 
 const Ctx = createContext<Launcher | null>(null);
@@ -104,7 +107,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     lastVersion: "",
     theme: "dark",
     uiStyle: "aurora",
-    background: "pulsing",
+    background: "liquid",
   });
   const [store, setStore] = useState<AccountStore>({ accounts: [], active_uuid: null });
   const [instances, setInstances] = useState<InstanceConfig[]>([]);
@@ -180,6 +183,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     root.setAttribute("data-theme", settings.theme || "dark");
     root.setAttribute("data-style", settings.uiStyle || "aurora");
+    root.setAttribute("data-bg", settings.background || "pulsing");
     root.setAttribute("data-anim", settings.background === "static" ? "off" : "on");
   }, [settings.theme, settings.background, settings.uiStyle]);
 
@@ -482,6 +486,48 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     },
     [refreshGames, showToast]
   );
+  const launchCyberpunk = useCallback(
+    async (mode: string) => {
+      try {
+        await api.launchCyberpunk(mode);
+        showToast(mode === "mp" ? "Launching CyberpunkMP…" : "Launching Cyberpunk 2077…");
+      } catch (e) {
+        showToast(`Error: ${e}`);
+      }
+    },
+    [showToast]
+  );
+  /** One-click install of a game tool (Seamless, SKSE, ME2, CET, CyberpunkMP). */
+  const installTool = useCallback(
+    async (tool: string) => {
+      setBusy(true);
+      setProgress({ stage: "Downloading", total: 0, done: 0, fraction: 0 });
+      try {
+        const msg = await api.installGameTool(tool);
+        await refreshGames();
+        showToast(msg);
+      } catch (e) {
+        showToast(`Error: ${e}`);
+      } finally {
+        setBusy(false);
+        setProgress(null);
+      }
+    },
+    [refreshGames, showToast]
+  );
+  /** Guided Skyrim Together install (zip from the user's Downloads). */
+  const installTogether = useCallback(async () => {
+    setBusy(true);
+    try {
+      const msg = await api.installSkyrimTogether();
+      await refreshGames();
+      showToast(msg);
+    } catch (e) {
+      showToast(`${e}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [refreshGames, showToast]);
 
   const value = useMemo<Launcher>(
     () => ({
@@ -539,7 +585,10 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       removeAccount,
       launchSkyrim,
       launchEldenRing,
+      launchCyberpunk,
       setEldenRingPassword,
+      installTool,
+      installTogether,
     }),
     [
       versions,
@@ -596,7 +645,10 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       removeAccount,
       launchSkyrim,
       launchEldenRing,
+      launchCyberpunk,
       setEldenRingPassword,
+      installTool,
+      installTogether,
     ]
   );
 

@@ -8,7 +8,9 @@
 //! Each game module exposes a `detect()` returning a serialisable status the UI
 //! can render (installed? co-op mod present? where?) and `launch_*` helpers.
 
+pub mod cyberpunk;
 pub mod eldenring;
+pub mod install;
 pub mod skyrim;
 
 use std::path::Path;
@@ -22,6 +24,7 @@ pub enum GameId {
     Minecraft,
     SkyrimSe,
     EldenRing,
+    Cyberpunk2077,
 }
 
 impl GameId {
@@ -30,6 +33,7 @@ impl GameId {
         match self {
             GameId::SkyrimSe => Some(489830),
             GameId::EldenRing => Some(1245620),
+            GameId::Cyberpunk2077 => Some(1091500),
             GameId::Minecraft => None,
         }
     }
@@ -39,6 +43,7 @@ impl GameId {
             GameId::Minecraft => "Minecraft",
             GameId::SkyrimSe => "Skyrim Special Edition",
             GameId::EldenRing => "Elden Ring",
+            GameId::Cyberpunk2077 => "Cyberpunk 2077",
         }
     }
 }

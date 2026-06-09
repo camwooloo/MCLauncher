@@ -3,30 +3,36 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { LauncherProvider, useLauncher } from "./store";
 import { windowAction } from "./lib/api";
 import type { GameKey } from "./lib/types";
-import { Icon } from "./components/ui";
+import { Icon, AuroraMark } from "./components/ui";
 import { AccountMenu } from "./components/AccountMenu";
 import { ServerDashboard } from "./components/ServerConsole";
 import { InstancesPanel, MinecraftServers, UpgradeModal } from "./components/MinecraftPanels";
 import { SkinsPanel, ContentOverlay } from "./components/ContentPanel";
 import { InventoryEditor } from "./components/InventoryEditor";
 import {
+  HomePanel,
   SkyrimPlay,
   SkyrimCoop,
   SkyrimMods,
   EldenRingPlay,
   EldenRingCoop,
+  EldenRingMods,
+  CyberpunkPlay,
+  CyberpunkCoop,
+  CyberpunkMods,
 } from "./components/GamePanels";
 import { AccountsPanel, SettingsPanel } from "./components/SystemPanels";
 
-type Section = GameKey | "accounts" | "settings";
+type Section = GameKey | "home" | "accounts" | "settings";
 
 const GAME_TABS: Record<GameKey, string[]> = {
   minecraft: ["Play", "Servers", "Skins"],
   skyrim: ["Play", "Co-op", "Mods"],
-  eldenring: ["Play", "Co-op"],
+  eldenring: ["Play", "Co-op", "Mods"],
+  cyberpunk: ["Play", "Co-op", "Mods"],
 };
 
-const SECTION_TITLE: Record<string, string> = { accounts: "Accounts", settings: "Settings" };
+const SECTION_TITLE: Record<string, string> = { home: "Home", accounts: "Accounts", settings: "Settings" };
 
 /* Sliding "liquid" tab indicator. */
 function TabBar({
@@ -98,24 +104,43 @@ function Shell() {
   const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory } =
     useLauncher();
   const [activeGame, setActiveGame] = useState<GameKey>("minecraft");
-  const [section, setSection] = useState<Section>("minecraft");
+  const [section, setSection] = useState<Section>("home");
   const [tabs, setTabs] = useState<Record<GameKey, string>>({
     minecraft: "Play",
     skyrim: "Play",
     eldenring: "Play",
+    cyberpunk: "Play",
   });
 
+  const isGame =
+    section === "minecraft" || section === "skyrim" || section === "eldenring" || section === "cyberpunk";
+
+  // Games carry their own accent; everything else (home, settings, accounts)
+  // wears the launcher's aurora identity.
   useEffect(() => {
-    document.documentElement.setAttribute("data-game", activeGame);
-  }, [activeGame]);
+    document.documentElement.setAttribute("data-game", isGame ? section : "aurora");
+  }, [section, isGame]);
+
+  // Liquid-glass pointer lensing: expose the cursor position to CSS so glass
+  // controls brighten under it (used by the ::after radial in liquidglass).
+  useEffect(() => {
+    const SEL = ".btn, .btn-play, .select-btn, .lrow, .game-tile, .rail-btn, .tab, .seg button, .acct-chip";
+    const onMove = (e: PointerEvent) => {
+      const el = (e.target as HTMLElement | null)?.closest?.(SEL) as HTMLElement | null;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      el.style.setProperty("--mx", `${(((e.clientX - r.left) / r.width) * 100).toFixed(1)}%`);
+      el.style.setProperty("--my", `${(((e.clientY - r.top) / r.height) * 100).toFixed(1)}%`);
+    };
+    document.addEventListener("pointermove", onMove, { passive: true });
+    return () => document.removeEventListener("pointermove", onMove);
+  }, []);
 
   const selectGame = (g: GameKey) => {
     setActiveGame(g);
     setSection(g);
   };
   const setTab = (t: string) => setTabs((prev) => ({ ...prev, [activeGame]: t }));
-
-  const isGame = section === "minecraft" || section === "skyrim" || section === "eldenring";
   const currentTab = isGame ? tabs[section as GameKey] : "";
   // Accounts are Minecraft/Microsoft — only surface the chip there.
   const showAccount = section === "minecraft" || section === "accounts";
@@ -124,7 +149,7 @@ function Shell() {
     <div className="app">
       <div className="titlebar" data-tauri-drag-region>
         <div className="brand" data-tauri-drag-region>
-          <span className="brand-mark" />
+          <AuroraMark size={24} />
           Aurora
           <span className="brand-sub">Launcher</span>
         </div>
@@ -143,6 +168,9 @@ function Shell() {
 
       <div className="shell">
         <nav className="rail">
+          <RailBtn label="Home" active={section === "home"} onClick={() => setSection("home")}>
+            <Icon.home size={24} />
+          </RailBtn>
           <RailBtn label="MC" active={section === "minecraft"} onClick={() => selectGame("minecraft")}>
             <Icon.minecraft size={24} />
           </RailBtn>
@@ -151,6 +179,9 @@ function Shell() {
           </RailBtn>
           <RailBtn label="Elden" active={section === "eldenring"} onClick={() => selectGame("eldenring")}>
             <Icon.elden size={24} />
+          </RailBtn>
+          <RailBtn label="2077" active={section === "cyberpunk"} onClick={() => selectGame("cyberpunk")}>
+            <Icon.cyberpunk size={24} />
           </RailBtn>
           <div className="rail-spacer" />
           <button
@@ -176,7 +207,7 @@ function Shell() {
 
           <div className="panel-scroll">
             <div className="view" key={`${section}:${currentTab}`}>
-              <Panel section={section} tab={currentTab} />
+              <Panel section={section} tab={currentTab} onSelectGame={selectGame} />
             </div>
           </div>
         </main>
@@ -210,7 +241,15 @@ function RailBtn({
   );
 }
 
-function Panel({ section, tab }: { section: Section; tab: string }) {
+function Panel({
+  section,
+  tab,
+  onSelectGame,
+}: {
+  section: Section;
+  tab: string;
+  onSelectGame: (g: GameKey) => void;
+}) {
   switch (section) {
     case "minecraft":
       if (tab === "Servers") return <MinecraftServers />;
@@ -222,7 +261,14 @@ function Panel({ section, tab }: { section: Section; tab: string }) {
       return <SkyrimPlay />;
     case "eldenring":
       if (tab === "Co-op") return <EldenRingCoop />;
+      if (tab === "Mods") return <EldenRingMods />;
       return <EldenRingPlay />;
+    case "cyberpunk":
+      if (tab === "Co-op") return <CyberpunkCoop />;
+      if (tab === "Mods") return <CyberpunkMods />;
+      return <CyberpunkPlay />;
+    case "home":
+      return <HomePanel onSelect={onSelectGame} />;
     case "accounts":
       return <AccountsPanel />;
     case "settings":
@@ -237,6 +283,7 @@ function Aurora() {
         <i className="b1" />
         <i className="b2" />
         <i className="b3" />
+        <i className="b4" />
       </div>
       <div className="grain" />
     </>

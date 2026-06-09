@@ -29,7 +29,7 @@ impl Default for Settings {
             last_version: String::new(),
             theme: "dark".to_string(),
             ui_style: "aurora".to_string(),
-            background: "pulsing".to_string(),
+            background: "liquid".to_string(),
         }
     }
 }

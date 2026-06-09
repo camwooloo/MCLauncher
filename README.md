@@ -4,7 +4,7 @@
 
 # Aurora Launcher
 
-**A beautiful, liquid-glass multi-game launcher** — host & play modded Minecraft, launch Skyrim Together, and run Elden Ring Seamless Co-op, all from one place.
+**A beautiful, liquid-glass multi-game launcher** — host & play modded Minecraft, launch Skyrim Together, run Elden Ring Seamless Co-op, and jack into CyberpunkMP, all from one place.
 
 [![Built with Rust](https://img.shields.io/badge/core-Rust-000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![Tauri 2](https://img.shields.io/badge/shell-Tauri%202-24C8DB?logo=tauri&logoColor=white)](https://tauri.app/)
@@ -26,6 +26,8 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 
 ## 📸 Screenshots
 
+![Home — pick a game](docs/screenshots/07-home.png)
+
 | Minecraft — instances | Server hosting — plugin browser |
 |:---:|:---:|
 | ![Minecraft instances](docs/screenshots/01-minecraft.png) | ![Server plugins](docs/screenshots/06-plugins.png) |
@@ -34,7 +36,7 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 | **Content browser (per instance)** | **Themes & settings** |
 | ![Content browser](docs/screenshots/05-content.png) | ![Settings](docs/screenshots/04-settings.png) |
 
-> The whole UI re-tints to each game — green for Minecraft, blue for Skyrim, gold for Elden Ring.
+> The whole UI re-tints to each game — green for Minecraft, blue for Skyrim, gold for Elden Ring, neon yellow for Cyberpunk — with the launcher itself in aurora purple.
 
 ---
 
@@ -53,16 +55,24 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 | **Skins** | Upload and switch skins in-app |
 
 ### ⚔️ Skyrim
-- Auto-detects your install, **SKSE**, and **Skyrim Together Reborn**
-- Launch into co-op in a couple of clicks
+- Detects your install (**Steam or Epic**), SKSE, Skyrim Together, and Address Library
+- **One-click SKSE install** straight from the official release
+- Guided **Skyrim Together Reborn** setup (incl. its Address Library requirement) — Aurora finds the Nexus downloads and installs them to the right place
 
 ### 🔆 Elden Ring
-- Detects **Seamless Co-op** and launches with the right setup
+- **One-click Seamless Co-op install** (official release) + in-app co-op password editor
+- **Mod Engine 2** one-click install, a mods folder, and a *Launch Modded* button
+
+### 🌃 Cyberpunk 2077
+- Detects your install (**Steam or Epic**)
+- **CyberpunkMP** one-click install — the experimental multiplayer mod by the Skyrim Together team
+- **Cyber Engine Tweaks** one-click install for modding
 
 ### 🎨 The whole thing is *gorgeous*
-- **Liquid-glass UI** with a drifting aurora backdrop
-- **Light / Dark** themes + an **Aurora / Apple-style Liquid Glass** look that tints to each game's color
-- Animated tab indicator, spring transitions, and custom dropdowns/menus throughout
+- A **homepage** with big per-game tiles, in the launcher's own aurora purple/green identity
+- **Liquid-glass UI** with three backdrops — Static, Pulsing, or **Liquid** (flowing iridescent chrome)
+- **Light / Dark** themes + an **Aurora / Apple-style Liquid Glass** look with pointer "lensing" that brightens the glass under your cursor
+- Everything re-tints to the active game's color; animated tab indicator, spring transitions, custom dropdowns throughout
 
 ---
 

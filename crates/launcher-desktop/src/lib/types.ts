@@ -23,7 +23,7 @@ export interface Settings {
   lastVersion: string;
   theme: "dark" | "light";
   uiStyle: "aurora" | "liquidglass";
-  background: "static" | "pulsing";
+  background: "static" | "pulsing" | "liquid";
 }
 
 export interface PackHit {
@@ -80,8 +80,10 @@ export interface PathsInfo {
 export interface SkyrimInfo {
   installed: boolean;
   install_dir: string | null;
+  source?: string | null;
   has_skse: boolean;
   has_skyrim_together: boolean;
+  has_address_library: boolean;
   skyrim_together_path: string | null;
 }
 
@@ -92,11 +94,24 @@ export interface EldenRingInfo {
   has_seamless_coop: boolean;
   seamless_launcher_path: string | null;
   coop_password: string | null;
+  has_mod_engine: boolean;
+  mods_dir: string | null;
+}
+
+export interface CyberpunkInfo {
+  installed: boolean;
+  install_dir: string | null;
+  source?: string | null;
+  has_cet: boolean;
+  has_mp: boolean;
+  mp_path: string | null;
+  mods_dir: string | null;
 }
 
 export interface GamesStatus {
   skyrim: SkyrimInfo;
   eldenRing: EldenRingInfo;
+  cyberpunk: CyberpunkInfo;
 }
 
 export interface ProgressSnapshot {
@@ -165,7 +180,7 @@ export interface ContentTarget {
   loader: string | null;
 }
 
-export type GameKey = "minecraft" | "skyrim" | "eldenring";
+export type GameKey = "minecraft" | "skyrim" | "eldenring" | "cyberpunk";
 
 export interface ServerEntry {
   id: string;

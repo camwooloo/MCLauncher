@@ -18,6 +18,7 @@ pub mod account;
 pub mod assets;
 pub mod auth;
 pub mod download;
+pub mod epic;
 pub mod error;
 pub mod games;
 pub mod http;

@@ -16,15 +16,33 @@ use crate::steam;
 /// Skyrim SE Steam app id.
 pub const APP_ID: u32 = 489830;
 
+/// GitHub repo distributing SKSE64 release archives (.7z).
+pub const SKSE_REPO: &str = "ianpatt/skse64";
+
+/// Skyrim Together Reborn's Nexus page — its binaries are Nexus-only (no API
+/// downloads for free accounts), so install is guided: open this page, the
+/// user downloads the zip, and [`install_together_from_zip`] places it.
+pub const TOGETHER_NEXUS_URL: &str =
+    "https://www.nexusmods.com/skyrimspecialedition/mods/69993?tab=files";
+
+/// Address Library for SKSE Plugins — required by Skyrim Together at runtime
+/// ("Failed to load Skyrim Address Library"). Also Nexus-only.
+pub const ADDRESS_LIBRARY_NEXUS_URL: &str =
+    "https://www.nexusmods.com/skyrimspecialedition/mods/32444?tab=files";
+
 /// Detected state of the Skyrim install.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkyrimInfo {
     pub installed: bool,
     pub install_dir: Option<PathBuf>,
+    /// "steam" or "epic", when installed.
+    pub source: Option<String>,
     /// `skse64_loader.exe` present (modded launch available).
     pub has_skse: bool,
     /// Skyrim Together Reborn loader present.
     pub has_skyrim_together: bool,
+    /// Address Library for SKSE Plugins present (Skyrim Together needs it).
+    pub has_address_library: bool,
     /// Resolved Skyrim Together loader path, when found.
     pub skyrim_together_path: Option<PathBuf>,
 }
@@ -42,28 +60,91 @@ pub enum SkyrimLaunch {
 }
 
 /// Candidate locations for the Skyrim Together loader, relative to the install.
+/// Since 1.8 the loader is `SkyrimTogether.exe` inside the mod's app folder
+/// under `Data/`; older names kept for back-compat.
 const STR_CANDIDATES: &[&str] = &[
-    "SkyrimTogetherReborn.exe",
-    "SkyrimTogetherReborn/SkyrimTogetherReborn.exe",
+    "Data/SkyrimTogetherReborn/SkyrimTogether.exe",
+    "SkyrimTogetherReborn/SkyrimTogether.exe",
     "Data/SkyrimTogetherReborn/SkyrimTogetherReborn.exe",
+    "SkyrimTogetherReborn/SkyrimTogetherReborn.exe",
+    "SkyrimTogetherReborn.exe",
 ];
 
-/// Detect the Skyrim SE install and its co-op tooling.
+/// Detect the Skyrim SE install (Steam, falling back to Epic) and its co-op
+/// tooling.
 pub fn detect() -> SkyrimInfo {
-    let install_dir = steam::find_app_install_dir(APP_ID);
+    let (install_dir, source) = match steam::find_app_install_dir(APP_ID) {
+        Some(d) => (Some(d), Some("steam".to_string())),
+        None => match crate::epic::find_install("skyrim special edition") {
+            Some(d) => (Some(d), Some("epic".to_string())),
+            None => (None, None),
+        },
+    };
     let has_skse = install_dir
         .as_ref()
         .map(|d| d.join("skse64_loader.exe").exists())
         .unwrap_or(false);
     let skyrim_together_path = install_dir.as_ref().and_then(|d| find_skyrim_together(d));
+    let has_address_library = install_dir
+        .as_ref()
+        .map(|d| has_address_library(d))
+        .unwrap_or(false);
 
     SkyrimInfo {
         installed: install_dir.is_some(),
         has_skse,
         has_skyrim_together: skyrim_together_path.is_some(),
+        has_address_library,
         skyrim_together_path,
+        source,
         install_dir,
     }
+}
+
+/// Address Library installs `version*-….bin` files into `Data/SKSE/Plugins`.
+fn has_address_library(install_dir: &Path) -> bool {
+    let plugins = install_dir.join("Data").join("SKSE").join("Plugins");
+    let Ok(rd) = std::fs::read_dir(plugins) else { return false };
+    rd.flatten().any(|e| {
+        let n = e.file_name().to_string_lossy().to_lowercase();
+        n.starts_with("version") && n.ends_with(".bin")
+    })
+}
+
+/// Install Address Library from a Nexus zip ("All in one"): extract, find the
+/// `SKSE` folder wherever it sits, merge its parent into `Data/`.
+pub fn install_address_library_from_zip(install_dir: &Path, zip: &Path) -> crate::Result<()> {
+    use crate::games::install::{extract_archive_into, merge_move};
+
+    let staging = install_dir.join(".aurora-addrlib-extract");
+    let _ = std::fs::remove_dir_all(&staging);
+    extract_archive_into(zip, &staging)?;
+
+    // Find a dir literally named SKSE (the zip root is the Data layout).
+    let mut skse_dir: Option<PathBuf> = None;
+    let mut stack = vec![staging.clone()];
+    while let Some(dir) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+        for entry in rd.flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                if p.file_name().map(|n| n.eq_ignore_ascii_case("SKSE")).unwrap_or(false) {
+                    skse_dir = Some(p.clone());
+                }
+                stack.push(p);
+            }
+        }
+    }
+    let skse = skse_dir.ok_or_else(|| {
+        let _ = std::fs::remove_dir_all(&staging);
+        crate::Error::other(
+            "That zip doesn't look like Address Library — download \"All in one\" for your game version from the Nexus page",
+        )
+    })?;
+    let data_root = skse.parent().unwrap_or(&staging).to_path_buf();
+    merge_move(&data_root, &install_dir.join("Data"))?;
+    let _ = std::fs::remove_dir_all(&staging);
+    Ok(())
 }
 
 fn find_skyrim_together(install_dir: &Path) -> Option<PathBuf> {
@@ -71,6 +152,67 @@ fn find_skyrim_together(install_dir: &Path) -> Option<PathBuf> {
         .iter()
         .map(|rel| install_dir.join(rel))
         .find(|p| p.exists())
+}
+
+/// One-click install of the latest SKSE64 into the Skyrim install dir
+/// (`skse64_loader.exe`, DLLs, `Data/Scripts`). The release `.7z` wraps
+/// everything in a version folder, which we strip. Returns the release tag.
+pub async fn install_skse(
+    install_dir: &Path,
+    reporter: &crate::progress::SharedReporter,
+) -> crate::Result<String> {
+    crate::games::install::install_github_archive(
+        SKSE_REPO,
+        |n| n.ends_with(".7z"),
+        install_dir,
+        true,
+        reporter,
+    )
+    .await
+}
+
+/// Install Skyrim Together Reborn from a zip the user downloaded from Nexus.
+///
+/// The 1.8+ zip is a Data-folder mod: `SkyrimTogether.esp`, `scripts/`,
+/// `meshes/`, plus the `SkyrimTogetherReborn/` app folder (whose loader is
+/// `SkyrimTogether.exe`). We locate the loader regardless of wrapper folders
+/// and merge the level that *contains* `SkyrimTogetherReborn/` into
+/// `<install>/Data/`.
+pub fn install_together_from_zip(install_dir: &Path, zip: &Path) -> crate::Result<()> {
+    use crate::games::install::{extract_archive_into, find_file, merge_move};
+
+    let staging = install_dir.join(".aurora-str-extract");
+    let _ = std::fs::remove_dir_all(&staging);
+    extract_archive_into(zip, &staging)?;
+
+    let exe = find_file(&staging, "SkyrimTogether.exe")
+        .or_else(|| find_file(&staging, "SkyrimTogetherReborn.exe"))
+        .ok_or_else(|| {
+            let _ = std::fs::remove_dir_all(&staging);
+            crate::Error::other(
+                "That zip doesn't contain the Skyrim Together loader — download the main file from the Nexus page",
+            )
+        })?;
+    // exe = …/SkyrimTogetherReborn/SkyrimTogether.exe → the mod root is the
+    // folder holding SkyrimTogetherReborn/ (it also has the esp + scripts).
+    let app_dir = exe.parent().unwrap_or(&staging);
+    let mod_root = app_dir.parent().unwrap_or(&staging).to_path_buf();
+    merge_move(&mod_root, &install_dir.join("Data"))?;
+    let _ = std::fs::remove_dir_all(&staging);
+    Ok(())
+}
+
+/// Newest `*skyrim*together*.zip` in the user's Downloads folder, if any —
+/// lets "I downloaded it" find the file without a path prompt.
+pub fn find_downloaded_together_zip() -> Option<PathBuf> {
+    crate::games::install::find_downloaded_zip(|n| n.contains("skyrim") && n.contains("together"))
+}
+
+/// Newest Address Library zip in Downloads (Nexus names it "All in one (…)").
+pub fn find_downloaded_addrlib_zip() -> Option<PathBuf> {
+    crate::games::install::find_downloaded_zip(|n| {
+        (n.contains("address") && n.contains("librar")) || (n.contains("all") && n.contains("one"))
+    })
 }
 
 /// Launch Skyrim in the requested mode; returns the child pid.
@@ -83,6 +225,8 @@ pub fn launch(info: &SkyrimInfo, mode: SkyrimLaunch) -> crate::Result<u32> {
     let exe = match mode {
         SkyrimLaunch::Vanilla => dir.join("SkyrimSE.exe"),
         SkyrimLaunch::Skse => dir.join("skse64_loader.exe"),
+        // cwd must be the game root for all modes — the Together loader
+        // resolves SkyrimSE.exe relative to it (else it prompts the user).
         SkyrimLaunch::SkyrimTogether => info
             .skyrim_together_path
             .clone()

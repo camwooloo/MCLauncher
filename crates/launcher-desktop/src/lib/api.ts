@@ -60,7 +60,7 @@ export const getSettings = (): Promise<Settings> =>
         lastVersion: "1.21.4",
         theme: "dark",
         uiStyle: "aurora",
-        background: "pulsing",
+        background: "liquid",
       });
 
 export const saveSettings = (settings: Settings) =>
@@ -140,17 +140,28 @@ export const detectGames = (): Promise<GamesStatus> =>
         skyrim: {
           installed: true,
           install_dir: "D:\\SteamLibrary\\steamapps\\common\\Skyrim Special Edition",
-          has_skse: true,
-          has_skyrim_together: true,
-          skyrim_together_path: "D:\\...\\SkyrimTogetherReborn.exe",
+          has_skse: false,
+          has_skyrim_together: false,
+          has_address_library: false,
+          skyrim_together_path: null,
         },
         eldenRing: {
           installed: true,
           install_dir: "D:\\SteamLibrary\\steamapps\\common\\ELDEN RING",
           game_dir: "D:\\SteamLibrary\\steamapps\\common\\ELDEN RING\\Game",
-          has_seamless_coop: true,
-          seamless_launcher_path: "D:\\...\\Game\\ersc_launcher.exe",
+          has_seamless_coop: false,
+          seamless_launcher_path: null,
           coop_password: "aurora",
+          has_mod_engine: false,
+          mods_dir: null,
+        },
+        cyberpunk: {
+          installed: true,
+          install_dir: "D:\\SteamLibrary\\steamapps\\common\\Cyberpunk 2077",
+          has_cet: false,
+          has_mp: false,
+          mp_path: null,
+          mods_dir: null,
         },
       });
 
@@ -160,8 +171,44 @@ export const launchSkyrim = (mode: string): Promise<number> =>
 export const launchEldenRing = (mode: string): Promise<number> =>
   isTauri ? call("launch_elden_ring", { mode }) : Promise.resolve(1234);
 
+export const launchCyberpunk = (mode: string): Promise<number> =>
+  isTauri ? call("launch_cyberpunk", { mode }) : Promise.resolve(1234);
+
 export const setEldenRingPassword = (password: string) =>
   isTauri ? call<void>("set_elden_ring_password", { password }) : Promise.resolve();
+
+/** One-click install of a game tool from its official GitHub release. */
+export const installGameTool = (tool: string): Promise<string> =>
+  isTauri
+    ? call("install_game_tool", { tool })
+    : new Promise((r) => setTimeout(() => r(`${tool} installed (mock)`), 600));
+
+export const installSkyrimTogether = (path?: string): Promise<string> =>
+  isTauri
+    ? call("install_skyrim_together", { path: path ?? null })
+    : Promise.resolve("Skyrim Together installed (mock)");
+
+export const openTogetherPage = () =>
+  isTauri ? call<void>("open_together_page") : Promise.resolve();
+
+export const installAddressLibrary = (path?: string): Promise<string> =>
+  isTauri
+    ? call("install_address_library", { path: path ?? null })
+    : Promise.resolve("Address Library installed (mock)");
+
+export const openAddressLibraryPage = () =>
+  isTauri ? call<void>("open_address_library_page") : Promise.resolve();
+
+export const installSeamlessUpdate = (path?: string): Promise<string> =>
+  isTauri
+    ? call("install_seamless_update", { path: path ?? null })
+    : Promise.resolve("Seamless updated (mock)");
+
+export const openSeamlessPage = () =>
+  isTauri ? call<void>("open_seamless_page") : Promise.resolve();
+
+export const openPath = (path: string) =>
+  isTauri ? call<void>("open_path", { path }) : Promise.resolve();
 
 // ---- Server hosting (multi-server) ----
 import type { ServerConfig, ServerStatus } from "./types";

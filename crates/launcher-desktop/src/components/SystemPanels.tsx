@@ -147,11 +147,12 @@ export function SettingsPanel() {
           </div>
           <Select
             value={settings.background ?? "pulsing"}
-            onChange={(v) => persistSettings({ background: v as "static" | "pulsing" })}
+            onChange={(v) => persistSettings({ background: v as "static" | "pulsing" | "liquid" })}
             minWidth={170}
             options={[
               { value: "static", label: "Static" },
               { value: "pulsing", label: "Pulsing" },
+              { value: "liquid", label: "Liquid" },
             ]}
           />
         </div>

@@ -19,7 +19,7 @@ use tokio::sync::Mutex;
 
 use launcher_core::account::{Account, AccountStore};
 use launcher_core::auth::Auth;
-use launcher_core::games::{eldenring, skyrim, steam_run_url};
+use launcher_core::games::{cyberpunk, eldenring, skyrim, steam_run_url};
 use launcher_core::launch::{self, LaunchOptions};
 use launcher_core::manifest::VersionManifest;
 use launcher_core::modloader::{fabric, quilt};
@@ -277,6 +277,7 @@ pub async fn play_minecraft(
 pub struct GamesStatus {
     pub skyrim: skyrim::SkyrimInfo,
     pub elden_ring: eldenring::EldenRingInfo,
+    pub cyberpunk: cyberpunk::CyberpunkInfo,
 }
 
 #[tauri::command]
@@ -284,6 +285,7 @@ pub fn detect_games() -> GamesStatus {
     GamesStatus {
         skyrim: skyrim::detect(),
         elden_ring: eldenring::detect(),
+        cyberpunk: cyberpunk::detect(),
     }
 }
 
@@ -304,10 +306,32 @@ pub fn launch_elden_ring(mode: String) -> Result<u32, String> {
     let info = eldenring::detect();
     match mode.as_str() {
         "seamless" => eldenring::launch(&info, eldenring::EldenRingLaunch::SeamlessCoop).map_err(err),
+        "modded" => eldenring::launch(&info, eldenring::EldenRingLaunch::Modded).map_err(err),
         _ => {
             // Vanilla: go through Steam so EAC and online services start.
             open::that(steam_run_url(eldenring::APP_ID)).map_err(err)?;
             Ok(0)
+        }
+    }
+}
+
+#[tauri::command]
+pub fn launch_cyberpunk(mode: String) -> Result<u32, String> {
+    let info = cyberpunk::detect();
+    match mode.as_str() {
+        "mp" => cyberpunk::launch(&info, cyberpunk::CyberpunkLaunch::Mp).map_err(err),
+        "skip-launcher" => {
+            cyberpunk::launch(&info, cyberpunk::CyberpunkLaunch::SkipLauncher).map_err(err)
+        }
+        _ => {
+            // Steam installs go through Steam (overlay etc.); Epic installs
+            // launch REDprelauncher directly.
+            if info.source.as_deref() == Some("steam") {
+                open::that(steam_run_url(cyberpunk::APP_ID)).map_err(err)?;
+                Ok(0)
+            } else {
+                cyberpunk::launch(&info, cyberpunk::CyberpunkLaunch::Vanilla).map_err(err)
+            }
         }
     }
 }
@@ -319,6 +343,180 @@ pub fn set_elden_ring_password(password: String) -> Result<(), String> {
         .game_dir
         .ok_or_else(|| "Elden Ring is not installed".to_string())?;
     eldenring::set_coop_password(&game_dir, &password).map_err(err)
+}
+
+/// One-click install of a game tool/mod from its official GitHub release.
+/// `tool`: "seamless" | "modengine2" | "skse" | "cet" | "cyberpunkmp".
+#[tauri::command]
+pub async fn install_game_tool(app: AppHandle, tool: String) -> Result<String, String> {
+    let reporter = std::sync::Arc::new(crate::progress::EventReporter::default());
+    let pump_reporter = reporter.clone();
+    let pump_app = app.clone();
+    let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let pump_done = done.clone();
+    tokio::spawn(async move {
+        loop {
+            let _ = pump_app.emit("mc-progress", pump_reporter.snapshot());
+            if pump_done.load(std::sync::atomic::Ordering::Relaxed) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+        }
+    });
+    let rep: launcher_core::progress::SharedReporter = reporter.clone();
+    use launcher_core::progress::Reporter as _;
+    reporter.stage("Downloading");
+
+    let outcome = async {
+        match tool.as_str() {
+            "seamless" => {
+                let info = eldenring::detect();
+                let game_dir = info
+                    .game_dir
+                    .filter(|g| g.exists())
+                    .ok_or_else(|| launcher_core::Error::other("Elden Ring is not installed"))?;
+                let tag = eldenring::install_seamless(&game_dir, &rep).await?;
+                Ok(format!("Seamless Co-op {tag} installed"))
+            }
+            "modengine2" => {
+                let info = eldenring::detect();
+                let dir = info
+                    .install_dir
+                    .ok_or_else(|| launcher_core::Error::other("Elden Ring is not installed"))?;
+                let tag = eldenring::install_mod_engine(&dir, &rep).await?;
+                Ok(format!("Mod Engine 2 {tag} installed"))
+            }
+            "skse" => {
+                let info = skyrim::detect();
+                let dir = info
+                    .install_dir
+                    .ok_or_else(|| launcher_core::Error::other("Skyrim is not installed"))?;
+                let tag = skyrim::install_skse(&dir, &rep).await?;
+                Ok(format!("SKSE64 {tag} installed"))
+            }
+            "cet" => {
+                let info = cyberpunk::detect();
+                let dir = info
+                    .install_dir
+                    .ok_or_else(|| launcher_core::Error::other("Cyberpunk 2077 is not installed"))?;
+                let tag = cyberpunk::install_cet(&dir, &rep).await?;
+                Ok(format!("Cyber Engine Tweaks {tag} installed"))
+            }
+            "cyberpunkmp" => {
+                let info = cyberpunk::detect();
+                let dir = info
+                    .install_dir
+                    .ok_or_else(|| launcher_core::Error::other("Cyberpunk 2077 is not installed"))?;
+                let tag = cyberpunk::install_mp(&dir, &rep).await?;
+                Ok(format!("CyberpunkMP {tag} installed"))
+            }
+            other => Err(launcher_core::Error::other(format!("unknown tool {other}"))),
+        }
+    }
+    .await;
+
+    done.store(true, std::sync::atomic::Ordering::Relaxed);
+    let _ = app.emit("mc-progress", reporter.snapshot());
+    outcome.map_err(err)
+}
+
+/// Guided Skyrim Together install: find the zip the user downloaded from
+/// Nexus (newest `*skyrim*together*.zip` in Downloads, or an explicit path)
+/// and extract it into the game folder.
+#[tauri::command]
+pub async fn install_skyrim_together(path: Option<String>) -> Result<String, String> {
+    let info = skyrim::detect();
+    let install_dir = info
+        .install_dir
+        .ok_or_else(|| "Skyrim is not installed".to_string())?;
+    let zip = match path.filter(|p| !p.trim().is_empty()) {
+        Some(p) => std::path::PathBuf::from(p),
+        None => skyrim::find_downloaded_together_zip().ok_or_else(|| {
+            "No Skyrim Together zip found in your Downloads folder. Download the main file from \
+             the Nexus page first, then press this again."
+                .to_string()
+        })?,
+    };
+    if !zip.exists() {
+        return Err(format!("File not found: {}", zip.display()));
+    }
+    let name = zip.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    tokio::task::spawn_blocking(move || skyrim::install_together_from_zip(&install_dir, &zip))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(err)?;
+    Ok(format!("Skyrim Together Reborn installed from {name}"))
+}
+
+/// Open the Skyrim Together Nexus page (its files aren't API-downloadable).
+#[tauri::command]
+pub fn open_together_page() -> Result<(), String> {
+    open::that(skyrim::TOGETHER_NEXUS_URL).map_err(err)
+}
+
+/// Guided Address Library install (required by Skyrim Together at runtime).
+#[tauri::command]
+pub async fn install_address_library(path: Option<String>) -> Result<String, String> {
+    let info = skyrim::detect();
+    let install_dir = info
+        .install_dir
+        .ok_or_else(|| "Skyrim is not installed".to_string())?;
+    let zip = match path.filter(|p| !p.trim().is_empty()) {
+        Some(p) => std::path::PathBuf::from(p),
+        None => skyrim::find_downloaded_addrlib_zip().ok_or_else(|| {
+            "No Address Library zip found in Downloads. On the Nexus page download \"All in one\" \
+             for your Skyrim version (1.6.x for current Steam), then press this again."
+                .to_string()
+        })?,
+    };
+    tokio::task::spawn_blocking(move || skyrim::install_address_library_from_zip(&install_dir, &zip))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(err)?;
+    Ok("Address Library installed".to_string())
+}
+
+#[tauri::command]
+pub fn open_address_library_page() -> Result<(), String> {
+    open::that(skyrim::ADDRESS_LIBRARY_NEXUS_URL).map_err(err)
+}
+
+/// Guided Seamless Co-op update from a Nexus zip — used when the mod's own
+/// check says the GitHub build is out of date (Nexus gets updates first).
+#[tauri::command]
+pub async fn install_seamless_update(path: Option<String>) -> Result<String, String> {
+    let info = eldenring::detect();
+    let game_dir = info
+        .game_dir
+        .filter(|g| g.exists())
+        .ok_or_else(|| "Elden Ring is not installed".to_string())?;
+    let zip = match path.filter(|p| !p.trim().is_empty()) {
+        Some(p) => std::path::PathBuf::from(p),
+        None => eldenring::find_downloaded_seamless_zip().ok_or_else(|| {
+            "No Seamless Co-op zip found in Downloads. Download the main file from the Nexus \
+             page, then press this again."
+                .to_string()
+        })?,
+    };
+    tokio::task::spawn_blocking(move || eldenring::install_seamless_from_zip(&game_dir, &zip))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(err)?;
+    Ok("Seamless Co-op updated from your downloaded zip".to_string())
+}
+
+#[tauri::command]
+pub fn open_seamless_page() -> Result<(), String> {
+    open::that(eldenring::SEAMLESS_NEXUS_URL).map_err(err)
+}
+
+/// Open a folder that detection reported (e.g. the Mod Engine 2 mods dir),
+/// creating it first so the click always works.
+#[tauri::command]
+pub fn open_path(path: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(path);
+    let _ = std::fs::create_dir_all(&p);
+    open::that(p).map_err(err)
 }
 
 // --- Minecraft server hosting (multi-server) ----------------------------

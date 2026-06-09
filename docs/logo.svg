@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#171034"/>
+      <stop offset="1" stop-color="#081226"/>
+    </linearGradient>
+    <linearGradient id="r1" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#b794f6" stop-opacity="0"/>
+      <stop offset="0.35" stop-color="#b794f6"/>
+      <stop offset="1" stop-color="#7c5cf6" stop-opacity="0.25"/>
+    </linearGradient>
+    <linearGradient id="r2" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#34d399" stop-opacity="0"/>
+      <stop offset="0.4" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0.3"/>
+    </linearGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#sky)"/>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="13.5" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="1"/>
+  <!-- aurora glow underlay -->
+  <path d="M8 50 C 22 44, 28 28, 56 14" stroke="#b794f6" stroke-width="13" stroke-linecap="round" fill="none" opacity="0.35" filter="url(#soft)"/>
+  <path d="M8 56 C 26 52, 36 38, 58 26" stroke="#34d399" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.3" filter="url(#soft)"/>
+  <!-- ribbons -->
+  <path d="M8 50 C 22 44, 28 28, 56 14" stroke="url(#r1)" stroke-width="9" stroke-linecap="round" fill="none" opacity="0.97"/>
+  <path d="M8 56 C 26 52, 36 38, 58 26" stroke="url(#r2)" stroke-width="6.5" stroke-linecap="round" fill="none" opacity="0.92"/>
+  <path d="M10 44 C 22 38, 30 24, 50 13" stroke="rgba(255,255,255,0.55)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+  <!-- star + sky dots -->
+  <path d="M48 42 l1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6 z" fill="#fff" opacity="0.92"/>
+  <circle cx="16" cy="14" r="1.3" fill="#fff" opacity="0.7"/>
+  <circle cx="26" cy="10" r="0.9" fill="#fff" opacity="0.5"/>
+  <circle cx="13" cy="26" r="0.8" fill="#fff" opacity="0.4"/>
+</svg>

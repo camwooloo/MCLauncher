@@ -120,6 +120,8 @@ const svg = (size: number, path: ReactNode, extra?: object) => (
 );
 
 export const Icon = {
+  home: ({ size = 24 }: IconProps) =>
+    svg(size, <><path d="M4 11l8-7 8 7" /><path d="M6 9.5V20h12V9.5" /><path d="M10 20v-5.5h4V20" /></>),
   // Grass block — Minecraft.
   minecraft: ({ size = 24 }: IconProps) =>
     svg(
@@ -140,6 +142,17 @@ export const Icon = {
         <path d="M5.5 13C2.5 11.5 2.2 7.5 3 5c2.2 1.8 3.2 4 3.2 6.4" />
         <path d="M18.5 13c3-1.5 3.3-5.5 2.5-8-2.2 1.8-3.2 4-3.2 6.4" />
         <path d="M12 9.5v4.5" />
+      </>
+    ),
+  // Glitched hex-chip — Cyberpunk 2077.
+  cyberpunk: ({ size = 24 }: IconProps) =>
+    svg(
+      size,
+      <>
+        <path d="M7 4h13l-3 5 3 5-3 6H7" />
+        <path d="M7 4 4 9l3 5-3 6" opacity="0.6" />
+        <path d="M9.5 12h7" />
+        <path d="M9.5 8.5h4M13 15.5h3.5" opacity="0.6" />
       </>
     ),
   // Ring crowned by the Erdtree — Elden Ring.
@@ -237,6 +250,40 @@ export const Icon = {
 
 export function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
+}
+
+/** The Aurora logo: northern-lights ribbons over a night sky, with a star. */
+export function AuroraMark({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-label="Aurora">
+      <defs>
+        <linearGradient id="am-sky" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#171034" />
+          <stop offset="1" stopColor="#081226" />
+        </linearGradient>
+        <linearGradient id="am-r1" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="#b794f6" stopOpacity="0" />
+          <stop offset="0.35" stopColor="#b794f6" />
+          <stop offset="1" stopColor="#7c5cf6" stopOpacity="0.25" />
+        </linearGradient>
+        <linearGradient id="am-r2" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="#34d399" stopOpacity="0" />
+          <stop offset="0.4" stopColor="#34d399" />
+          <stop offset="1" stopColor="#22d3ee" stopOpacity="0.3" />
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#am-sky)" />
+      <rect x="2.5" y="2.5" width="59" height="59" rx="15.5" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
+      {/* aurora ribbons */}
+      <path d="M8 50 C 22 44, 28 28, 56 14" stroke="url(#am-r1)" strokeWidth="9" strokeLinecap="round" fill="none" opacity="0.95" />
+      <path d="M8 56 C 26 52, 36 38, 58 26" stroke="url(#am-r2)" strokeWidth="6.5" strokeLinecap="round" fill="none" opacity="0.9" />
+      <path d="M10 44 C 22 38, 30 24, 50 13" stroke="rgba(255,255,255,0.55)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+      {/* star */}
+      <path d="M48 42 l1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6 z" fill="#fff" opacity="0.9" />
+      <circle cx="16" cy="14" r="1.3" fill="#fff" opacity="0.7" />
+      <circle cx="26" cy="10" r="0.9" fill="#fff" opacity="0.5" />
+    </svg>
+  );
 }
 
 export interface SelectOption {
