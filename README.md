@@ -26,17 +26,15 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 
 ## 📸 Screenshots
 
-![Home — pick a game](docs/screenshots/07-home.png)
-
-| Minecraft — instances | Server hosting — plugin browser |
+| Home — pick a game | Minecraft — instances |
 |:---:|:---:|
-| ![Minecraft instances](docs/screenshots/01-minecraft.png) | ![Server plugins](docs/screenshots/06-plugins.png) |
+| ![Home](docs/screenshots/07-home.png) | ![Minecraft instances](docs/screenshots/01-minecraft.png) |
 | **Skyrim — SKSE & Skyrim Together** | **Elden Ring — Seamless Co-op** |
 | ![Skyrim](docs/screenshots/02-skyrim.png) | ![Elden Ring](docs/screenshots/03-elden-ring.png) |
 | **Cyberpunk 2077 — CyberpunkMP & CET** | **Themes & settings** |
 | ![Cyberpunk 2077](docs/screenshots/08-cyberpunk.png) | ![Settings](docs/screenshots/04-settings.png) |
-
-![Content browser](docs/screenshots/05-content.png)
+| **Content browser (per instance)** | **Server hosting — plugin browser** |
+| ![Content browser](docs/screenshots/05-content.png) | ![Server plugins](docs/screenshots/06-plugins.png) |
 
 > The whole UI re-tints to each game — green for Minecraft, blue for Skyrim, gold for Elden Ring, neon yellow for Cyberpunk — with the launcher itself in aurora purple.
 
