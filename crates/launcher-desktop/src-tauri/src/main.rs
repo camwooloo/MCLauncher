@@ -80,6 +80,8 @@ fn main() {
             commands::vpn_set_token,
             commands::vpn_join,
             commands::vpn_share,
+            commands::check_app_update,
+            commands::apply_app_update,
             instances::list_instances,
             instances::save_instance,
             instances::delete_instance,

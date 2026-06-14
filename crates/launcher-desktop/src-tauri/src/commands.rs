@@ -82,6 +82,110 @@ pub async fn save_settings(state: State<'_, AppState>, settings: Settings) -> Re
     settings.save(&state.paths.settings_file()).await
 }
 
+// --- Self-update ---------------------------------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    /// Latest version (without the leading `v`).
+    pub version: String,
+    /// Currently-running version.
+    pub current: String,
+    /// Release notes (markdown).
+    pub notes: String,
+    /// Direct download URL of the installer asset.
+    pub download_url: String,
+}
+
+/// Compare dotted versions numerically: is `latest` newer than `current`?
+fn version_is_newer(latest: &str, current: &str) -> bool {
+    fn parts(s: &str) -> [u32; 3] {
+        let mut out = [0u32; 3];
+        for (i, seg) in s.trim().trim_start_matches('v').split(['.', '-', '+']).take(3).enumerate() {
+            let digits: String = seg.chars().take_while(|c| c.is_ascii_digit()).collect();
+            out[i] = digits.parse().unwrap_or(0);
+        }
+        out
+    }
+    let (a, b) = (parts(latest), parts(current));
+    a > b
+}
+
+/// Check GitHub for a newer release. Returns `None` if up to date.
+#[tauri::command]
+pub async fn check_app_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let current = app.package_info().version.to_string();
+    let resp = launcher_core::http::client()
+        .get("https://api.github.com/repos/camwooloo/MCLauncher/releases/latest")
+        .header("User-Agent", "Aurora-Launcher")
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(err)?;
+    if !resp.status().is_success() {
+        return Ok(None);
+    }
+    let v: serde_json::Value = resp.json().await.map_err(err)?;
+    let tag = v.get("tag_name").and_then(|s| s.as_str()).unwrap_or("");
+    let notes = v.get("body").and_then(|s| s.as_str()).unwrap_or("").to_string();
+    let download_url = v
+        .get("assets")
+        .and_then(|a| a.as_array())
+        .and_then(|a| {
+            a.iter().find(|x| {
+                x.get("name")
+                    .and_then(|n| n.as_str())
+                    .map(|n| n.ends_with(".exe"))
+                    .unwrap_or(false)
+            })
+        })
+        .and_then(|x| x.get("browser_download_url"))
+        .and_then(|u| u.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    if version_is_newer(tag, &current) && !download_url.is_empty() {
+        Ok(Some(UpdateInfo {
+            version: tag.trim_start_matches('v').to_string(),
+            current,
+            notes,
+            download_url,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Download the installer and run it, then quit so it can replace our files.
+#[tauri::command]
+pub async fn apply_app_update(app: AppHandle, download_url: String) -> Result<(), String> {
+    let bytes = launcher_core::http::client()
+        .get(&download_url)
+        .header("User-Agent", "Aurora-Launcher")
+        .send()
+        .await
+        .map_err(err)?
+        .error_for_status()
+        .map_err(|_| "Couldn't download the update".to_string())?
+        .bytes()
+        .await
+        .map_err(err)?;
+    let path = std::env::temp_dir().join("Aurora-Launcher-Update.exe");
+    tokio::fs::write(&path, &bytes).await.map_err(err)?;
+
+    // Launch the installer, then exit shortly after so it isn't blocked by our
+    // running exe (the installer relaunches the app when it finishes).
+    std::process::Command::new(&path)
+        .spawn()
+        .map_err(|e| format!("Couldn't start the installer: {e}"))?;
+    let app2 = app.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(1200)).await;
+        app2.exit(0);
+    });
+    Ok(())
+}
+
 // --- Aurora Net (built-in Tailscale VPN) ---------------------------------
 
 #[tauri::command]

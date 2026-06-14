@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
 import type { ServerConfig } from "../lib/types";
-import { Field, Icon, Pill } from "./ui";
+import { Field, Icon, Pill, Select } from "./ui";
 
 /** Aurora Net — built-in Tailscale VPN so friends can connect with no port
  *  forwarding. Phase 1 (setup/connect), Phase 2 (join), Phase 3 (host/share). */
@@ -264,29 +264,30 @@ export function NetworkPanel() {
             connect — and (if locked) can reach <i>only</i> that server, nothing else on your network.
           </p>
           <div className="row wrap" style={{ alignItems: "flex-end" }}>
-            <Field label="What are you hosting?">
-              <select
-                className="input"
-                value={shareName ? `${shareName}|${sharePort}` : ""}
-                onChange={(e) => {
-                  const s = servers.find((x) => `${x.name}|${x.port}` === e.target.value);
-                  if (s) {
-                    setShareName(s.name);
-                    setSharePort(s.port);
-                    setShareGame("minecraft");
-                  } else {
-                    setShareName("");
-                  }
-                }}
-              >
-                <option value="">Custom…</option>
-                {servers.map((s) => (
-                  <option key={s.id} value={`${s.name}|${s.port}`}>
-                    {s.name} (MC :{s.port})
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {servers.length > 0 && (
+              <Field label="Pick a server">
+                <Select
+                  minWidth={220}
+                  value={shareName ? `${shareName}|${sharePort}` : "__custom__"}
+                  onChange={(v) => {
+                    if (v === "__custom__") {
+                      setShareName("");
+                      return;
+                    }
+                    const s = servers.find((x) => `${x.name}|${x.port}` === v);
+                    if (s) {
+                      setShareName(s.name);
+                      setSharePort(s.port);
+                      setShareGame("minecraft");
+                    }
+                  }}
+                  options={[
+                    { value: "__custom__", label: "Custom…" },
+                    ...servers.map((s) => ({ value: `${s.name}|${s.port}`, label: `${s.name} (MC :${s.port})` })),
+                  ]}
+                />
+              </Field>
+            )}
             <Field label="Name">
               <input className="input" value={shareName} onChange={(e) => setShareName(e.target.value)} placeholder="My server" />
             </Field>
@@ -300,12 +301,17 @@ export function NetworkPanel() {
               />
             </Field>
             <Field label="Game">
-              <select className="input" value={shareGame} onChange={(e) => setShareGame(e.target.value)}>
-                <option value="minecraft">Minecraft</option>
-                <option value="skyrim">Skyrim Together</option>
-                <option value="eldenring">Elden Ring co-op</option>
-                <option value="cyberpunk">Cyberpunk MP</option>
-              </select>
+              <Select
+                minWidth={170}
+                value={shareGame}
+                onChange={setShareGame}
+                options={[
+                  { value: "minecraft", label: "Minecraft" },
+                  { value: "skyrim", label: "Skyrim Together" },
+                  { value: "eldenring", label: "Elden Ring co-op" },
+                  { value: "cyberpunk", label: "Cyberpunk MP" },
+                ]}
+              />
             </Field>
           </div>
           <label className="row" style={{ gap: 8, marginTop: 10, alignItems: "center", cursor: "pointer" }}>

@@ -353,6 +353,18 @@ export const setSkinFromUrl = (variant: string, url: string) =>
     ? call<void>("set_skin_from_url", { variant, url })
     : Promise.reject(new Error("Skins are only available in the desktop app"));
 
+// ---- Self-update ----
+export interface UpdateInfo {
+  version: string;
+  current: string;
+  notes: string;
+  downloadUrl: string;
+}
+export const checkAppUpdate = (): Promise<UpdateInfo | null> =>
+  isTauri ? call<UpdateInfo | null>("check_app_update") : Promise.resolve(null);
+export const applyAppUpdate = (downloadUrl: string): Promise<void> =>
+  isTauri ? call<void>("apply_app_update", { downloadUrl }) : Promise.resolve();
+
 // ---- Aurora Net (built-in Tailscale VPN) ----
 export interface VpnStatus {
   installed: boolean;

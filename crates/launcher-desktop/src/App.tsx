@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { LauncherProvider, useLauncher } from "./store";
-import { windowAction } from "./lib/api";
+import { windowAction, checkAppUpdate, applyAppUpdate, type UpdateInfo } from "./lib/api";
 import type { GameKey } from "./lib/types";
 import { Icon, AuroraMark } from "./components/ui";
 import { AccountMenu } from "./components/AccountMenu";
@@ -101,6 +101,68 @@ function ServerPill() {
   );
 }
 
+/* Title-bar pill: appears when a newer release exists; opens patch notes + 1-click update. */
+function UpdatePill() {
+  const { showToast } = useLauncher();
+  const [info, setInfo] = useState<UpdateInfo | null>(null);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    checkAppUpdate()
+      .then((i) => setInfo(i))
+      .catch(() => {});
+  }, []);
+
+  if (!info) return null;
+
+  const update = async () => {
+    setBusy(true);
+    try {
+      await applyAppUpdate(info.downloadUrl);
+      showToast("Downloading update — the installer will open, then Aurora restarts…");
+    } catch (e) {
+      showToast(`${e}`);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <button className="update-ind" onClick={() => setOpen(true)} title={`Update to v${info.version}`}>
+        <Icon.upgrade size={15} /> Update available
+      </button>
+      {open && (
+        <div className="dash-overlay" onClick={() => setOpen(false)}>
+          <div className="update-modal surface" onClick={(e) => e.stopPropagation()}>
+            <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <div className="eyebrow">Update available</div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 22 }}>
+                  Aurora Launcher v{info.version}
+                </div>
+                <div className="sub" style={{ color: "var(--text-mute)" }}>You're on v{info.current}</div>
+              </div>
+              <button className="btn ghost" onClick={() => setOpen(false)}>
+                <Icon.close size={16} /> Close
+              </button>
+            </div>
+            <div className="patch-notes">{info.notes.trim() || "No release notes provided."}</div>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 4 }}>
+              <button className="btn ghost" onClick={() => setOpen(false)}>
+                Later
+              </button>
+              <button className="btn-play" disabled={busy} onClick={update}>
+                <Icon.upgrade size={16} /> {busy ? "Updating…" : "Update now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function Shell() {
   const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory } =
     useLauncher();
@@ -155,6 +217,7 @@ function Shell() {
           <span className="brand-sub">Launcher</span>
         </div>
         <div className="spacer" data-tauri-drag-region />
+        <UpdatePill />
         <ServerPill />
         <button className="win-btn" onClick={() => windowAction("minimize")}>
           <Icon.min size={16} />
