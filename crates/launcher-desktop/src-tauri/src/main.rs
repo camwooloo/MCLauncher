@@ -32,11 +32,16 @@ fn main() {
         .manage(AppState::new())
         .setup(|app| {
             use tauri::Manager;
-            // Apply the saved Discord Rich Presence preference on startup.
+            // Apply saved startup preferences (Discord RPC + start-minimized).
             let path = app.state::<AppState>().paths.settings_file();
             if let Ok(bytes) = std::fs::read(&path) {
                 if let Ok(s) = serde_json::from_slice::<settings::Settings>(&bytes) {
                     discord::set_enabled(s.discord_rpc);
+                    if s.start_minimized {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.hide();
+                        }
+                    }
                 }
             }
 
@@ -78,10 +83,21 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Hide to tray instead of quitting on the window close button.
+            // Close button hides to tray (keeping servers alive) unless the user
+            // turned that off in Settings — then it quits for real.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+                use tauri::Manager;
+                let close_to_tray = std::fs::read(window.app_handle().state::<AppState>().paths.settings_file())
+                    .ok()
+                    .and_then(|b| serde_json::from_slice::<settings::Settings>(&b).ok())
+                    .map(|s| s.close_to_tray)
+                    .unwrap_or(true);
+                if close_to_tray {
+                    api.prevent_close();
+                    let _ = window.hide();
+                } else {
+                    window.app_handle().exit(0);
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -91,6 +107,7 @@ fn main() {
             commands::paths_info,
             commands::get_settings,
             commands::save_settings,
+            commands::set_launch_at_login,
             commands::list_accounts,
             commands::add_offline_account,
             commands::set_active_account,

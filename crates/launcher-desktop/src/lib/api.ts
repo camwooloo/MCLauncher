@@ -66,6 +66,9 @@ export const getSettings = (): Promise<Settings> =>
 export const saveSettings = (settings: Settings) =>
   isTauri ? call<void>("save_settings", { settings }) : Promise.resolve();
 
+export const setLaunchAtLogin = (enabled: boolean) =>
+  isTauri ? call<void>("set_launch_at_login", { enabled }) : Promise.resolve();
+
 export const minecraftVersions = (): Promise<string[]> =>
   isTauri
     ? call("minecraft_versions")

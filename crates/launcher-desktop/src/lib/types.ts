@@ -26,6 +26,10 @@ export interface Settings {
   background: string; // pulsing | liquid | mesh | grid | stars | waves | glow | dots | static
   discordRpc?: boolean;
   defaultView?: string; // "home" | "network" | "settings" | "<game>" | "<game>:<tab>"
+  launchAtLogin?: boolean;
+  startMinimized?: boolean;
+  closeToTray?: boolean;
+  onboarded?: boolean;
 }
 
 export interface PackHit {
@@ -55,6 +59,7 @@ export interface ServerConfig {
   maxRamMb: number;
   loader?: string | null;
   icon?: string | null;
+  autoStart?: boolean;
 }
 
 export interface ServerStatus {

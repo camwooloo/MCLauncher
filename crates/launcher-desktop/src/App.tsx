@@ -12,6 +12,7 @@ import { InventoryEditor } from "./components/InventoryEditor";
 import { BackupsModal } from "./components/BackupsModal";
 import { ConfigEditor } from "./components/ConfigEditor";
 import { CrashModal } from "./components/CrashModal";
+import { Onboarding } from "./components/Onboarding";
 import {
   HomePanel,
   SkyrimPlay,
@@ -328,6 +329,7 @@ function Shell() {
       {configTarget && <ConfigEditor target={configTarget} onClose={closeConfigEditor} />}
       <CrashModal />
       <UpgradeModal />
+      <Onboarding />
       {toast && <div className="toast">{toast}</div>}
     </div>
   );

@@ -30,6 +30,18 @@ pub struct Settings {
     /// "settings", a game key), or "<game>:<tab>" (e.g. "minecraft:Servers").
     #[serde(default = "default_view")]
     pub default_view: String,
+    /// Start Aurora automatically when Windows boots.
+    #[serde(default)]
+    pub launch_at_login: bool,
+    /// Start hidden to the system tray (used with launch-at-login).
+    #[serde(default)]
+    pub start_minimized: bool,
+    /// Closing the window hides to tray (keeps servers running) instead of quitting.
+    #[serde(default = "default_true")]
+    pub close_to_tray: bool,
+    /// Whether the first-run onboarding has been completed/skipped.
+    #[serde(default)]
+    pub onboarded: bool,
 }
 
 fn default_true() -> bool {
@@ -51,6 +63,10 @@ impl Default for Settings {
             tailscale_api_token: String::new(),
             discord_rpc: true,
             default_view: "home".to_string(),
+            launch_at_login: false,
+            start_minimized: false,
+            close_to_tray: true,
+            onboarded: false,
         }
     }
 }

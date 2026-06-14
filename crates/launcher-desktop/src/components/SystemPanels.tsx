@@ -165,8 +165,40 @@ export function AccountsPanel() {
   );
 }
 
+/** A labelled On/Off toggle matching the launcher's segmented control. */
+function Toggle({
+  title,
+  note,
+  value,
+  onChange,
+}: {
+  title: string;
+  note: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="row" style={{ justifyContent: "space-between" }}>
+      <div>
+        <div style={{ fontWeight: 600 }}>{title}</div>
+        <div className="muted">{note}</div>
+      </div>
+      <div className="seg">
+        <button className={value ? "on" : ""} onClick={() => onChange(true)}>
+          On
+        </button>
+        <button className={!value ? "on" : ""} onClick={() => onChange(false)}>
+          Off
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function SettingsPanel() {
-  const { settings, persistSettings, paths } = useLauncher();
+  const { settings, persistSettings, paths, systemRamMb } = useLauncher();
+  const ramMax = Math.max(2048, Math.floor(systemRamMb / 512) * 512);
+  const mcRam = Math.min(settings.maxMemoryMb || 4096, ramMax);
 
   return (
     <div>
@@ -266,6 +298,54 @@ export function SettingsPanel() {
               { value: "network", label: "Aurora Net" },
               { value: "settings", label: "Settings" },
             ]}
+          />
+        </div>
+        <div className="divide" />
+        <Toggle
+          title="Launch Aurora when Windows starts"
+          note="Great for hosting — your auto-start servers come online with your PC."
+          value={settings.launchAtLogin === true}
+          onChange={(v) => {
+            persistSettings({ launchAtLogin: v });
+            api.setLaunchAtLogin(v).catch(() => {});
+          }}
+        />
+        <div className="divide" />
+        <Toggle
+          title="Start minimized to tray"
+          note="Open hidden in the system tray instead of showing the window."
+          value={settings.startMinimized === true}
+          onChange={(v) => persistSettings({ startMinimized: v })}
+        />
+        <div className="divide" />
+        <Toggle
+          title="Close button minimizes to tray"
+          note="Keeps hosted servers running when you close the window. Turn off to quit fully (stops servers)."
+          value={settings.closeToTray !== false}
+          onChange={(v) => persistSettings({ closeToTray: v })}
+        />
+      </div>
+
+      {/* Minecraft */}
+      <div className="sect">
+        <div className="sect-head">
+          <div className="sect-title">Minecraft</div>
+        </div>
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontWeight: 600 }}>Default memory · {(mcRam / 1024).toFixed(1)} GB</div>
+            <div className="muted">
+              Starting RAM for new instances &amp; servers. Tune per item when you create it.
+            </div>
+          </div>
+          <input
+            type="range"
+            min={1024}
+            max={ramMax}
+            step={512}
+            value={mcRam}
+            onChange={(e) => persistSettings({ maxMemoryMb: Number(e.target.value) })}
+            style={{ width: 220 }}
           />
         </div>
       </div>

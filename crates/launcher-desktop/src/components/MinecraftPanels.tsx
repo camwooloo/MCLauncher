@@ -379,7 +379,15 @@ export function InstancesPanel() {
           <button
             className="btn-play"
             style={{ padding: "11px 20px", fontSize: 14 }}
-            onClick={() => setEditing(blankInstance(fallbackVersion, instances.length, recommendRam(systemRamMb)))}
+            onClick={() =>
+              setEditing(
+                blankInstance(
+                  fallbackVersion,
+                  instances.length,
+                  Math.min(settings.maxMemoryMb || recommendRam(systemRamMb), ramMax(systemRamMb))
+                )
+              )
+            }
           >
             <Icon.plus size={17} /> New instance
           </button>
@@ -647,7 +655,15 @@ export function MinecraftServers() {
         <button
           className="btn-play"
           style={{ padding: "11px 20px", fontSize: 14 }}
-          onClick={() => setEditing(blankServer(fallbackVersion, servers.length, recommendRam(systemRamMb)))}
+          onClick={() =>
+            setEditing(
+              blankServer(
+                fallbackVersion,
+                servers.length,
+                Math.min(settings.maxMemoryMb || recommendRam(systemRamMb), ramMax(systemRamMb))
+              )
+            )
+          }
         >
           <Icon.plus size={17} /> New server
         </button>
@@ -870,6 +886,15 @@ function ServerEditor({
           <input type="range" min={1024} max={maxRam} step={512} value={Math.min(cfg.maxRamMb, maxRam)} onChange={(e) => set({ maxRamMb: Number(e.target.value) })} style={{ width: 200 }} />
         </Field>
       </div>
+      <label className="row" style={{ marginTop: 14, gap: 10, cursor: "pointer", alignItems: "center" }}>
+        <input type="checkbox" checked={cfg.autoStart === true} onChange={(e) => set({ autoStart: e.target.checked })} />
+        <span>
+          <span style={{ fontWeight: 600 }}>Start automatically when Aurora opens</span>
+          <span className="muted" style={{ display: "block", fontSize: 12.5 }}>
+            Ideal with “Launch Aurora when Windows starts” for an always-on server.
+          </span>
+        </span>
+      </label>
       <div className="row" style={{ marginTop: 18 }}>
         <button className="btn-play" style={{ padding: "11px 22px", fontSize: 14 }} onClick={() => onSave(cfg)}>
           <Icon.check size={16} /> Save server

@@ -1006,6 +1006,7 @@ pub async fn create_server_from_pack(
         max_ram_mb: 6144,
         loader: server_loader,
         icon,
+        auto_start: false,
     };
     let mut list = existing;
     match list.iter_mut().find(|c| c.id == cfg.id) {

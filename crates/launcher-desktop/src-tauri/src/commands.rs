@@ -83,6 +83,40 @@ pub async fn save_settings(state: State<'_, AppState>, settings: Settings) -> Re
     settings.save(&state.paths.settings_file()).await
 }
 
+/// Register/unregister Aurora to launch when the user signs in to Windows.
+///
+/// Uses the per-user `Run` registry key (no admin rights, no extra crates).
+#[tauri::command]
+pub fn set_launch_at_login(enabled: bool) -> Result<(), String> {
+    const KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+    const NAME: &str = "AuroraLauncher";
+    #[cfg(windows)]
+    {
+        if enabled {
+            let exe = std::env::current_exe().map_err(err)?;
+            let exe = exe.to_string_lossy().to_string();
+            let out = std::process::Command::new("reg")
+                .args(["add", KEY, "/v", NAME, "/t", "REG_SZ", "/d", &format!("\"{exe}\""), "/f"])
+                .output()
+                .map_err(err)?;
+            if !out.status.success() {
+                return Err(String::from_utf8_lossy(&out.stderr).into_owned());
+            }
+        } else {
+            // Ignore "value not found" so toggling off is always safe.
+            let _ = std::process::Command::new("reg")
+                .args(["delete", KEY, "/v", NAME, "/f"])
+                .output();
+        }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (enabled, KEY, NAME);
+        Ok(())
+    }
+}
+
 /// The addresses friends use to reach a server hosted on this PC.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -943,6 +977,9 @@ pub struct ServerConfig {
     /// Optional icon (URL or data URI) shown on the server card.
     #[serde(default)]
     pub icon: Option<String>,
+    /// Start this server automatically when Aurora opens.
+    #[serde(default)]
+    pub auto_start: bool,
 }
 
 #[derive(Default, Serialize, Deserialize)]

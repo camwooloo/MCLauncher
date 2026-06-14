@@ -160,13 +160,17 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       api.detectGames().then(setGames).catch(() => {});
       api.systemMemoryMb().then(setSystemRamMb).catch(() => {});
       api.listInstances().then(setInstances).catch(() => {});
-      api.listServers().then(setServers).catch(() => {});
-      api
-        .serversStatus()
-        .then((list) =>
-          setServerStatuses(Object.fromEntries(list.map((s) => [s.id, s])))
-        )
-        .catch(() => {});
+      const serverList = await api.listServers().catch(() => [] as ServerConfig[]);
+      setServers(serverList);
+      const running = await api.serversStatus().catch(() => []);
+      setServerStatuses(Object.fromEntries(running.map((s) => [s.id, s])));
+      // Auto-start servers flagged to launch with Aurora (if not already up).
+      const runningIds = new Set(running.map((s) => s.id));
+      for (const s of serverList) {
+        if (s.autoStart && !runningIds.has(s.id)) {
+          api.serverStart(s.id).catch(() => {});
+        }
+      }
     })();
 
     const mergeStatus = (s: ServerStatus) =>
