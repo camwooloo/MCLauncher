@@ -43,6 +43,7 @@ interface Launcher {
   contentTarget: ContentTarget | null;
   inventoryTarget: ContentTarget | null;
   backupTarget: ContentTarget | null;
+  configTarget: ContentTarget | null;
   upgradeTarget: ContentTarget | null;
   systemRamMb: number;
 
@@ -74,6 +75,8 @@ interface Launcher {
   closeInventory: () => void;
   openBackups: (target: ContentTarget) => void;
   closeBackups: () => void;
+  openConfigEditor: (target: ContentTarget) => void;
+  closeConfigEditor: () => void;
   openUpgrade: (target: ContentTarget) => void;
   closeUpgrade: () => void;
   upgrade: (kind: "instance" | "server", id: string, newVersion: string) => Promise<void>;
@@ -121,6 +124,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   const [contentTarget, setContentTarget] = useState<ContentTarget | null>(null);
   const [inventoryTarget, setInventoryTarget] = useState<ContentTarget | null>(null);
   const [backupTarget, setBackupTarget] = useState<ContentTarget | null>(null);
+  const [configTarget, setConfigTarget] = useState<ContentTarget | null>(null);
   const [upgradeTarget, setUpgradeTarget] = useState<ContentTarget | null>(null);
   const [systemRamMb, setSystemRamMb] = useState(16384);
   const [games, setGames] = useState<GamesStatus | null>(null);
@@ -339,6 +343,8 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   const closeInventory = useCallback(() => setInventoryTarget(null), []);
   const openBackups = useCallback((t: ContentTarget) => setBackupTarget(t), []);
   const closeBackups = useCallback(() => setBackupTarget(null), []);
+  const openConfigEditor = useCallback((t: ContentTarget) => setConfigTarget(t), []);
+  const closeConfigEditor = useCallback(() => setConfigTarget(null), []);
   const openUpgrade = useCallback((t: ContentTarget) => setUpgradeTarget(t), []);
   const closeUpgrade = useCallback(() => setUpgradeTarget(null), []);
   const upgrade = useCallback(
@@ -566,6 +572,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       contentTarget,
       inventoryTarget,
       backupTarget,
+      configTarget,
       upgradeTarget,
       systemRamMb,
       activeAccount,
@@ -594,6 +601,8 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       closeInventory,
       openBackups,
       closeBackups,
+      openConfigEditor,
+      closeConfigEditor,
       openUpgrade,
       closeUpgrade,
       upgrade,
@@ -630,6 +639,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       contentTarget,
       inventoryTarget,
       backupTarget,
+      configTarget,
       upgradeTarget,
       systemRamMb,
       activeAccount,
@@ -658,6 +668,8 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       closeInventory,
       openBackups,
       closeBackups,
+      openConfigEditor,
+      closeConfigEditor,
       openUpgrade,
       closeUpgrade,
       upgrade,

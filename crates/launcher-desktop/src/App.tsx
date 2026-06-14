@@ -10,6 +10,7 @@ import { InstancesPanel, MinecraftServers, UpgradeModal } from "./components/Min
 import { SkinsPanel, ContentOverlay } from "./components/ContentPanel";
 import { InventoryEditor } from "./components/InventoryEditor";
 import { BackupsModal } from "./components/BackupsModal";
+import { ConfigEditor } from "./components/ConfigEditor";
 import {
   HomePanel,
   SkyrimPlay,
@@ -167,7 +168,7 @@ function UpdatePill() {
 }
 
 function Shell() {
-  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, playInstance } =
+  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, configTarget, closeConfigEditor, playInstance } =
     useLauncher();
   const [activeGame, setActiveGame] = useState<GameKey>("minecraft");
   const [section, setSection] = useState<Section>("home");
@@ -300,6 +301,7 @@ function Shell() {
       {contentTarget && <ContentOverlay target={contentTarget} onClose={closeContent} />}
       {inventoryTarget && <InventoryEditor target={inventoryTarget} onClose={closeInventory} />}
       <BackupsModal />
+      {configTarget && <ConfigEditor target={configTarget} onClose={closeConfigEditor} />}
       <UpgradeModal />
       {toast && <div className="toast">{toast}</div>}
     </div>

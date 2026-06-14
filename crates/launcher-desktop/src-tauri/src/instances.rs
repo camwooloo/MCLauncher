@@ -61,6 +61,100 @@ pub struct InstanceConfig {
     pub icon: Option<String>,
 }
 
+// --- Built-in config / text editor --------------------------------------
+
+const TEXT_EXTS: &[&str] = &[
+    "json", "json5", "yaml", "yml", "toml", "properties", "cfg", "conf", "config", "ini", "txt",
+    "js", "mjs", "cjs", "ts", "jsx", "tsx", "py", "lua", "md", "snbt", "xml", "html", "css", "sh",
+    "bat", "ps1", "csv", "log", "env", "mcmeta",
+];
+
+fn is_text_file(p: &std::path::Path) -> bool {
+    p.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| TEXT_EXTS.contains(&e.to_ascii_lowercase().as_str()))
+        .unwrap_or(false)
+}
+
+/// The directory whose text files the editor may browse/edit.
+fn editor_root(state: &AppState, kind: &str, id: &str) -> PathBuf {
+    if kind == "server" {
+        launcher_core::server::server_dir(&state.paths, id)
+    } else {
+        instance_dir(state, id)
+    }
+}
+
+fn walk_text(root: &std::path::Path, dir: &std::path::Path, out: &mut Vec<String>, depth: usize) {
+    if depth > 7 || out.len() > 1500 {
+        return;
+    }
+    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    for e in rd.flatten() {
+        let p = e.path();
+        let name = e.file_name().to_string_lossy().to_string();
+        if p.is_dir() {
+            // Skip heavy/binary trees (world region data, vcs, extracted natives).
+            if matches!(name.as_str(), "saves" | ".git" | "natives" | "crash-reports") {
+                continue;
+            }
+            walk_text(root, &p, out, depth + 1);
+        } else if is_text_file(&p) {
+            if e.metadata().map(|m| m.len() > 4_000_000).unwrap_or(false) {
+                continue; // don't try to edit multi-MB files in the browser
+            }
+            if let Ok(rel) = p.strip_prefix(root) {
+                out.push(rel.to_string_lossy().replace('\\', "/"));
+            }
+        }
+    }
+}
+
+/// List editable text/config files (relative paths) under an instance/server.
+#[tauri::command]
+pub fn list_config_files(state: State<'_, AppState>, kind: String, id: String) -> Result<Vec<String>, String> {
+    let root = editor_root(&state, &kind, &id);
+    let mut out = Vec::new();
+    walk_text(&root, &root, &mut out, 0);
+    out.sort();
+    Ok(out)
+}
+
+/// Resolve `rel` under `root`, refusing anything that escapes the folder.
+fn resolve_in(root: &std::path::Path, rel: &str) -> Result<PathBuf, String> {
+    let full = root.join(rel);
+    let canon_root = std::fs::canonicalize(root).map_err(err)?;
+    let canon_full = std::fs::canonicalize(&full).map_err(|_| "File not found".to_string())?;
+    if canon_full.starts_with(&canon_root) {
+        Ok(canon_full)
+    } else {
+        Err("That path is outside the allowed folder".into())
+    }
+}
+
+#[tauri::command]
+pub fn read_config_file(
+    state: State<'_, AppState>,
+    kind: String,
+    id: String,
+    path: String,
+) -> Result<String, String> {
+    let root = editor_root(&state, &kind, &id);
+    std::fs::read_to_string(resolve_in(&root, &path)?).map_err(err)
+}
+
+#[tauri::command]
+pub fn write_config_file(
+    state: State<'_, AppState>,
+    kind: String,
+    id: String,
+    path: String,
+    content: String,
+) -> Result<(), String> {
+    let root = editor_root(&state, &kind, &id);
+    std::fs::write(resolve_in(&root, &path)?, content).map_err(err)
+}
+
 // --- World backups -------------------------------------------------------
 
 #[derive(Serialize)]

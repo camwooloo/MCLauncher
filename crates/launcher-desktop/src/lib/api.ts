@@ -512,6 +512,17 @@ const mockPeers: Peer[] = [
 export const vpnPeers = (): Promise<Peer[]> =>
   isTauri ? call<Peer[]>("vpn_peers") : Promise.resolve(mockPeers);
 
+// ---- Built-in config / code editor ----
+const mockConfigFiles = ["config/sodium-options.json", "config/fabric/indigo.json", "server.properties", "config/example.yaml"];
+export const listConfigFiles = (kind: string, id: string): Promise<string[]> =>
+  isTauri ? call<string[]>("list_config_files", { kind, id }) : Promise.resolve(mockConfigFiles);
+export const readConfigFile = (kind: string, id: string, path: string): Promise<string> =>
+  isTauri
+    ? call<string>("read_config_file", { kind, id, path })
+    : Promise.resolve(`# ${path}\nexample: true\nquality: high\nnested:\n  - a\n  - b\n`);
+export const writeConfigFile = (kind: string, id: string, path: string, content: string): Promise<void> =>
+  isTauri ? call<void>("write_config_file", { kind, id, path, content }) : Promise.resolve();
+
 // ---- World backups ----
 export interface BackupInfo {
   file: string;

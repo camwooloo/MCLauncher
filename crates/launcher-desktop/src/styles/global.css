@@ -1169,6 +1169,80 @@ code {
   flex: 0 0 auto;
 }
 
+/* Built-in config / code editor */
+.editor-dash {
+  width: min(1100px, 96vw);
+  height: min(760px, 90vh);
+}
+.editor-body {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+}
+.editor-files {
+  width: 270px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.editor-file-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.editor-file {
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--text-mute);
+  font-size: 12.5px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl; /* keep the filename visible when truncating long paths */
+}
+.editor-file:hover {
+  background: var(--glass);
+  color: var(--text);
+}
+.editor-file.sel {
+  background: rgba(var(--accent-rgb), 0.16);
+  color: var(--text);
+}
+.editor-pane {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+}
+.editor-host {
+  flex: 1;
+  min-width: 0;
+}
+.editor-host .cm-editor {
+  height: 100%;
+}
+.editor-host .cm-scroller {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 13px;
+}
+.editor-empty {
+  margin: auto;
+  max-width: 360px;
+  text-align: center;
+  color: var(--text-mute);
+  padding: 24px;
+}
+
 /* Numbered step list (co-op join instructions) */
 .steps {
   margin: 8px 0 14px;
