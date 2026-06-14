@@ -206,11 +206,11 @@ export function SettingsPanel() {
             onChange={(v) => persistSettings({ uiStyle: v })}
             minWidth={180}
             options={[
-              { value: "aurora", label: "Aurora" },
+              { value: "aurora", label: "Aurora (default)" },
               { value: "liquidglass", label: "Liquid Glass" },
-              { value: "frost", label: "Frost" },
-              { value: "midnight", label: "Midnight" },
-              { value: "minimal", label: "Minimal" },
+              { value: "compact", label: "Compact (dense)" },
+              { value: "cozy", label: "Cozy (big & round)" },
+              { value: "classic", label: "Classic (sidebar)" },
             ]}
           />
         </div>
@@ -225,18 +225,15 @@ export function SettingsPanel() {
             onChange={(v) => persistSettings({ background: v })}
             minWidth={180}
             options={[
-              { value: "static", label: "Static" },
-              { value: "pulsing", label: "Pulsing" },
-              { value: "liquid", label: "Liquid Glass" },
-              { value: "nebula", label: "Nebula" },
-              { value: "sunset", label: "Sunset" },
-              { value: "ocean", label: "Ocean" },
-              { value: "forest", label: "Forest" },
-              { value: "rose", label: "Rosé" },
-              { value: "cyber", label: "Cyber" },
-              { value: "ember", label: "Ember" },
-              { value: "gold", label: "Gold" },
-              { value: "mono", label: "Mono" },
+              { value: "pulsing", label: "Aurora (ribbons)" },
+              { value: "liquid", label: "Liquid metal" },
+              { value: "mesh", label: "Gradient mesh" },
+              { value: "grid", label: "Synthwave grid" },
+              { value: "stars", label: "Starfield" },
+              { value: "waves", label: "Waves" },
+              { value: "glow", label: "Glow" },
+              { value: "dots", label: "Dot grid" },
+              { value: "static", label: "Static (no motion)" },
             ]}
           />
         </div>

@@ -201,51 +201,91 @@ input {
   }
 }
 
-/* ---- Extra backdrops: fixed colour palettes (all animate via drift) ---- */
-[data-bg="nebula"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #190f3a 0%, #05030f 60%), #05030f; }
-[data-bg="nebula"] .aurora .b1 { background: radial-gradient(circle, rgba(139, 92, 246, 0.6), transparent 65%); }
-[data-bg="nebula"] .aurora .b2 { background: radial-gradient(circle, rgba(56, 189, 248, 0.45), transparent 65%); }
-[data-bg="nebula"] .aurora .b3 { background: radial-gradient(circle, rgba(236, 72, 153, 0.4), transparent 70%); }
+/* ---- Backdrops: distinct *forms* (all use the active accent colour, so they
+   re-tint per game and keep the launcher's identity) -------------------- */
 
-[data-bg="sunset"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #2a1430 0%, #100512 60%), #100512; }
-[data-bg="sunset"] .aurora .b1 { background: radial-gradient(circle, rgba(251, 146, 60, 0.55), transparent 65%); }
-[data-bg="sunset"] .aurora .b2 { background: radial-gradient(circle, rgba(244, 63, 94, 0.45), transparent 65%); }
-[data-bg="sunset"] .aurora .b3 { background: radial-gradient(circle, rgba(168, 85, 247, 0.4), transparent 70%); }
+/* Mesh — a smooth multi-point accent gradient that slowly shifts. */
+[data-bg="mesh"] .aurora {
+  background:
+    radial-gradient(38% 50% at 18% 22%, rgba(var(--accent-rgb), 0.40), transparent 70%),
+    radial-gradient(42% 52% at 82% 30%, rgba(var(--accent-rgb), 0.28), transparent 70%),
+    radial-gradient(50% 50% at 62% 88%, rgba(var(--accent-rgb), 0.30), transparent 70%),
+    radial-gradient(40% 42% at 8% 92%, rgba(var(--accent-rgb), 0.22), transparent 70%),
+    var(--bg-0);
+  background-size: 200% 200%;
+  animation: meshShift 26s ease-in-out infinite alternate;
+}
+[data-bg="mesh"] .aurora i { display: none; }
+@keyframes meshShift { to { background-position: 100% 100%; } }
 
-[data-bg="ocean"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #07223a 0%, #02080f 60%), #02080f; }
-[data-bg="ocean"] .aurora .b1 { background: radial-gradient(circle, rgba(34, 211, 238, 0.5), transparent 65%); }
-[data-bg="ocean"] .aurora .b2 { background: radial-gradient(circle, rgba(59, 130, 246, 0.45), transparent 65%); }
-[data-bg="ocean"] .aurora .b3 { background: radial-gradient(circle, rgba(45, 212, 191, 0.4), transparent 70%); }
+/* Grid — a synthwave perspective grid with a horizon glow. */
+[data-bg="grid"] .aurora { background: linear-gradient(180deg, var(--bg-0), #04060c); }
+[data-bg="grid"] .aurora i { display: none; }
+[data-bg="grid"] .aurora::before {
+  content: ""; position: absolute; left: -50%; right: -50%; bottom: -8%; height: 92%;
+  background-image:
+    repeating-linear-gradient(to right, rgba(var(--accent-rgb), 0.45) 0 1px, transparent 1px 66px),
+    repeating-linear-gradient(to bottom, rgba(var(--accent-rgb), 0.45) 0 1px, transparent 1px 66px);
+  transform: perspective(340px) rotateX(62deg);
+  transform-origin: bottom center;
+  -webkit-mask-image: linear-gradient(to top, #000 8%, transparent 78%);
+  mask-image: linear-gradient(to top, #000 8%, transparent 78%);
+  animation: gridScroll 6s linear infinite;
+}
+[data-bg="grid"] .aurora::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(58% 38% at 50% 80%, rgba(var(--accent-rgb), 0.30), transparent 70%);
+}
+@keyframes gridScroll { to { background-position: 0 66px, 0 66px; } }
 
-[data-bg="forest"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #0c2415 0%, #03080a 60%), #03080a; }
-[data-bg="forest"] .aurora .b1 { background: radial-gradient(circle, rgba(34, 197, 94, 0.5), transparent 65%); }
-[data-bg="forest"] .aurora .b2 { background: radial-gradient(circle, rgba(132, 204, 22, 0.4), transparent 65%); }
-[data-bg="forest"] .aurora .b3 { background: radial-gradient(circle, rgba(16, 185, 129, 0.4), transparent 70%); }
+/* Starfield — drifting stars over a faint accent nebula. */
+[data-bg="stars"] .aurora { background: radial-gradient(140% 120% at 50% -10%, #0a1020, #03040a 60%), #03040a; }
+[data-bg="stars"] .aurora .b2, [data-bg="stars"] .aurora .b3 { display: none; }
+[data-bg="stars"] .aurora .b1 { opacity: 0.4; }
+[data-bg="stars"] .aurora::before {
+  content: ""; position: absolute; inset: -50%;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, #fff, transparent),
+    radial-gradient(1px 1px at 70% 60%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 40% 80%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.5px 1.5px at 85% 25%, #fff, transparent),
+    radial-gradient(1px 1px at 55% 12%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 12% 68%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 92% 82%, rgba(255, 255, 255, 0.8), transparent);
+  background-repeat: repeat; background-size: 300px 300px;
+  animation: starDrift 90s linear infinite, twinkle 5s ease-in-out infinite alternate;
+}
+@keyframes starDrift { to { transform: translateY(-300px); } }
+@keyframes twinkle { from { opacity: 0.55; } to { opacity: 0.95; } }
 
-[data-bg="rose"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #2a1020 0%, #11040b 60%), #11040b; }
-[data-bg="rose"] .aurora .b1 { background: radial-gradient(circle, rgba(244, 114, 182, 0.5), transparent 65%); }
-[data-bg="rose"] .aurora .b2 { background: radial-gradient(circle, rgba(251, 113, 133, 0.45), transparent 65%); }
-[data-bg="rose"] .aurora .b3 { background: radial-gradient(circle, rgba(217, 70, 239, 0.35), transparent 70%); }
+/* Waves — broad accent waves rolling along the bottom. */
+[data-bg="waves"] .aurora { background: linear-gradient(180deg, var(--bg-0), #04060c); }
+[data-bg="waves"] .aurora i { width: 170vw; height: 60vw; left: -35vw; border-radius: 44%; filter: blur(55px); }
+[data-bg="waves"] .aurora .b1 { bottom: -42vw; opacity: 0.45; background: radial-gradient(closest-side, rgba(var(--accent-rgb), 0.5), transparent); animation: waveDrift 16s ease-in-out infinite alternate; }
+[data-bg="waves"] .aurora .b2 { bottom: -47vw; opacity: 0.35; background: radial-gradient(closest-side, rgba(var(--accent-rgb), 0.4), transparent); animation: waveDrift 23s ease-in-out infinite alternate-reverse; }
+[data-bg="waves"] .aurora .b3 { display: none; }
+@keyframes waveDrift { to { transform: translateX(20vw); } }
 
-[data-bg="cyber"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #1a0a2e 0%, #060010 60%), #060010; }
-[data-bg="cyber"] .aurora .b1 { background: radial-gradient(circle, rgba(236, 72, 153, 0.55), transparent 60%); }
-[data-bg="cyber"] .aurora .b2 { background: radial-gradient(circle, rgba(34, 211, 238, 0.5), transparent 60%); }
-[data-bg="cyber"] .aurora .b3 { background: radial-gradient(circle, rgba(250, 204, 21, 0.35), transparent 70%); }
+/* Glow — a single big breathing accent orb (calm, minimal). */
+[data-bg="glow"] .aurora { background: var(--bg-0); }
+[data-bg="glow"] .aurora .b2, [data-bg="glow"] .aurora .b3 { display: none; }
+[data-bg="glow"] .aurora .b1 {
+  width: 80vw; height: 80vw; top: 50%; left: 50%; margin: -40vw 0 0 -40vw;
+  opacity: 0.5; background: radial-gradient(circle, rgba(var(--accent-rgb), 0.45), transparent 60%);
+  animation: breathe 9s ease-in-out infinite alternate;
+}
+@keyframes breathe { from { transform: scale(0.82); opacity: 0.35; } to { transform: scale(1.12); opacity: 0.65; } }
 
-[data-bg="ember"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #2a1008 0%, #0f0503 60%), #0f0503; }
-[data-bg="ember"] .aurora .b1 { background: radial-gradient(circle, rgba(249, 115, 22, 0.55), transparent 65%); }
-[data-bg="ember"] .aurora .b2 { background: radial-gradient(circle, rgba(220, 38, 38, 0.45), transparent 65%); }
-[data-bg="ember"] .aurora .b3 { background: radial-gradient(circle, rgba(245, 158, 11, 0.4), transparent 70%); }
-
-[data-bg="gold"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #241c06 0%, #0c0902 60%), #0c0902; }
-[data-bg="gold"] .aurora .b1 { background: radial-gradient(circle, rgba(250, 204, 21, 0.5), transparent 65%); }
-[data-bg="gold"] .aurora .b2 { background: radial-gradient(circle, rgba(245, 158, 11, 0.4), transparent 65%); }
-[data-bg="gold"] .aurora .b3 { background: radial-gradient(circle, rgba(253, 224, 71, 0.35), transparent 70%); }
-
-[data-bg="mono"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #1a1a1f 0%, #070708 60%), #070708; }
-[data-bg="mono"] .aurora .b1 { background: radial-gradient(circle, rgba(180, 190, 210, 0.26), transparent 65%); }
-[data-bg="mono"] .aurora .b2 { background: radial-gradient(circle, rgba(140, 150, 170, 0.2), transparent 65%); }
-[data-bg="mono"] .aurora .b3 { background: radial-gradient(circle, rgba(200, 205, 220, 0.16), transparent 70%); }
+/* Dots — a still accent dot-grid, fading toward the top. */
+[data-bg="dots"] .aurora { background: var(--bg-0); }
+[data-bg="dots"] .aurora i { display: none; }
+[data-bg="dots"] .aurora::before {
+  content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(var(--accent-rgb), 0.22) 1.4px, transparent 1.6px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(125% 100% at 50% 0%, #000, transparent 75%);
+  mask-image: radial-gradient(125% 100% at 50% 0%, #000, transparent 75%);
+}
 
 /* ---- "Liquid" backdrop: flowing iridescent chrome over near-black -----
    Giant slowly-rotating conic gradients with thin bright bands, blurred and
@@ -2045,49 +2085,45 @@ input[type="range"]::-webkit-slider-thumb:active {
   box-shadow: var(--shadow), inset 0 1px 0 var(--glass-hi);
 }
 
-/* ---- More UI styles ---------------------------------------------------- */
-/* Frost — brighter, more translucent glass. */
-[data-style="frost"] .surface,
-[data-style="frost"] .rail,
-[data-style="frost"] .tabbar,
-[data-style="frost"] .dash,
-[data-style="frost"] .update-modal,
-[data-style="frost"] .acct-menu,
-[data-style="frost"] .acct-chip {
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(34px) saturate(180%) brightness(1.1);
-  -webkit-backdrop-filter: blur(34px) saturate(180%) brightness(1.1);
-  border-color: rgba(255, 255, 255, 0.22);
-}
+/* ---- Layout styles: change density / shape / arrangement -------------- */
 
-/* Midnight — deep navy tinted panels. */
-[data-style="midnight"] .surface,
-[data-style="midnight"] .rail,
-[data-style="midnight"] .tabbar,
-[data-style="midnight"] .dash,
-[data-style="midnight"] .update-modal,
-[data-style="midnight"] .acct-menu,
-[data-style="midnight"] .acct-chip {
-  background: rgba(18, 26, 48, 0.82);
-  backdrop-filter: blur(26px) saturate(150%);
-  -webkit-backdrop-filter: blur(26px) saturate(150%);
-  border-color: rgba(120, 150, 220, 0.22);
-}
+/* Compact — dense: smaller rail, tighter rows, a 3-up home grid. */
+[data-style="compact"] { --radius: 13px; --radius-sm: 10px; --rail-w: 66px; }
+[data-style="compact"] .rail-btn { width: 48px; height: 48px; border-radius: 13px; }
+[data-style="compact"] .content { gap: 10px; }
+[data-style="compact"] .lrow { padding: 8px 10px; gap: 10px; }
+[data-style="compact"] .home-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; max-width: 1000px; }
+[data-style="compact"] .game-tile { min-height: 118px; padding: 16px 16px 14px; border-radius: 14px; }
+[data-style="compact"] .recent-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
 
-/* Minimal — flat, no blur, crisp edges. */
-[data-style="minimal"] .surface,
-[data-style="minimal"] .rail,
-[data-style="minimal"] .tabbar,
-[data-style="minimal"] .dash,
-[data-style="minimal"] .update-modal,
-[data-style="minimal"] .acct-menu,
-[data-style="minimal"] .acct-chip,
-[data-style="minimal"] .input,
-[data-style="minimal"] .select-btn,
-[data-style="minimal"] .btn {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  background: rgba(18, 20, 26, 0.94);
-  border-color: rgba(255, 255, 255, 0.09);
+/* Cozy — airy: big radii, generous spacing, pill controls. */
+[data-style="cozy"] { --radius: 30px; --radius-sm: 22px; }
+[data-style="cozy"] .content { gap: 26px; }
+[data-style="cozy"] .lrow { padding: 18px 20px; }
+[data-style="cozy"] .home-grid { gap: 26px; margin-top: 34px; }
+[data-style="cozy"] .game-tile { min-height: 210px; padding: 34px; border-radius: 30px; }
+[data-style="cozy"] .btn,
+[data-style="cozy"] .btn-play,
+[data-style="cozy"] .input,
+[data-style="cozy"] .select-btn { border-radius: 99px; }
+
+/* Classic — a wide left sidebar with inline text labels; flatter panels. */
+[data-style="classic"] { --rail-w: 158px; }
+[data-style="classic"] .rail { align-items: stretch; padding: 10px 8px; gap: 6px; }
+[data-style="classic"] .rail-btn {
+  width: 100%; height: 44px;
+  display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
+  gap: 12px; padding: 0 14px; border-radius: 11px;
+}
+[data-style="classic"] .rail-btn .label {
+  position: static; bottom: auto; font-size: 13px; opacity: 0.9; letter-spacing: 0;
+}
+[data-style="classic"] .rail-mini { width: 100%; height: 40px; justify-content: flex-start; padding: 0 16px; }
+[data-style="classic"] .surface,
+[data-style="classic"] .game-tile,
+[data-style="classic"] .dash {
   box-shadow: none;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
 }
+[data-style="classic"] .game-tile { min-height: 140px; }
