@@ -203,11 +203,14 @@ export function SettingsPanel() {
           </div>
           <Select
             value={settings.uiStyle ?? "aurora"}
-            onChange={(v) => persistSettings({ uiStyle: v as "aurora" | "liquidglass" })}
-            minWidth={170}
+            onChange={(v) => persistSettings({ uiStyle: v })}
+            minWidth={180}
             options={[
               { value: "aurora", label: "Aurora" },
               { value: "liquidglass", label: "Liquid Glass" },
+              { value: "frost", label: "Frost" },
+              { value: "midnight", label: "Midnight" },
+              { value: "minimal", label: "Minimal" },
             ]}
           />
         </div>
@@ -218,13 +221,22 @@ export function SettingsPanel() {
             <div className="muted">How the backdrop behaves.</div>
           </div>
           <Select
-            value={settings.background ?? "pulsing"}
-            onChange={(v) => persistSettings({ background: v as "static" | "pulsing" | "liquid" })}
-            minWidth={170}
+            value={settings.background ?? "liquid"}
+            onChange={(v) => persistSettings({ background: v })}
+            minWidth={180}
             options={[
               { value: "static", label: "Static" },
               { value: "pulsing", label: "Pulsing" },
-              { value: "liquid", label: "Liquid" },
+              { value: "liquid", label: "Liquid Glass" },
+              { value: "nebula", label: "Nebula" },
+              { value: "sunset", label: "Sunset" },
+              { value: "ocean", label: "Ocean" },
+              { value: "forest", label: "Forest" },
+              { value: "rose", label: "Rosé" },
+              { value: "cyber", label: "Cyber" },
+              { value: "ember", label: "Ember" },
+              { value: "gold", label: "Gold" },
+              { value: "mono", label: "Mono" },
             ]}
           />
         </div>

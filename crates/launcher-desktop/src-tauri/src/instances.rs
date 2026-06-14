@@ -701,6 +701,11 @@ pub async fn create_instance_from_pack(
     let id = format!("{source}-{safe_id}");
     let inst = instance_dir(&state, &id);
 
+    // Always start the mods folder clean. Re-running a pack install (a repair,
+    // or an upgrade) must never leave stale mods from a different Minecraft
+    // version behind — that mix is what crashes mods like Controlify.
+    let _ = std::fs::remove_dir_all(inst.join("mods"));
+
     let reporter = Arc::new(EventReporter::default());
     let pump_reporter = reporter.clone();
     let pump_app = app.clone();

@@ -448,6 +448,18 @@ export function InstancesPanel() {
                   icon: <Icon.upgrade size={15} />,
                   onClick: () => openUpgrade({ kind: "instance", id: it.id, name: it.name, version: it.version, loader: it.loader }),
                 },
+                ...(/^(modrinth|curseforge|ftb|technic)-/.test(it.id)
+                  ? [
+                      {
+                        label: "Repair (reinstall pack)",
+                        icon: <Icon.refresh size={15} />,
+                        onClick: () => {
+                          const m = /^(modrinth|curseforge|ftb|technic)-(.+)$/.exec(it.id);
+                          if (m) createFromPack(m[1], m[2], it.name, it.icon ?? null);
+                        },
+                      },
+                    ]
+                  : []),
                 { label: "Open folder", icon: <Icon.folder size={15} />, onClick: () => openInstanceFolder(it.id) },
                 {
                   label: "Export",

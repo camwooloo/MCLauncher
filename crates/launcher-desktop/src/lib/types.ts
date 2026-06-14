@@ -22,8 +22,8 @@ export interface Settings {
   lastLoader: string;
   lastVersion: string;
   theme: "dark" | "light";
-  uiStyle: "aurora" | "liquidglass";
-  background: "static" | "pulsing" | "liquid";
+  uiStyle: string; // "aurora" | "liquidglass" | "minimal" | "midnight" | "frost"
+  background: string; // static | pulsing | liquid | nebula | sunset | ocean | forest | rose | cyber | ember | mono | gold
   discordRpc?: boolean;
 }
 

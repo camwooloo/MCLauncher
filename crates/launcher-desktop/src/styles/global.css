@@ -201,6 +201,52 @@ input {
   }
 }
 
+/* ---- Extra backdrops: fixed colour palettes (all animate via drift) ---- */
+[data-bg="nebula"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #190f3a 0%, #05030f 60%), #05030f; }
+[data-bg="nebula"] .aurora .b1 { background: radial-gradient(circle, rgba(139, 92, 246, 0.6), transparent 65%); }
+[data-bg="nebula"] .aurora .b2 { background: radial-gradient(circle, rgba(56, 189, 248, 0.45), transparent 65%); }
+[data-bg="nebula"] .aurora .b3 { background: radial-gradient(circle, rgba(236, 72, 153, 0.4), transparent 70%); }
+
+[data-bg="sunset"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #2a1430 0%, #100512 60%), #100512; }
+[data-bg="sunset"] .aurora .b1 { background: radial-gradient(circle, rgba(251, 146, 60, 0.55), transparent 65%); }
+[data-bg="sunset"] .aurora .b2 { background: radial-gradient(circle, rgba(244, 63, 94, 0.45), transparent 65%); }
+[data-bg="sunset"] .aurora .b3 { background: radial-gradient(circle, rgba(168, 85, 247, 0.4), transparent 70%); }
+
+[data-bg="ocean"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #07223a 0%, #02080f 60%), #02080f; }
+[data-bg="ocean"] .aurora .b1 { background: radial-gradient(circle, rgba(34, 211, 238, 0.5), transparent 65%); }
+[data-bg="ocean"] .aurora .b2 { background: radial-gradient(circle, rgba(59, 130, 246, 0.45), transparent 65%); }
+[data-bg="ocean"] .aurora .b3 { background: radial-gradient(circle, rgba(45, 212, 191, 0.4), transparent 70%); }
+
+[data-bg="forest"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #0c2415 0%, #03080a 60%), #03080a; }
+[data-bg="forest"] .aurora .b1 { background: radial-gradient(circle, rgba(34, 197, 94, 0.5), transparent 65%); }
+[data-bg="forest"] .aurora .b2 { background: radial-gradient(circle, rgba(132, 204, 22, 0.4), transparent 65%); }
+[data-bg="forest"] .aurora .b3 { background: radial-gradient(circle, rgba(16, 185, 129, 0.4), transparent 70%); }
+
+[data-bg="rose"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #2a1020 0%, #11040b 60%), #11040b; }
+[data-bg="rose"] .aurora .b1 { background: radial-gradient(circle, rgba(244, 114, 182, 0.5), transparent 65%); }
+[data-bg="rose"] .aurora .b2 { background: radial-gradient(circle, rgba(251, 113, 133, 0.45), transparent 65%); }
+[data-bg="rose"] .aurora .b3 { background: radial-gradient(circle, rgba(217, 70, 239, 0.35), transparent 70%); }
+
+[data-bg="cyber"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #1a0a2e 0%, #060010 60%), #060010; }
+[data-bg="cyber"] .aurora .b1 { background: radial-gradient(circle, rgba(236, 72, 153, 0.55), transparent 60%); }
+[data-bg="cyber"] .aurora .b2 { background: radial-gradient(circle, rgba(34, 211, 238, 0.5), transparent 60%); }
+[data-bg="cyber"] .aurora .b3 { background: radial-gradient(circle, rgba(250, 204, 21, 0.35), transparent 70%); }
+
+[data-bg="ember"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #2a1008 0%, #0f0503 60%), #0f0503; }
+[data-bg="ember"] .aurora .b1 { background: radial-gradient(circle, rgba(249, 115, 22, 0.55), transparent 65%); }
+[data-bg="ember"] .aurora .b2 { background: radial-gradient(circle, rgba(220, 38, 38, 0.45), transparent 65%); }
+[data-bg="ember"] .aurora .b3 { background: radial-gradient(circle, rgba(245, 158, 11, 0.4), transparent 70%); }
+
+[data-bg="gold"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #241c06 0%, #0c0902 60%), #0c0902; }
+[data-bg="gold"] .aurora .b1 { background: radial-gradient(circle, rgba(250, 204, 21, 0.5), transparent 65%); }
+[data-bg="gold"] .aurora .b2 { background: radial-gradient(circle, rgba(245, 158, 11, 0.4), transparent 65%); }
+[data-bg="gold"] .aurora .b3 { background: radial-gradient(circle, rgba(253, 224, 71, 0.35), transparent 70%); }
+
+[data-bg="mono"] .aurora { background: radial-gradient(130% 130% at 70% 0%, #1a1a1f 0%, #070708 60%), #070708; }
+[data-bg="mono"] .aurora .b1 { background: radial-gradient(circle, rgba(180, 190, 210, 0.26), transparent 65%); }
+[data-bg="mono"] .aurora .b2 { background: radial-gradient(circle, rgba(140, 150, 170, 0.2), transparent 65%); }
+[data-bg="mono"] .aurora .b3 { background: radial-gradient(circle, rgba(200, 205, 220, 0.16), transparent 70%); }
+
 /* ---- "Liquid" backdrop: flowing iridescent chrome over near-black -----
    Giant slowly-rotating conic gradients with thin bright bands, blurred and
    contrast-boosted, read as molten metallic ribbons. Band colours follow the
@@ -1997,4 +2043,51 @@ input[type="range"]::-webkit-slider-thumb:active {
   -webkit-backdrop-filter: blur(50px) saturate(160%);
   border: 1px solid var(--stroke-2);
   box-shadow: var(--shadow), inset 0 1px 0 var(--glass-hi);
+}
+
+/* ---- More UI styles ---------------------------------------------------- */
+/* Frost — brighter, more translucent glass. */
+[data-style="frost"] .surface,
+[data-style="frost"] .rail,
+[data-style="frost"] .tabbar,
+[data-style="frost"] .dash,
+[data-style="frost"] .update-modal,
+[data-style="frost"] .acct-menu,
+[data-style="frost"] .acct-chip {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(34px) saturate(180%) brightness(1.1);
+  -webkit-backdrop-filter: blur(34px) saturate(180%) brightness(1.1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Midnight — deep navy tinted panels. */
+[data-style="midnight"] .surface,
+[data-style="midnight"] .rail,
+[data-style="midnight"] .tabbar,
+[data-style="midnight"] .dash,
+[data-style="midnight"] .update-modal,
+[data-style="midnight"] .acct-menu,
+[data-style="midnight"] .acct-chip {
+  background: rgba(18, 26, 48, 0.82);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  border-color: rgba(120, 150, 220, 0.22);
+}
+
+/* Minimal — flat, no blur, crisp edges. */
+[data-style="minimal"] .surface,
+[data-style="minimal"] .rail,
+[data-style="minimal"] .tabbar,
+[data-style="minimal"] .dash,
+[data-style="minimal"] .update-modal,
+[data-style="minimal"] .acct-menu,
+[data-style="minimal"] .acct-chip,
+[data-style="minimal"] .input,
+[data-style="minimal"] .select-btn,
+[data-style="minimal"] .btn {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(18, 20, 26, 0.94);
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: none;
 }
