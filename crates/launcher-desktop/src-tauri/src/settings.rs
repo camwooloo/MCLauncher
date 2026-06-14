@@ -26,10 +26,17 @@ pub struct Settings {
     /// Show "Playing … via Aurora Launcher" in Discord.
     #[serde(default = "default_true")]
     pub discord_rpc: bool,
+    /// Which view the launcher opens to: "home", a section ("network",
+    /// "settings", a game key), or "<game>:<tab>" (e.g. "minecraft:Servers").
+    #[serde(default = "default_view")]
+    pub default_view: String,
 }
 
 fn default_true() -> bool {
     true
+}
+fn default_view() -> String {
+    "home".to_string()
 }
 
 impl Default for Settings {
@@ -43,6 +50,7 @@ impl Default for Settings {
             background: "liquid".to_string(),
             tailscale_api_token: String::new(),
             discord_rpc: true,
+            default_view: "home".to_string(),
         }
     }
 }

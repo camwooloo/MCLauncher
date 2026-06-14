@@ -27,6 +27,7 @@ import type {
 interface Launcher {
   versions: string[];
   settings: Settings;
+  settingsLoaded: boolean;
   store: AccountStore;
   games: GamesStatus | null;
   paths: PathsInfo | null;
@@ -115,7 +116,9 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     theme: "dark",
     uiStyle: "aurora",
     background: "liquid",
+    defaultView: "home",
   });
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [store, setStore] = useState<AccountStore>({ accounts: [], active_uuid: null });
   const [instances, setInstances] = useState<InstanceConfig[]>([]);
   const [servers, setServers] = useState<ServerConfig[]>([]);
@@ -147,6 +150,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       setSettings(await api.getSettings());
+      setSettingsLoaded(true);
       setStore(await api.listAccounts());
       setPaths(await api.pathsInfo());
       api.minecraftVersions().then(setVersions).catch(() => {});
@@ -575,6 +579,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     () => ({
       versions,
       settings,
+      settingsLoaded,
       store,
       games,
       paths,
@@ -642,6 +647,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     [
       versions,
       settings,
+      settingsLoaded,
       store,
       games,
       paths,

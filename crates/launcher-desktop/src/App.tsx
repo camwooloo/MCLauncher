@@ -168,7 +168,7 @@ function UpdatePill() {
 }
 
 function Shell() {
-  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, configTarget, closeConfigEditor, playInstance } =
+  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, configTarget, closeConfigEditor, playInstance, settings, settingsLoaded } =
     useLauncher();
   const [activeGame, setActiveGame] = useState<GameKey>("minecraft");
   const [section, setSection] = useState<Section>("home");
@@ -178,6 +178,25 @@ function Shell() {
     eldenring: "Play",
     cyberpunk: "Play",
   });
+
+  // Apply the saved "open to" view once, after settings have loaded from disk.
+  const appliedDefault = useRef(false);
+  useEffect(() => {
+    if (!settingsLoaded || appliedDefault.current) return;
+    appliedDefault.current = true;
+    const view = settings.defaultView || "home";
+    const [sec, tab] = view.split(":");
+    const games: GameKey[] = ["minecraft", "skyrim", "eldenring", "cyberpunk"];
+    if ((games as string[]).includes(sec)) {
+      setActiveGame(sec as GameKey);
+      setSection(sec as Section);
+      if (tab && GAME_TABS[sec as GameKey].includes(tab)) {
+        setTabs((prev) => ({ ...prev, [sec as GameKey]: tab }));
+      }
+    } else if (sec && sec !== "home") {
+      setSection(sec as Section);
+    }
+  }, [settingsLoaded, settings.defaultView]);
 
   const isGame =
     section === "minecraft" || section === "skyrim" || section === "eldenring" || section === "cyberpunk";

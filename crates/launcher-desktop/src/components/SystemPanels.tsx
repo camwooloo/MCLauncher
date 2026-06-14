@@ -239,6 +239,37 @@ export function SettingsPanel() {
         </div>
       </div>
 
+      {/* Startup */}
+      <div className="sect">
+        <div className="sect-head">
+          <div className="sect-title">Startup</div>
+        </div>
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 600 }}>Open to</div>
+            <div className="muted">Which screen Aurora shows when it starts.</div>
+          </div>
+          <Select
+            value={settings.defaultView ?? "home"}
+            onChange={(v) => persistSettings({ defaultView: v })}
+            minWidth={220}
+            options={[
+              { value: "home", label: "Home" },
+              { value: "minecraft", label: "Minecraft — Play" },
+              { value: "minecraft:Servers", label: "Minecraft — Servers" },
+              { value: "minecraft:Skins", label: "Minecraft — Skins" },
+              { value: "skyrim", label: "Skyrim — Play" },
+              { value: "skyrim:Co-op", label: "Skyrim — Co-op" },
+              { value: "eldenring", label: "Elden Ring — Play" },
+              { value: "eldenring:Co-op", label: "Elden Ring — Co-op" },
+              { value: "cyberpunk", label: "Cyberpunk — Play" },
+              { value: "network", label: "Aurora Net" },
+              { value: "settings", label: "Settings" },
+            ]}
+          />
+        </div>
+      </div>
+
       {/* Integrations */}
       <div className="sect">
         <div className="sect-head">

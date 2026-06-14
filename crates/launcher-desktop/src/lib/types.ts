@@ -23,8 +23,9 @@ export interface Settings {
   lastVersion: string;
   theme: "dark" | "light";
   uiStyle: string; // "aurora" | "liquidglass" | "minimal" | "midnight" | "frost"
-  background: string; // static | pulsing | liquid | nebula | sunset | ocean | forest | rose | cyber | ember | mono | gold
+  background: string; // pulsing | liquid | mesh | grid | stars | waves | glow | dots | static
   discordRpc?: boolean;
+  defaultView?: string; // "home" | "network" | "settings" | "<game>" | "<game>:<tab>"
 }
 
 export interface PackHit {
