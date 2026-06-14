@@ -365,6 +365,26 @@ export const checkAppUpdate = (): Promise<UpdateInfo | null> =>
 export const applyAppUpdate = (downloadUrl: string): Promise<void> =>
   isTauri ? call<void>("apply_app_update", { downloadUrl }) : Promise.resolve();
 
+export interface ReleaseInfo {
+  version: string;
+  name: string;
+  notes: string;
+  date: string;
+}
+export interface ReleasesResult {
+  current: string;
+  releases: ReleaseInfo[];
+}
+const mockReleases: ReleasesResult = {
+  current: "0.3.2",
+  releases: [
+    { version: "0.3.2", name: "Aurora Launcher v0.3.2", date: "2026-06-14", notes: "- Styled Aurora Net dropdowns\n- Built-in updater + patch notes" },
+    { version: "0.3.0", name: "Aurora Launcher v0.3.0 — Aurora Net", date: "2026-06-14", notes: "- Aurora Net: built-in VPN for no-port-forward co-op" },
+  ],
+};
+export const listReleases = (): Promise<ReleasesResult> =>
+  isTauri ? call<ReleasesResult>("list_releases") : Promise.resolve(mockReleases);
+
 // ---- Aurora Net (built-in Tailscale VPN) ----
 export interface VpnStatus {
   installed: boolean;

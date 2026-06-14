@@ -1,8 +1,61 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
 import { Field, Pill, Icon, Select, Avatar } from "./ui";
+
+/** "What's new" — recent releases + their patch notes, from GitHub. */
+function WhatsNew() {
+  const [data, setData] = useState<api.ReleasesResult | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .listReleases()
+      .then((d) => {
+        setData(d);
+        setOpen(d.releases[0]?.version ?? null); // expand the newest by default
+      })
+      .catch(() => setData({ current: "", releases: [] }));
+  }, []);
+
+  return (
+    <div className="sect">
+      <div className="sect-head">
+        <div className="sect-title">What's new</div>
+        {data?.current && <Pill>v{data.current}</Pill>}
+      </div>
+      {!data ? (
+        <p className="muted">Loading release notes…</p>
+      ) : data.releases.length === 0 ? (
+        <p className="muted">Couldn't load release notes (offline?).</p>
+      ) : (
+        <div className="col" style={{ gap: 8 }}>
+          {data.releases.map((r) => {
+            const expanded = open === r.version;
+            return (
+              <div key={r.version} className="surface" style={{ padding: 0, overflow: "hidden" }}>
+                <button
+                  className="release-head"
+                  onClick={() => setOpen(expanded ? null : r.version)}
+                >
+                  <span className={`select-chev ${expanded ? "up" : ""}`}>
+                    <Icon.chevron size={14} />
+                  </span>
+                  <span style={{ fontWeight: 700 }}>v{r.version}</span>
+                  {r.version === data.current && <Pill tone="ok">current</Pill>}
+                  <span className="grow" />
+                  <span className="muted" style={{ fontSize: 12 }}>{r.date}</span>
+                </button>
+                {expanded && <div className="patch-notes" style={{ margin: "0 14px 14px" }}>{r.notes.trim() || "No notes."}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AccountsPanel() {
   const {
@@ -193,6 +246,8 @@ export function SettingsPanel() {
           </div>
         </div>
       </div>
+
+      <WhatsNew />
     </div>
   );
 }

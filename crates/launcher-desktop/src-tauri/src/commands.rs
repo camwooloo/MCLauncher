@@ -186,6 +186,64 @@ pub async fn apply_app_update(app: AppHandle, download_url: String) -> Result<()
     Ok(())
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReleaseInfo {
+    pub version: String,
+    pub name: String,
+    pub notes: String,
+    /// Publish date (YYYY-MM-DD).
+    pub date: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReleasesResult {
+    pub current: String,
+    pub releases: Vec<ReleaseInfo>,
+}
+
+/// Recent GitHub releases (newest first) for the in-app patch-notes view.
+#[tauri::command]
+pub async fn list_releases(app: AppHandle) -> Result<ReleasesResult, String> {
+    let current = app.package_info().version.to_string();
+    let resp = launcher_core::http::client()
+        .get("https://api.github.com/repos/camwooloo/MCLauncher/releases?per_page=20")
+        .header("User-Agent", "Aurora-Launcher")
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(err)?;
+    if !resp.status().is_success() {
+        return Ok(ReleasesResult { current, releases: vec![] });
+    }
+    let arr: serde_json::Value = resp.json().await.map_err(err)?;
+    let releases = arr
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter(|r| !r.get("draft").and_then(|d| d.as_bool()).unwrap_or(false))
+                .filter_map(|r| {
+                    let tag = r.get("tag_name").and_then(|s| s.as_str())?;
+                    Some(ReleaseInfo {
+                        version: tag.trim_start_matches('v').to_string(),
+                        name: r.get("name").and_then(|s| s.as_str()).filter(|s| !s.is_empty()).unwrap_or(tag).to_string(),
+                        notes: r.get("body").and_then(|s| s.as_str()).unwrap_or("").to_string(),
+                        date: r
+                            .get("published_at")
+                            .and_then(|s| s.as_str())
+                            .unwrap_or("")
+                            .chars()
+                            .take(10)
+                            .collect(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(ReleasesResult { current, releases })
+}
+
 // --- Aurora Net (built-in Tailscale VPN) ---------------------------------
 
 #[tauri::command]

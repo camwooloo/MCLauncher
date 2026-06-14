@@ -82,6 +82,7 @@ fn main() {
             commands::vpn_share,
             commands::check_app_update,
             commands::apply_app_update,
+            commands::list_releases,
             instances::list_instances,
             instances::save_instance,
             instances::delete_instance,
