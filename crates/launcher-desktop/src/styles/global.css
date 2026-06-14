@@ -1195,26 +1195,43 @@ code {
   gap: 2px;
 }
 .editor-file {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
   text-align: left;
   background: transparent;
   border: 0;
-  color: var(--text-mute);
-  font-size: 12.5px;
-  padding: 6px 8px;
+  padding: 6px 9px;
   border-radius: 8px;
   cursor: pointer;
-  white-space: nowrap;
+  width: 100%;
+  min-width: 0;
+}
+.editor-file .ef-base {
+  font-size: 13px;
+  color: var(--text);
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  direction: rtl; /* keep the filename visible when truncating long paths */
+  white-space: nowrap;
+}
+.editor-file .ef-dir {
+  font-size: 11px;
+  color: var(--text-mute);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .editor-file:hover {
   background: var(--glass);
-  color: var(--text);
 }
 .editor-file.sel {
   background: rgba(var(--accent-rgb), 0.16);
-  color: var(--text);
+}
+.editor-file.sel .ef-base {
+  color: var(--accent);
 }
 .editor-pane {
   flex: 1;

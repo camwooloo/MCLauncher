@@ -133,16 +133,22 @@ export function ConfigEditor({ target, onClose }: { target: ContentTarget; onClo
             />
             <div className="editor-file-list">
               {shown.length === 0 && <p className="muted" style={{ padding: "4px 6px" }}>No editable files found.</p>}
-              {shown.map((f) => (
-                <button
-                  key={f}
-                  className={`editor-file ${selected === f ? "sel" : ""}`}
-                  onClick={() => open(f)}
-                  title={f}
-                >
-                  {f}
-                </button>
-              ))}
+              {shown.map((f) => {
+                const i = f.lastIndexOf("/");
+                const dir = i >= 0 ? f.slice(0, i + 1) : "";
+                const base = i >= 0 ? f.slice(i + 1) : f;
+                return (
+                  <button
+                    key={f}
+                    className={`editor-file ${selected === f ? "sel" : ""}`}
+                    onClick={() => open(f)}
+                    title={f}
+                  >
+                    <span className="ef-base">{base}</span>
+                    {dir && <span className="ef-dir">{dir.replace(/\/$/, "")}</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="editor-pane">
