@@ -353,6 +353,40 @@ export const setSkinFromUrl = (variant: string, url: string) =>
     ? call<void>("set_skin_from_url", { variant, url })
     : Promise.reject(new Error("Skins are only available in the desktop app"));
 
+// ---- Skyrim Together hosting ----
+export interface TogetherServerConfig {
+  available: boolean;
+  serverName: string;
+  password: string;
+  maxPlayers: number;
+  port: number;
+  pvp: boolean;
+  deathSystem: boolean;
+  xpSync: boolean;
+  itemDrops: boolean;
+  autoPartyJoin: boolean;
+  difficulty: number;
+}
+const mockTogether: TogetherServerConfig = {
+  available: true,
+  serverName: "Aurora Together Server",
+  password: "",
+  maxPlayers: 8,
+  port: 10578,
+  pvp: false,
+  deathSystem: true,
+  xpSync: true,
+  itemDrops: false,
+  autoPartyJoin: true,
+  difficulty: 4,
+};
+export const skyrimServerConfig = (): Promise<TogetherServerConfig> =>
+  isTauri ? call<TogetherServerConfig>("skyrim_server_config") : Promise.resolve(mockTogether);
+export const saveSkyrimServerConfig = (config: TogetherServerConfig): Promise<void> =>
+  isTauri ? call<void>("save_skyrim_server_config", { config }) : Promise.resolve();
+export const startSkyrimServer = (): Promise<number> =>
+  isTauri ? call<number>("start_skyrim_server") : Promise.resolve(0);
+
 // ---- Self-update ----
 export interface UpdateInfo {
   version: string;

@@ -620,6 +620,30 @@ pub fn launch_skyrim(mode: String) -> Result<u32, String> {
     skyrim::launch(&info, m).map_err(err)
 }
 
+// --- Skyrim Together hosting (dedicated server) --------------------------
+
+#[tauri::command]
+pub fn skyrim_server_config() -> Result<skyrim::TogetherServerConfig, String> {
+    let info = skyrim::detect();
+    let dir = info.install_dir.ok_or("Skyrim is not installed")?;
+    Ok(skyrim::read_server_config(&dir))
+}
+
+#[tauri::command]
+pub fn save_skyrim_server_config(config: skyrim::TogetherServerConfig) -> Result<(), String> {
+    let info = skyrim::detect();
+    let dir = info.install_dir.ok_or("Skyrim is not installed")?;
+    skyrim::write_server_config(&dir, &config).map_err(err)
+}
+
+/// Start the Together dedicated server (after saving the config). Returns pid.
+#[tauri::command]
+pub fn start_skyrim_server() -> Result<u32, String> {
+    let info = skyrim::detect();
+    let dir = info.install_dir.ok_or("Skyrim is not installed")?;
+    skyrim::launch_server(&dir).map_err(err)
+}
+
 #[tauri::command]
 pub fn launch_elden_ring(mode: String) -> Result<u32, String> {
     let info = eldenring::detect();

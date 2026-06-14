@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { LauncherProvider, useLauncher } from "./store";
 import { windowAction, checkAppUpdate, applyAppUpdate, type UpdateInfo } from "./lib/api";
 import type { GameKey } from "./lib/types";
-import { Icon, AuroraMark } from "./components/ui";
+import { Icon, AuroraMark, Markdown } from "./components/ui";
 import { AccountMenu } from "./components/AccountMenu";
 import { ServerDashboard } from "./components/ServerConsole";
 import { InstancesPanel, MinecraftServers, UpgradeModal } from "./components/MinecraftPanels";
@@ -147,7 +147,9 @@ function UpdatePill() {
                 <Icon.close size={16} /> Close
               </button>
             </div>
-            <div className="patch-notes">{info.notes.trim() || "No release notes provided."}</div>
+            <div className="patch-notes">
+              <Markdown source={info.notes.trim() || "No release notes provided."} />
+            </div>
             <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 4 }}>
               <button className="btn ghost" onClick={() => setOpen(false)}>
                 Later

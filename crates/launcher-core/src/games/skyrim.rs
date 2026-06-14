@@ -236,9 +236,191 @@ pub fn launch(info: &SkyrimInfo, mode: SkyrimLaunch) -> crate::Result<u32> {
     launch_detached(&exe, &[], Some(dir), &[])
 }
 
+// --- Skyrim Together dedicated server (hosting) --------------------------
+
+fn together_dir(install_dir: &Path) -> PathBuf {
+    install_dir.join("Data").join("SkyrimTogetherReborn")
+}
+fn server_exe(install_dir: &Path) -> PathBuf {
+    together_dir(install_dir).join("SkyrimTogetherServer.exe")
+}
+fn server_ini(install_dir: &Path) -> PathBuf {
+    together_dir(install_dir).join("config").join("STServer.ini")
+}
+
+/// Host-side settings, mapped to the keys Aurora surfaces from `STServer.ini`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TogetherServerConfig {
+    /// The dedicated-server exe is present (hosting is possible).
+    pub available: bool,
+    pub server_name: String,
+    pub password: String,
+    pub max_players: u32,
+    pub port: u16,
+    pub pvp: bool,
+    pub death_system: bool,
+    pub xp_sync: bool,
+    pub item_drops: bool,
+    pub auto_party_join: bool,
+    /// Game difficulty 0–5 (Novice…Legendary).
+    pub difficulty: u32,
+}
+
+impl Default for TogetherServerConfig {
+    fn default() -> Self {
+        Self {
+            available: false,
+            server_name: "Aurora Together Server".into(),
+            password: String::new(),
+            max_players: 8,
+            port: 10578,
+            pvp: false,
+            death_system: true,
+            xp_sync: true,
+            item_drops: false,
+            auto_party_join: true,
+            difficulty: 4,
+        }
+    }
+}
+
+fn parse_bool(v: &str) -> bool {
+    matches!(v.trim(), "true" | "1" | "yes")
+}
+fn bstr(b: bool) -> &'static str {
+    if b {
+        "true"
+    } else {
+        "false"
+    }
+}
+
+/// Read the Together server config (defaults fill any missing keys).
+/// `available` reflects whether the dedicated-server exe exists.
+pub fn read_server_config(install_dir: &Path) -> TogetherServerConfig {
+    let mut cfg = TogetherServerConfig {
+        available: server_exe(install_dir).exists(),
+        ..Default::default()
+    };
+    if let Ok(text) = std::fs::read_to_string(server_ini(install_dir)) {
+        for line in text.lines() {
+            let Some((k, v)) = line.trim().split_once('=') else { continue };
+            let (k, v) = (k.trim(), v.trim());
+            match k {
+                "sServerName" => cfg.server_name = v.to_string(),
+                "sPassword" => cfg.password = v.to_string(),
+                "uMaxPlayerCount" => cfg.max_players = v.parse().unwrap_or(cfg.max_players),
+                "uPort" => cfg.port = v.parse().unwrap_or(cfg.port),
+                "bEnablePvp" => cfg.pvp = parse_bool(v),
+                "bEnableDeathSystem" => cfg.death_system = parse_bool(v),
+                "bEnableXpSync" => cfg.xp_sync = parse_bool(v),
+                "bEnableItemDrops" => cfg.item_drops = parse_bool(v),
+                "bAutoPartyJoin" => cfg.auto_party_join = parse_bool(v),
+                "uDifficulty" => cfg.difficulty = v.parse().unwrap_or(cfg.difficulty),
+                _ => {}
+            }
+        }
+    }
+    cfg
+}
+
+/// Write the exposed keys back into `STServer.ini` *in place* — every other
+/// line, comment and section is preserved; missing keys are appended under the
+/// right `[section]`.
+pub fn write_server_config(install_dir: &Path, cfg: &TogetherServerConfig) -> crate::Result<()> {
+    let path = server_ini(install_dir);
+    let updates: &[(&str, String, &str)] = &[
+        ("sServerName", cfg.server_name.clone(), "GameServer"),
+        ("sPassword", cfg.password.clone(), "GameServer"),
+        ("uMaxPlayerCount", cfg.max_players.to_string(), "GameServer"),
+        ("uPort", cfg.port.to_string(), "GameServer"),
+        ("bEnablePvp", bstr(cfg.pvp).to_string(), "Gameplay"),
+        ("bEnableDeathSystem", bstr(cfg.death_system).to_string(), "Gameplay"),
+        ("bEnableXpSync", bstr(cfg.xp_sync).to_string(), "Gameplay"),
+        ("bEnableItemDrops", bstr(cfg.item_drops).to_string(), "Gameplay"),
+        ("bAutoPartyJoin", bstr(cfg.auto_party_join).to_string(), "Gameplay"),
+        ("uDifficulty", cfg.difficulty.to_string(), "Gameplay"),
+    ];
+
+    let mut lines: Vec<String> = std::fs::read_to_string(&path)
+        .unwrap_or_default()
+        .lines()
+        .map(str::to_string)
+        .collect();
+
+    let mut handled = std::collections::HashSet::new();
+    for line in lines.iter_mut() {
+        let key = line.trim_start().split_once('=').map(|(k, _)| k.trim().to_string());
+        if let Some(key) = key {
+            if let Some((_, val, _)) = updates.iter().find(|(uk, _, _)| *uk == key) {
+                *line = format!("{key}={val}");
+                handled.insert(key);
+            }
+        }
+    }
+    for (key, val, section) in updates {
+        if handled.contains(*key) {
+            continue;
+        }
+        let header = format!("[{section}]");
+        match lines.iter().position(|l| l.trim() == header) {
+            Some(idx) => lines.insert(idx + 1, format!("{key}={val}")),
+            None => {
+                lines.push(String::new());
+                lines.push(header);
+                lines.push(format!("{key}={val}"));
+            }
+        }
+    }
+
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::write(&path, lines.join("\r\n") + "\r\n").map_err(|e| crate::Error::io(&path, e))
+}
+
+/// Launch the Together dedicated server (the host side); returns its pid.
+pub fn launch_server(install_dir: &Path) -> crate::Result<u32> {
+    launch_detached(&server_exe(install_dir), &[], Some(&together_dir(install_dir)), &[])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn server_config_roundtrip_preserves_other_keys() {
+        let base = std::env::temp_dir().join(format!("aurora-str-test-{}", std::process::id()));
+        let ini = base.join("Data/SkyrimTogetherReborn/config/STServer.ini");
+        std::fs::create_dir_all(ini.parent().unwrap()).unwrap();
+        std::fs::write(
+            &ini,
+            "[general]\nsLogLevel=info\n\n[GameServer]\nsServerName=Old\nuPort=10578\nsAdminPassword=keepme\n\n[Gameplay]\nbEnablePvp=false\n",
+        )
+        .unwrap();
+
+        let mut cfg = read_server_config(&base);
+        assert_eq!(cfg.server_name, "Old");
+        assert_eq!(cfg.port, 10578);
+
+        cfg.server_name = "New".into();
+        cfg.pvp = true;
+        cfg.port = 11000;
+        write_server_config(&base, &cfg).unwrap();
+
+        let text = std::fs::read_to_string(&ini).unwrap();
+        assert!(text.contains("sServerName=New"));
+        assert!(text.contains("bEnablePvp=true"));
+        assert!(text.contains("uPort=11000"));
+        assert!(text.contains("sAdminPassword=keepme")); // untouched key preserved
+        assert!(text.contains("sLogLevel=info")); // unrelated section preserved
+
+        let reread = read_server_config(&base);
+        assert_eq!(reread.server_name, "New");
+        assert!(reread.pvp);
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     #[test]
     fn detect_is_safe_when_not_installed() {

@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useLauncher, loadServers, saveServers } from "../store";
 import * as api from "../lib/api";
 import type { GameKey, ServerEntry } from "../lib/types";
-import { Field, Pill, Icon } from "./ui";
+import { Field, Pill, Icon, Select } from "./ui";
 
 /* ------------------------------ Home ----------------------------------- */
 
@@ -68,7 +68,17 @@ function NotInstalled({ title }: { title: string }) {
 }
 
 /** Shared saved-server list for co-op tabs (stored locally per game). */
-function CoopServers({ game, hint }: { game: string; hint: string }) {
+function CoopServers({
+  game,
+  hint,
+  onJoin,
+}: {
+  game: string;
+  hint: string;
+  /** When provided, each saved server gets a one-click Join (copies the
+   *  address then launches the game's co-op client). */
+  onJoin?: (address: string) => void;
+}) {
   const { showToast } = useLauncher();
   const [list, setList] = useState<ServerEntry[]>(() => loadServers(game));
   const [name, setName] = useState("");
@@ -117,6 +127,11 @@ function CoopServers({ game, hint }: { game: string; hint: string }) {
               <div className="name">{s.name}</div>
               <div className="sub">{s.address}</div>
             </div>
+            {onJoin && (
+              <button className="btn-play" style={{ padding: "8px 14px" }} onClick={() => onJoin(s.address)}>
+                <Icon.coop size={15} /> Join
+              </button>
+            )}
             <button
               className="btn ghost"
               onClick={() => {
@@ -260,29 +275,146 @@ export function SkyrimPlay() {
   );
 }
 
+/** Host a Skyrim Together session: configure + launch the dedicated server. */
+function SkyrimHost() {
+  const { showToast } = useLauncher();
+  const [cfg, setCfg] = useState<api.TogetherServerConfig | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.skyrimServerConfig().then(setCfg).catch(() => {});
+  }, []);
+
+  if (!cfg) return null;
+  const set = (p: Partial<api.TogetherServerConfig>) => setCfg({ ...cfg, ...p });
+
+  const start = async () => {
+    setBusy(true);
+    try {
+      await api.saveSkyrimServerConfig(cfg);
+      await api.startSkyrimServer();
+      showToast("Together server started — share your Aurora Net address + port with friends");
+    } catch (e) {
+      showToast(`${e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggles: [keyof api.TogetherServerConfig, string][] = [
+    ["pvp", "PvP"],
+    ["deathSystem", "Death system"],
+    ["xpSync", "Sync XP"],
+    ["itemDrops", "Item drops"],
+    ["autoPartyJoin", "Auto party-join"],
+  ];
+
+  return (
+    <div className="surface" style={{ padding: 16, borderRadius: 16 }}>
+      {!cfg.available ? (
+        <p className="muted">
+          The Together dedicated server isn't present — reinstall Skyrim Together to host.
+        </p>
+      ) : (
+        <>
+          <div className="row wrap" style={{ alignItems: "flex-end" }}>
+            <Field label="Server name">
+              <input className="input" value={cfg.serverName} onChange={(e) => set({ serverName: e.target.value })} />
+            </Field>
+            <Field label="Password (optional)">
+              <input className="input" value={cfg.password} onChange={(e) => set({ password: e.target.value })} placeholder="none" />
+            </Field>
+            <Field label="Max players">
+              <input className="input" style={{ width: 90 }} type="number" value={cfg.maxPlayers} onChange={(e) => set({ maxPlayers: Number(e.target.value) || 1 })} />
+            </Field>
+            <Field label="Port">
+              <input className="input" style={{ width: 100 }} type="number" value={cfg.port} onChange={(e) => set({ port: Number(e.target.value) || 10578 })} />
+            </Field>
+            <Field label="Difficulty">
+              <Select
+                minWidth={150}
+                value={String(cfg.difficulty)}
+                onChange={(v) => set({ difficulty: Number(v) })}
+                options={[
+                  { value: "0", label: "Novice" },
+                  { value: "1", label: "Apprentice" },
+                  { value: "2", label: "Adept" },
+                  { value: "3", label: "Expert" },
+                  { value: "4", label: "Master" },
+                  { value: "5", label: "Legendary" },
+                ]}
+              />
+            </Field>
+          </div>
+          <div className="row wrap" style={{ gap: 18, marginTop: 12 }}>
+            {toggles.map(([key, label]) => (
+              <label key={key} className="row" style={{ gap: 7, alignItems: "center", cursor: "pointer" }}>
+                <input type="checkbox" checked={cfg[key] as boolean} onChange={(e) => set({ [key]: e.target.checked } as Partial<api.TogetherServerConfig>)} />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="row" style={{ marginTop: 14, gap: 10, alignItems: "center" }}>
+            <button className="btn-play" disabled={busy} onClick={start}>
+              <Icon.host size={16} /> {busy ? "Starting…" : "Save & start server"}
+            </button>
+            <span className="muted" style={{ fontSize: 12.5 }}>
+              Friends connect to your address on port <b>{cfg.port}</b> — open <b>Aurora Net</b> to share it with no port forwarding.
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function SkyrimCoop() {
-  const { games, launchSkyrim } = useLauncher();
+  const { games, launchSkyrim, showToast } = useLauncher();
   const sky = games?.skyrim;
   if (!sky?.installed) return <NotInstalled title="Skyrim" />;
 
+  const ready = sky.has_skyrim_together && sky.has_address_library;
+
+  // Join = copy the address so it's ready to paste, then launch the client.
+  const joinAt = (address: string) => {
+    navigator.clipboard?.writeText(address);
+    launchSkyrim("together");
+    showToast("Address copied — paste it in the in-game Together menu and Connect");
+  };
+
   return (
     <div className="sect">
-      <div className="sect-head">
-        <div className="sect-title">Skyrim Together — servers</div>
+      {!ready && <TogetherSetup />}
+
+      {/* Join */}
+      <div className="sect-head" style={{ marginTop: ready ? 0 : 16 }}>
+        <div className="sect-title">Join a friend</div>
         <button
           className="btn-play"
           style={{ padding: "11px 22px", fontSize: 14 }}
-          disabled={!sky.has_skyrim_together}
+          disabled={!ready}
           onClick={() => launchSkyrim("together")}
         >
-          <Icon.coop size={17} /> Launch
+          <Icon.coop size={17} /> Launch Together
         </button>
       </div>
-      {(!sky.has_skyrim_together || !sky.has_address_library) && <TogetherSetup />}
+      <ol className="steps">
+        <li>Add your friend's address below (or get it from <b>Aurora Net</b>), then hit <b>Join</b> — it copies the address and launches the game.</li>
+        <li>In-game, open the <b>Skyrim Together</b> menu (the connect overlay).</li>
+        <li><b>Paste</b> the address into the server field and click <b>Connect</b>.</li>
+      </ol>
       <CoopServers
         game="skyrim"
-        hint="Connect to a saved address from the in-game co-op menu after launching Skyrim Together."
+        onJoin={joinAt}
+        hint="Tip: hosting on Aurora Net? Your friend's address is shown on the Aurora Net screen."
       />
+
+      {/* Host */}
+      <div className="sect-head" style={{ marginTop: 22 }}>
+        <div className="sect-title">Host a session</div>
+      </div>
+      <p className="muted">Run your own Skyrim Together server, then play by connecting to it — you join at <b>127.0.0.1</b> (your server's port), your friends use your Aurora Net address.</p>
+      <SkyrimHost />
     </div>
   );
 }

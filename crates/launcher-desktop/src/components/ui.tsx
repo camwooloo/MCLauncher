@@ -358,6 +358,78 @@ export function AuroraMark({ size = 24 }: { size?: number }) {
   );
 }
 
+/** Inline markdown: **bold**, `code`, [text](url). */
+function renderInline(text: string, base: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  const re = /(\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m[2] !== undefined) out.push(<strong key={`${base}b${i}`}>{m[2]}</strong>);
+    else if (m[3] !== undefined) out.push(<code key={`${base}c${i}`} className="md-code">{m[3]}</code>);
+    else if (m[4] !== undefined)
+      out.push(
+        <a key={`${base}l${i}`} href={m[5]} target="_blank" rel="noreferrer">
+          {m[4]}
+        </a>
+      );
+    last = re.lastIndex;
+    i++;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+/** A small, dependency-free Markdown renderer — enough for GitHub release notes
+ *  (headings, **bold**, `code`, links, and bullet lists). */
+export function Markdown({ source }: { source: string }) {
+  const lines = source.replace(/\r\n/g, "\n").split("\n");
+  const blocks: ReactNode[] = [];
+  let list: ReactNode[] = [];
+  let key = 0;
+  const flush = () => {
+    if (list.length) {
+      blocks.push(
+        <ul key={`ul${key++}`} className="md-ul">
+          {list}
+        </ul>
+      );
+      list = [];
+    }
+  };
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (!t) {
+      flush();
+      continue;
+    }
+    const h = /^(#{1,6})\s+(.*)$/.exec(t);
+    const li = /^[-*]\s+(.*)$/.exec(t);
+    if (h) {
+      flush();
+      const lvl = Math.min(h[1].length, 4);
+      blocks.push(
+        <div key={`h${key}`} className={`md-h md-h${lvl}`}>
+          {renderInline(h[2], `h${key++}`)}
+        </div>
+      );
+    } else if (li) {
+      list.push(<li key={`li${key}`}>{renderInline(li[1], `li${key++}`)}</li>);
+    } else {
+      flush();
+      blocks.push(
+        <p key={`p${key}`} className="md-p">
+          {renderInline(t, `p${key++}`)}
+        </p>
+      );
+    }
+  }
+  flush();
+  return <div className="md">{blocks}</div>;
+}
+
 export interface SelectOption {
   value: string;
   label: string;

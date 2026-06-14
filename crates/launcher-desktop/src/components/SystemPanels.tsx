@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
-import { Field, Pill, Icon, Select, Avatar } from "./ui";
+import { Field, Pill, Icon, Select, Avatar, Markdown } from "./ui";
 
 /** "What's new" — recent releases + their patch notes, from GitHub. */
 function WhatsNew() {
@@ -47,7 +47,11 @@ function WhatsNew() {
                   <span className="grow" />
                   <span className="muted" style={{ fontSize: 12 }}>{r.date}</span>
                 </button>
-                {expanded && <div className="patch-notes" style={{ margin: "0 14px 14px" }}>{r.notes.trim() || "No notes."}</div>}
+                {expanded && (
+                  <div className="patch-notes" style={{ margin: "0 14px 14px" }}>
+                    <Markdown source={r.notes.trim() || "No notes."} />
+                  </div>
+                )}
               </div>
             );
           })}
