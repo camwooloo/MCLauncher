@@ -26,13 +26,11 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 
 ## 📸 Screenshots
 
-**🌐 Aurora Net — play together with no port forwarding**
-
-![Aurora Net](docs/screenshots/09-aurora-net.png)
-
 | Home — pick a game | Minecraft — instances |
 |:---:|:---:|
 | ![Home](docs/screenshots/07-home.png) | ![Minecraft instances](docs/screenshots/01-minecraft.png) |
+| **Aurora Net — no-port-forward co-op** | **Built-in config & code editor** |
+| ![Aurora Net](docs/screenshots/09-aurora-net.png) | ![Config editor](docs/screenshots/10-config-editor.png) |
 | **Skyrim — SKSE & Skyrim Together** | **Elden Ring — Seamless Co-op** |
 | ![Skyrim](docs/screenshots/02-skyrim.png) | ![Elden Ring](docs/screenshots/03-elden-ring.png) |
 | **Cyberpunk 2077 — CyberpunkMP & CET** | **Themes & settings** |
@@ -56,7 +54,9 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 | **Content browser** | Search & install mods, shaders, resource packs and plugins, version-scoped per instance/server |
 | **One-click upgrades** | Bump an instance/server to a newer Minecraft version *and* auto-update its mods |
 | **Creative inventory editor** | A real slot-grid NBT editor — drop in any item (incl. modpack items) and add enchantments, no third-party tools |
-| **Skins** | Upload and switch skins in-app |
+| **Built-in config editor** | A real code editor for any mod/server config — JSON, YAML, JS, Python & more, syntax-highlighted, sandboxed per instance/server, no leaving the app |
+| **World backups** | One-click backup & restore of worlds, per instance/server |
+| **Skins** | A skin gallery (apply instantly) plus apply-from-URL & upload |
 
 ### ⚔️ Skyrim
 - Detects your install (**Steam or Epic**), SKSE, Skyrim Together, and Address Library
