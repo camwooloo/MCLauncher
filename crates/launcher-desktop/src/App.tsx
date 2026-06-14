@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { LauncherProvider, useLauncher } from "./store";
-import { windowAction, checkAppUpdate, applyAppUpdate, type UpdateInfo } from "./lib/api";
+import { windowAction, checkAppUpdate, applyAppUpdate, type UpdateInfo, type PlayRecord } from "./lib/api";
 import type { GameKey } from "./lib/types";
 import { Icon, AuroraMark, Markdown } from "./components/ui";
 import { AccountMenu } from "./components/AccountMenu";
@@ -166,7 +166,7 @@ function UpdatePill() {
 }
 
 function Shell() {
-  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory } =
+  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, playInstance } =
     useLauncher();
   const [activeGame, setActiveGame] = useState<GameKey>("minecraft");
   const [section, setSection] = useState<Section>("home");
@@ -204,6 +204,15 @@ function Shell() {
   const selectGame = (g: GameKey) => {
     setActiveGame(g);
     setSection(g);
+  };
+  // Home "Continue": instances launch straight away; games open their section.
+  const continuePlay = (r: PlayRecord) => {
+    if (r.kind === "instance") {
+      selectGame("minecraft");
+      void playInstance(r.key.replace(/^instance:/, ""));
+    } else {
+      selectGame(r.kind as GameKey);
+    }
   };
   const setTab = (t: string) => setTabs((prev) => ({ ...prev, [activeGame]: t }));
   const currentTab = isGame ? tabs[section as GameKey] : "";
@@ -280,7 +289,7 @@ function Shell() {
 
           <div className="panel-scroll">
             <div className="view" key={`${section}:${currentTab}`}>
-              <Panel section={section} tab={currentTab} onSelectGame={selectGame} />
+              <Panel section={section} tab={currentTab} onSelectGame={selectGame} onContinue={continuePlay} />
             </div>
           </div>
         </main>
@@ -318,10 +327,12 @@ function Panel({
   section,
   tab,
   onSelectGame,
+  onContinue,
 }: {
   section: Section;
   tab: string;
   onSelectGame: (g: GameKey) => void;
+  onContinue: (r: PlayRecord) => void;
 }) {
   switch (section) {
     case "minecraft":
@@ -341,7 +352,7 @@ function Panel({
       if (tab === "Mods") return <CyberpunkMods />;
       return <CyberpunkPlay />;
     case "home":
-      return <HomePanel onSelect={onSelectGame} />;
+      return <HomePanel onSelect={onSelectGame} onContinue={onContinue} />;
     case "accounts":
       return <AccountsPanel />;
     case "settings":

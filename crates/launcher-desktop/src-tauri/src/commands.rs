@@ -116,6 +116,12 @@ pub async fn host_addresses() -> Result<HostAddresses, String> {
     Ok(HostAddresses { lan, aurora })
 }
 
+/// Local play stats (recently played, playtime, launches) for the Home screen.
+#[tauri::command]
+pub fn play_stats(state: State<'_, AppState>) -> Result<Vec<crate::stats::PlayRecord>, String> {
+    Ok(crate::stats::list(&state.paths.data_dir))
+}
+
 // --- Self-update ---------------------------------------------------------
 
 #[derive(Serialize)]
@@ -643,7 +649,7 @@ pub fn detect_games() -> GamesStatus {
 }
 
 #[tauri::command]
-pub fn launch_skyrim(mode: String) -> Result<u32, String> {
+pub fn launch_skyrim(state: State<'_, AppState>, mode: String) -> Result<u32, String> {
     use skyrim::SkyrimLaunch::*;
     let info = skyrim::detect();
     let m = match mode.as_str() {
@@ -651,7 +657,14 @@ pub fn launch_skyrim(mode: String) -> Result<u32, String> {
         "together" => SkyrimTogether,
         _ => Vanilla,
     };
-    skyrim::launch(&info, m).map_err(err)
+    let pid = skyrim::launch(&info, m).map_err(err)?;
+    crate::stats::record_session(&state.paths.data_dir, "game:skyrim", "Skyrim Special Edition", "skyrim", None, pid);
+    Ok(pid)
+}
+
+/// Record a launch + start playtime tracking (used by the game commands).
+fn track_game(state: &State<'_, AppState>, key: &str, name: &str, kind: &str, pid: u32) {
+    crate::stats::record_session(&state.paths.data_dir, key, name, kind, None, pid);
 }
 
 // --- Skyrim Together hosting (dedicated server) --------------------------
@@ -679,38 +692,40 @@ pub fn start_skyrim_server() -> Result<u32, String> {
 }
 
 #[tauri::command]
-pub fn launch_elden_ring(mode: String) -> Result<u32, String> {
+pub fn launch_elden_ring(state: State<'_, AppState>, mode: String) -> Result<u32, String> {
     let info = eldenring::detect();
-    match mode.as_str() {
-        "seamless" => eldenring::launch(&info, eldenring::EldenRingLaunch::SeamlessCoop).map_err(err),
-        "modded" => eldenring::launch(&info, eldenring::EldenRingLaunch::Modded).map_err(err),
+    let pid = match mode.as_str() {
+        "seamless" => eldenring::launch(&info, eldenring::EldenRingLaunch::SeamlessCoop).map_err(err)?,
+        "modded" => eldenring::launch(&info, eldenring::EldenRingLaunch::Modded).map_err(err)?,
         _ => {
             // Vanilla: go through Steam so EAC and online services start.
             open::that(steam_run_url(eldenring::APP_ID)).map_err(err)?;
-            Ok(0)
+            0
         }
-    }
+    };
+    track_game(&state, "game:eldenring", "Elden Ring", "eldenring", pid);
+    Ok(pid)
 }
 
 #[tauri::command]
-pub fn launch_cyberpunk(mode: String) -> Result<u32, String> {
+pub fn launch_cyberpunk(state: State<'_, AppState>, mode: String) -> Result<u32, String> {
     let info = cyberpunk::detect();
-    match mode.as_str() {
-        "mp" => cyberpunk::launch(&info, cyberpunk::CyberpunkLaunch::Mp).map_err(err),
-        "skip-launcher" => {
-            cyberpunk::launch(&info, cyberpunk::CyberpunkLaunch::SkipLauncher).map_err(err)
-        }
+    let pid = match mode.as_str() {
+        "mp" => cyberpunk::launch(&info, cyberpunk::CyberpunkLaunch::Mp).map_err(err)?,
+        "skip-launcher" => cyberpunk::launch(&info, cyberpunk::CyberpunkLaunch::SkipLauncher).map_err(err)?,
         _ => {
             // Steam installs go through Steam (overlay etc.); Epic installs
             // launch REDprelauncher directly.
             if info.source.as_deref() == Some("steam") {
                 open::that(steam_run_url(cyberpunk::APP_ID)).map_err(err)?;
-                Ok(0)
+                0
             } else {
-                cyberpunk::launch(&info, cyberpunk::CyberpunkLaunch::Vanilla).map_err(err)
+                cyberpunk::launch(&info, cyberpunk::CyberpunkLaunch::Vanilla).map_err(err)?
             }
         }
-    }
+    };
+    track_game(&state, "game:cyberpunk", "Cyberpunk 2077", "cyberpunk", pid);
+    Ok(pid)
 }
 
 #[tauri::command]

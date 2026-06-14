@@ -353,6 +353,24 @@ export const setSkinFromUrl = (variant: string, url: string) =>
     ? call<void>("set_skin_from_url", { variant, url })
     : Promise.reject(new Error("Skins are only available in the desktop app"));
 
+// ---- Play stats (Home: recently played / playtime) ----
+export interface PlayRecord {
+  key: string;
+  name: string;
+  kind: string; // "instance" | "skyrim" | "eldenring" | "cyberpunk"
+  icon: string | null;
+  lastPlayed: number; // unix seconds
+  totalSeconds: number;
+  launches: number;
+}
+const mockStats: PlayRecord[] = [
+  { key: "instance:modrinth-1KVo5zza", name: "Fabulously Optimized", kind: "instance", icon: "https://cdn.modrinth.com/data/1KVo5zza/d8152911f8fd5d7e9a8c499fe89045af81fe816e_96.webp", lastPlayed: Math.floor(Date.now() / 1000) - 3600, totalSeconds: 3 * 3600 + 25 * 60, launches: 12 },
+  { key: "game:skyrim", name: "Skyrim Special Edition", kind: "skyrim", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 90000, totalSeconds: 8 * 3600, launches: 5 },
+  { key: "game:cyberpunk", name: "Cyberpunk 2077", kind: "cyberpunk", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 400000, totalSeconds: 12 * 3600, launches: 9 },
+];
+export const playStats = (): Promise<PlayRecord[]> =>
+  isTauri ? call<PlayRecord[]>("play_stats") : Promise.resolve(mockStats);
+
 // ---- Host addresses (what friends connect to) ----
 export interface HostAddresses {
   lan: string | null;

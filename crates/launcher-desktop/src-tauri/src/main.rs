@@ -14,6 +14,7 @@ mod progress;
 mod secrets;
 mod settings;
 mod state;
+mod stats;
 mod vpn;
 
 use state::AppState;
@@ -87,6 +88,7 @@ fn main() {
             commands::apply_app_update,
             commands::list_releases,
             commands::host_addresses,
+            commands::play_stats,
             instances::list_instances,
             instances::save_instance,
             instances::delete_instance,

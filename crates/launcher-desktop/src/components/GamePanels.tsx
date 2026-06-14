@@ -21,12 +21,80 @@ const GAME_TILES: {
 ];
 
 /** Landing page — big game tiles in the launcher's own aurora palette. */
-export function HomePanel({ onSelect }: { onSelect: (g: GameKey) => void }) {
+/** Human "time ago" from a unix-seconds timestamp. */
+function timeAgo(sec: number): string {
+  if (!sec) return "";
+  const d = Math.floor(Date.now() / 1000) - sec;
+  if (d < 90) return "just now";
+  if (d < 3600) return `${Math.floor(d / 60)}m ago`;
+  if (d < 86400) return `${Math.floor(d / 3600)}h ago`;
+  if (d < 7 * 86400) return `${Math.floor(d / 86400)}d ago`;
+  return `${Math.floor(d / (7 * 86400))}w ago`;
+}
+function playtime(sec: number): string {
+  if (sec < 60) return "—";
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+const KIND_ICON: Record<string, (p: { size?: number }) => JSX.Element> = {
+  instance: Icon.minecraft,
+  skyrim: Icon.skyrim,
+  eldenring: Icon.elden,
+  cyberpunk: Icon.cyberpunk,
+};
+
+/** "Continue playing" — recently played instances & games with playtime. */
+function RecentlyPlayed({ onContinue }: { onContinue: (r: api.PlayRecord) => void }) {
+  const [recs, setRecs] = useState<api.PlayRecord[]>([]);
+  useEffect(() => {
+    api.playStats().then((r) => setRecs(r.slice(0, 6))).catch(() => {});
+  }, []);
+  if (recs.length === 0) return null;
+
+  return (
+    <div className="recent">
+      <div className="sect-title" style={{ marginBottom: 10 }}>Jump back in</div>
+      <div className="recent-grid">
+        {recs.map((r) => {
+          const KIcon = KIND_ICON[r.kind] ?? Icon.play;
+          return (
+            <button key={r.key} className="recent-card" onClick={() => onContinue(r)}>
+              <span className="recent-art">
+                {r.icon ? <img src={r.icon} alt="" /> : <KIcon size={24} />}
+              </span>
+              <span className="recent-info">
+                <span className="recent-name">{r.name}</span>
+                <span className="recent-sub">
+                  {playtime(r.totalSeconds)} played · {timeAgo(r.lastPlayed)}
+                </span>
+              </span>
+              <span className="recent-go">
+                <Icon.play size={13} /> Continue
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function HomePanel({
+  onSelect,
+  onContinue,
+}: {
+  onSelect: (g: GameKey) => void;
+  onContinue: (r: api.PlayRecord) => void;
+}) {
   return (
     <div className="hero">
       <div className="eyebrow">Welcome to</div>
       <h1 className="title">Aurora</h1>
       <p className="subtitle">One launcher for playing, modding and hosting — together.</p>
+
+      <RecentlyPlayed onContinue={onContinue} />
 
       <div className="home-grid">
         {GAME_TILES.map((t) => {

@@ -616,6 +616,14 @@ pub async fn instance_play(
 
     match outcome {
         Ok(pid) => {
+            crate::stats::record_session(
+                &paths.data_dir,
+                &format!("instance:{}", cfg.id),
+                &cfg.name,
+                "instance",
+                cfg.icon.clone(),
+                pid.unwrap_or(0),
+            );
             let msg = format!("Launched {}", cfg.name);
             let _ = app.emit("mc-done", serde_json::json!({ "message": msg, "pid": pid }));
             Ok(msg)
