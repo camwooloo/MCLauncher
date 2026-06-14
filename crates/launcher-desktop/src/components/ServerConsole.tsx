@@ -33,6 +33,13 @@ export function ServerDashboard({ id, onClose }: { id: string; onClose: () => vo
 
   useEffect(() => {
     setLines([]);
+    // Replay buffered history first so closing/reopening keeps the console.
+    api
+      .serverLogHistory(id)
+      .then((hist) => {
+        if (hist.length) setLines(hist.map((h) => ({ id, line: h.line, err: h.err })));
+      })
+      .catch(() => {});
     const unlisteners = [
       api.listen<ServerLog>("server-log", (p) => {
         if (p.id === id) setLines((l) => [...l.slice(-800), p]);

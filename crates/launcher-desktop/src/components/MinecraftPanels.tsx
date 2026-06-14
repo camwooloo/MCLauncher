@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
@@ -107,38 +108,64 @@ function PackAvatar({ icon }: { icon?: string | null }) {
 
 type MenuItem = { label: string; icon?: ReactNode; onClick: () => void; danger?: boolean };
 
-/** A ⋯ overflow menu for secondary row actions. */
+/** A ⋯ overflow menu for secondary row actions.
+ *
+ *  The menu is rendered in a body portal at fixed coordinates anchored to the
+ *  button. Doing it inline broke when the row had a `:hover` transform (which
+ *  creates a stacking context) — the menu got trapped behind later siblings
+ *  like the host-address panel, so clicks landed on the wrong element. */
 function RowMenu({ items }: { items: MenuItem[] }) {
   const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const r = btnRef.current?.getBoundingClientRect();
+      if (r) setPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
   return (
-    <div style={{ position: "relative" }}>
-      <button className="btn ghost" title="More" onClick={() => setOpen((o) => !o)}>
+    <>
+      <button ref={btnRef} className="btn ghost" title="More" onClick={() => setOpen((o) => !o)}>
         <Icon.dots size={18} />
       </button>
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
-          <div
-            className="row-menu surface"
-            style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 41, minWidth: 186, padding: 6 }}
-          >
-            {items.map((it, i) => (
-              <button
-                key={i}
-                className={`row-menu-item ${it.danger ? "danger" : ""}`}
-                onClick={() => {
-                  it.onClick();
-                  setOpen(false);
-                }}
-              >
-                {it.icon}
-                {it.label}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+      {open &&
+        pos &&
+        createPortal(
+          <>
+            <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 2000 }} />
+            <div
+              className="row-menu surface"
+              style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 2001, minWidth: 190, padding: 6 }}
+            >
+              {items.map((it, i) => (
+                <button
+                  key={i}
+                  className={`row-menu-item ${it.danger ? "danger" : ""}`}
+                  onClick={() => {
+                    setOpen(false);
+                    it.onClick();
+                  }}
+                >
+                  {it.icon}
+                  {it.label}
+                </button>
+              ))}
+            </div>
+          </>,
+          document.body
+        )}
+    </>
   );
 }
 

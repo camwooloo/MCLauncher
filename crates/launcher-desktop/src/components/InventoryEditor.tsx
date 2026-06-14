@@ -134,7 +134,8 @@ function Slot({
 
 /** Creative-style inventory editor — a real slot grid with an icon picker. */
 export function InventoryEditor({ target, onClose }: { target: ContentTarget; onClose: () => void }) {
-  const { showToast } = useLauncher();
+  const { showToast, serverStatuses } = useLauncher();
+  const serverRunning = target.kind === "server" && !!serverStatuses[target.id]?.running;
   const [worlds, setWorlds] = useState<string[]>([]);
   const [world, setWorld] = useState("");
   const [players, setPlayers] = useState<PlayerRef[]>([]);
@@ -234,6 +235,23 @@ export function InventoryEditor({ target, onClose }: { target: ContentTarget; on
           </button>
         </div>
 
+        {serverRunning && (
+          <div
+            className="surface"
+            style={{
+              padding: "10px 14px",
+              borderRadius: 12,
+              border: "1px solid rgba(255,180,80,0.4)",
+              background: "rgba(255,180,80,0.08)",
+              fontSize: 13,
+            }}
+          >
+            ⚠ This server is <b>running</b>. Minecraft holds the player files while online, so saved
+            changes won't show up — and will be overwritten when the player next logs out. <b>Stop the
+            server</b> first, then edit.
+          </div>
+        )}
+
         <div className="row wrap" style={{ alignItems: "flex-end" }}>
           <Field label="World">
             <Select
@@ -252,7 +270,13 @@ export function InventoryEditor({ target, onClose }: { target: ContentTarget; on
             />
           </Field>
           <div style={{ flex: 1 }} />
-          <button className="btn-play" style={{ padding: "11px 22px", fontSize: 14 }} disabled={!source || saving} onClick={save}>
+          <button
+            className="btn-play"
+            style={{ padding: "11px 22px", fontSize: 14 }}
+            disabled={!source || saving || serverRunning}
+            title={serverRunning ? "Stop the server before editing inventories" : undefined}
+            onClick={save}
+          >
             <Icon.check size={16} /> {saving ? "Saving…" : "Save inventory"}
           </button>
         </div>

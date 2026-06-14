@@ -965,6 +965,25 @@ pub struct ServerStatus {
     pub memory_mb: u64,
 }
 
+/// One buffered console line (kept so the dashboard can replay history).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerLogLine {
+    pub line: String,
+    pub err: bool,
+}
+
+/// Append a line to a server's rolling console buffer (capped at 1000 lines).
+fn push_log(buf: &std::sync::Mutex<Vec<ServerLogLine>>, line: &str, err: bool) {
+    if let Ok(mut v) = buf.lock() {
+        v.push(ServerLogLine { line: line.to_string(), err });
+        let n = v.len();
+        if n > 1000 {
+            v.drain(0..n - 1000);
+        }
+    }
+}
+
 #[derive(Clone)]
 struct ServerMeta {
     id: String,
@@ -1102,8 +1121,15 @@ pub async fn server_start(
 
     let paths = state.paths.clone();
     let reporter = launcher_core::progress::noop();
-    let emit_log = |line: String| {
-        let _ = app.emit("server-log", serde_json::json!({ "id": &id, "line": line, "err": false }));
+    let log_buf: Arc<std::sync::Mutex<Vec<ServerLogLine>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let emit_log = {
+        let log_buf = log_buf.clone();
+        let app = app.clone();
+        let id = id.clone();
+        move |line: String| {
+            push_log(&log_buf, &line, false);
+            let _ = app.emit("server-log", serde_json::json!({ "id": &id, "line": line, "err": false }));
+        }
     };
 
     emit_log(format!("Preparing “{}” ({})…", cfg.name, cfg.version));
@@ -1180,8 +1206,8 @@ pub async fn server_start(
         max_players: cfg.max_players,
     };
 
-    spawn_log_pump(app.clone(), stdout, meta.clone(), players.clone(), memory_mb.clone(), false);
-    spawn_log_pump(app.clone(), stderr, meta.clone(), players.clone(), memory_mb.clone(), true);
+    spawn_log_pump(app.clone(), stdout, meta.clone(), players.clone(), memory_mb.clone(), log_buf.clone(), false);
+    spawn_log_pump(app.clone(), stderr, meta.clone(), players.clone(), memory_mb.clone(), log_buf.clone(), true);
     spawn_ram_sampler(app.clone(), meta.clone(), pid, players.clone(), memory_mb.clone(), running.clone());
 
     // Wait-task owns the child so we can report its exit code. It exits when the
@@ -1191,6 +1217,7 @@ pub async fn server_start(
         let app = app.clone();
         let meta = meta.clone();
         let running = running.clone();
+        let log_buf = log_buf.clone();
         tokio::spawn(async move {
             let status = tokio::select! {
                 s = child.wait() => s.ok(),
@@ -1208,6 +1235,7 @@ pub async fn server_start(
                     true,
                 ),
             };
+            push_log(&log_buf, &line, is_err);
             let _ = app.emit("server-log", serde_json::json!({ "id": meta.id, "line": line, "err": is_err }));
             emit_status(&app, &meta, 0, 0, false);
         });
@@ -1227,11 +1255,25 @@ pub async fn server_start(
             players,
             memory_mb,
             running,
+            log: log_buf,
         },
     );
 
     emit_status(&app, &meta, 0, 0, true);
     Ok(())
+}
+
+/// Replay a running server's buffered console output (for reopening the dashboard).
+#[tauri::command]
+pub async fn server_log_history(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Vec<ServerLogLine>, String> {
+    let map = state.servers.lock().await;
+    Ok(map
+        .get(&id)
+        .and_then(|p| p.log.lock().ok().map(|v| v.clone()))
+        .unwrap_or_default())
 }
 
 #[tauri::command]
@@ -1353,6 +1395,7 @@ fn spawn_log_pump<R>(
     meta: ServerMeta,
     players: Arc<Mutex<HashSet<String>>>,
     memory_mb: Arc<std::sync::atomic::AtomicU64>,
+    log_buf: Arc<std::sync::Mutex<Vec<ServerLogLine>>>,
     is_err: bool,
 ) where
     R: tokio::io::AsyncRead + Unpin + Send + 'static,
@@ -1360,6 +1403,7 @@ fn spawn_log_pump<R>(
     tokio::spawn(async move {
         let mut lines = BufReader::new(reader).lines();
         while let Ok(Some(line)) = lines.next_line().await {
+            push_log(&log_buf, &line, is_err);
             let _ = app.emit("server-log", serde_json::json!({ "id": meta.id, "line": line, "err": is_err }));
             if let Some((joined, name)) = launcher_core::server::parse_player_event(&line) {
                 let count = {

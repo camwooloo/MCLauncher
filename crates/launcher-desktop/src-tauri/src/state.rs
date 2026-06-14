@@ -29,6 +29,8 @@ pub struct ServerProc {
     pub memory_mb: Arc<AtomicU64>,
     /// Cleared when the process exits.
     pub running: Arc<AtomicBool>,
+    /// Rolling console history so reopening the dashboard replays past output.
+    pub log: Arc<std::sync::Mutex<Vec<crate::commands::ServerLogLine>>>,
 }
 
 /// Process-wide launcher state.

@@ -288,14 +288,50 @@ pub fn list_worlds(state: State<'_, AppState>, target_kind: String, target_id: S
     out
 }
 
+/// Build a uuid→name map from the server's `usercache.json` (Minecraft keeps
+/// every player who has ever joined here). Keys are lowercased, dashes stripped.
+fn usercache_names(base: &std::path::Path) -> HashMap<String, String> {
+    let mut map = HashMap::new();
+    for file in ["usercache.json", "usernamecache.json"] {
+        if let Ok(bytes) = std::fs::read(base.join(file)) {
+            if let Ok(arr) = serde_json::from_slice::<Vec<serde_json::Value>>(&bytes) {
+                for v in arr {
+                    if let (Some(uuid), Some(name)) = (
+                        v.get("uuid").and_then(|x| x.as_str()),
+                        v.get("name").and_then(|x| x.as_str()),
+                    ) {
+                        map.insert(uuid.replace('-', "").to_lowercase(), name.to_string());
+                    }
+                }
+            }
+        }
+    }
+    map
+}
+
+/// uuid → username via Mojang's session server (used when usercache misses).
+async fn fetch_name(uuid_undashed: &str) -> Option<String> {
+    let resp = launcher_core::http::client()
+        .get(format!(
+            "https://sessionserver.mojang.com/session/minecraft/profile/{uuid_undashed}"
+        ))
+        .send()
+        .await
+        .ok()?;
+    let v: serde_json::Value = resp.json().await.ok()?;
+    v.get("name").and_then(|x| x.as_str()).map(|s| s.to_string())
+}
+
 #[tauri::command]
-pub fn list_players(
+pub async fn list_players(
     state: State<'_, AppState>,
     target_kind: String,
     target_id: String,
     world: String,
-) -> Vec<PlayerRef> {
+) -> Result<Vec<PlayerRef>, String> {
+    let base = base_dir(&state, &target_kind, &target_id);
     let wdir = world_dir(&state, &target_kind, &target_id, &world);
+    let cache = usercache_names(&base);
     let mut out = Vec::new();
 
     // Singleplayer host (level.dat Data.Player.Inventory).
@@ -307,19 +343,28 @@ pub fn list_players(
             });
         }
     }
-    // Per-player data.
+    // Per-player data — show a friendly username instead of a raw UUID.
     if let Ok(rd) = std::fs::read_dir(wdir.join("playerdata")) {
         for entry in rd.flatten() {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if let Some(uuid) = name.strip_suffix(".dat") {
-                out.push(PlayerRef {
-                    label: uuid.to_string(),
-                    source: uuid.to_string(),
-                });
+            let fname = entry.file_name().to_string_lossy().into_owned();
+            let Some(uuid) = fname.strip_suffix(".dat") else { continue };
+            // Skip the *_old / *.dat_old backups Minecraft writes.
+            if uuid.ends_with("_old") {
+                continue;
             }
+            let key = uuid.replace('-', "").to_lowercase();
+            let label = match cache.get(&key) {
+                Some(name) => name.clone(),
+                None => match fetch_name(&key).await {
+                    Some(name) => name,
+                    // No name available — show a short, recognisable id.
+                    None => format!("Player ··{}", &uuid[uuid.len().saturating_sub(5)..]),
+                },
+            };
+            out.push(PlayerRef { label, source: uuid.to_string() });
         }
     }
-    out
+    Ok(out)
 }
 
 #[tauri::command]

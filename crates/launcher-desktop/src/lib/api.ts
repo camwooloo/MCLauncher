@@ -255,6 +255,10 @@ export const serverStop = (id: string) =>
 export const serverCommand = (id: string, line: string) =>
   isTauri ? call<void>("server_command", { id, line }) : Promise.resolve();
 
+// Replay buffered console output so reopening the dashboard keeps history.
+export const serverLogHistory = (id: string): Promise<{ line: string; err: boolean }[]> =>
+  isTauri ? call("server_log_history", { id }) : Promise.resolve([]);
+
 export const openServerConsole = (id: string) =>
   isTauri ? call<void>("open_server_console", { id }) : Promise.resolve();
 

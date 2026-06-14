@@ -122,6 +122,7 @@ fn main() {
             commands::server_start,
             commands::server_stop,
             commands::server_command,
+            commands::server_log_history,
             commands::open_server_console,
             content::modrinth_search,
             content::content_install,
