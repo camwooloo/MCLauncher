@@ -353,6 +353,14 @@ export const setSkinFromUrl = (variant: string, url: string) =>
     ? call<void>("set_skin_from_url", { variant, url })
     : Promise.reject(new Error("Skins are only available in the desktop app"));
 
+// ---- Host addresses (what friends connect to) ----
+export interface HostAddresses {
+  lan: string | null;
+  aurora: string | null;
+}
+export const hostAddresses = (): Promise<HostAddresses> =>
+  isTauri ? call<HostAddresses>("host_addresses") : Promise.resolve({ lan: "192.168.1.42", aurora: "100.101.102.103" });
+
 // ---- Skyrim Together hosting ----
 export interface TogetherServerConfig {
   available: boolean;

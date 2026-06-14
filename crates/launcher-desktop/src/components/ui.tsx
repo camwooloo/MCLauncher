@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import * as api from "../lib/api";
+
 const TEX_BASE =
   "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21.1/assets/minecraft/textures";
 
@@ -428,6 +430,49 @@ export function Markdown({ source }: { source: string }) {
   }
   flush();
   return <div className="md">{blocks}</div>;
+}
+
+/** Shows the address(es) friends use to reach a server hosted on this PC —
+ *  the Aurora Net IP (preferred, no port forwarding) and/or the LAN IP. Never
+ *  shows localhost, which only works for the host themselves. */
+export function HostAddress({ port, onCopy }: { port: number; onCopy?: (msg: string) => void }) {
+  const [a, setA] = useState<api.HostAddresses | null>(null);
+  useEffect(() => {
+    api.hostAddresses().then(setA).catch(() => {});
+  }, []);
+  if (!a) return null;
+  const copy = (addr: string) => {
+    void navigator.clipboard?.writeText(addr);
+    onCopy?.("Address copied");
+  };
+  const Row = ({ ip, tag, note }: { ip: string; tag?: string; note: string }) => (
+    <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+      <div>
+        <b style={{ fontVariantNumeric: "tabular-nums" }}>{ip}:{port}</b>{" "}
+        {tag && <Pill tone="ok">{tag}</Pill>} <span className="muted" style={{ fontSize: 12 }}>· {note}</span>
+      </div>
+      <button className="btn ghost" onClick={() => copy(`${ip}:${port}`)}>
+        <Icon.copy size={14} /> Copy
+      </button>
+    </div>
+  );
+  return (
+    <div className="surface" style={{ padding: "12px 16px", marginTop: 10, display: "grid", gap: 8 }}>
+      <div style={{ fontWeight: 700 }}>Friends connect to</div>
+      {a.aurora && <Row ip={a.aurora} tag="Aurora Net" note="works anywhere, no port forwarding" />}
+      {a.lan && <Row ip={a.lan} note="same Wi-Fi / network" />}
+      {!a.aurora && !a.lan && (
+        <p className="muted" style={{ margin: 0 }}>
+          Couldn't detect your IP. Open <b>Aurora Net</b> and connect, then friends can reach you with no setup.
+        </p>
+      )}
+      {!a.aurora && a.lan && (
+        <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+          That's a local address. For friends elsewhere, open <b>Aurora Net</b> (no port forwarding) or forward this port.
+        </p>
+      )}
+    </div>
+  );
 }
 
 export interface SelectOption {

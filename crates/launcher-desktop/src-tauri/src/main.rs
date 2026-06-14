@@ -86,6 +86,7 @@ fn main() {
             commands::check_app_update,
             commands::apply_app_update,
             commands::list_releases,
+            commands::host_addresses,
             instances::list_instances,
             instances::save_instance,
             instances::delete_instance,

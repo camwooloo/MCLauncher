@@ -82,6 +82,40 @@ pub async fn save_settings(state: State<'_, AppState>, settings: Settings) -> Re
     settings.save(&state.paths.settings_file()).await
 }
 
+/// The addresses friends use to reach a server hosted on this PC.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HostAddresses {
+    /// Private LAN IPv4 (same Wi-Fi / router), if found.
+    pub lan: Option<String>,
+    /// Aurora Net (Tailscale) IPv4, if connected — works from anywhere with no
+    /// port forwarding.
+    pub aurora: Option<String>,
+}
+
+/// Best-effort primary LAN IPv4: open a UDP socket "toward" a public address
+/// (no packets are actually sent) and read back the chosen local interface.
+fn lan_ip() -> Option<String> {
+    let sock = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    sock.connect("8.8.8.8:80").ok()?;
+    match sock.local_addr().ok()?.ip() {
+        std::net::IpAddr::V4(v4) if !v4.is_loopback() && !v4.is_unspecified() => Some(v4.to_string()),
+        _ => None,
+    }
+}
+
+/// IP addresses to give friends for connecting to a server on this machine.
+#[tauri::command]
+pub async fn host_addresses() -> Result<HostAddresses, String> {
+    let aurora = crate::vpn::status().await.ip;
+    let mut lan = lan_ip();
+    // The UDP trick can pick the Tailscale interface; don't show it twice.
+    if lan == aurora {
+        lan = None;
+    }
+    Ok(HostAddresses { lan, aurora })
+}
+
 // --- Self-update ---------------------------------------------------------
 
 #[derive(Serialize)]

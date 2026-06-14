@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
 import type { InstanceConfig, PackHit, ServerConfig } from "../lib/types";
-import { Field, Progress, Pill, Icon, Select } from "./ui";
+import { Field, Progress, Pill, Icon, Select, HostAddress } from "./ui";
 import { MotdEditor } from "./MotdEditor";
 
 function fmtDl(n: number) {
@@ -540,6 +540,7 @@ export function MinecraftServers() {
     openInventory,
     openUpgrade,
     createServerFromPack,
+    showToast,
   } = useLauncher();
   const [editing, setEditing] = useState<ServerConfig | null>(null);
 
@@ -589,7 +590,8 @@ export function MinecraftServers() {
           const st = serverStatuses[s.id];
           const running = !!st?.running;
           return (
-            <div className="lrow" key={s.id}>
+            <div key={s.id}>
+            <div className="lrow">
               {s.icon ? (
                 <PackAvatar icon={s.icon} />
               ) : (
@@ -660,6 +662,8 @@ export function MinecraftServers() {
                     : []),
                 ]}
               />
+            </div>
+            {running && <HostAddress port={s.port} onCopy={showToast} />}
             </div>
           );
         })}

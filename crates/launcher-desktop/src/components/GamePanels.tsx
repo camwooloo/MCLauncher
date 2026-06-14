@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useLauncher, loadServers, saveServers } from "../store";
 import * as api from "../lib/api";
 import type { GameKey, ServerEntry } from "../lib/types";
-import { Field, Pill, Icon, Select } from "./ui";
+import { Field, Pill, Icon, Select, HostAddress } from "./ui";
 
 /* ------------------------------ Home ----------------------------------- */
 
@@ -358,10 +358,8 @@ function SkyrimHost() {
             <button className="btn-play" disabled={busy} onClick={start}>
               <Icon.host size={16} /> {busy ? "Starting…" : "Save & start server"}
             </button>
-            <span className="muted" style={{ fontSize: 12.5 }}>
-              Friends connect to your address on port <b>{cfg.port}</b> — open <b>Aurora Net</b> to share it with no port forwarding.
-            </span>
           </div>
+          <HostAddress port={cfg.port} onCopy={showToast} />
         </>
       )}
     </div>
@@ -413,7 +411,7 @@ export function SkyrimCoop() {
       <div className="sect-head" style={{ marginTop: 22 }}>
         <div className="sect-title">Host a session</div>
       </div>
-      <p className="muted">Run your own Skyrim Together server, then play by connecting to it — you join at <b>127.0.0.1</b> (your server's port), your friends use your Aurora Net address.</p>
+      <p className="muted">Run your own Skyrim Together server, then connect to it from the game. Your friends use the address shown below — share it with no port forwarding via <b>Aurora Net</b>.</p>
       <SkyrimHost />
     </div>
   );
