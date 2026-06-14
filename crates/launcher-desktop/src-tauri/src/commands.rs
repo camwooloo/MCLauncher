@@ -82,6 +82,104 @@ pub async fn save_settings(state: State<'_, AppState>, settings: Settings) -> Re
     settings.save(&state.paths.settings_file()).await
 }
 
+// --- Aurora Net (built-in Tailscale VPN) ---------------------------------
+
+#[tauri::command]
+pub async fn vpn_status() -> Result<crate::vpn::VpnStatus, String> {
+    Ok(crate::vpn::status().await)
+}
+
+/// Download + run the Tailscale installer (UAC prompt). Phase 1.
+#[tauri::command]
+pub async fn vpn_install() -> Result<(), String> {
+    crate::vpn::install().await
+}
+
+/// Begin interactive sign-in; returns a URL to open in the browser (or `None`
+/// if already signed in). Phase 1.
+#[tauri::command]
+pub async fn vpn_login() -> Result<Option<String>, String> {
+    crate::vpn::login().await
+}
+
+#[tauri::command]
+pub async fn vpn_disconnect() -> Result<(), String> {
+    crate::vpn::down().await
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VpnConfig {
+    /// Whether a Tailscale API token is stored (enables hosting). We never
+    /// return the token itself.
+    pub has_token: bool,
+}
+
+#[tauri::command]
+pub async fn vpn_config(state: State<'_, AppState>) -> Result<VpnConfig, String> {
+    let s = Settings::load(&state.paths.settings_file()).await;
+    Ok(VpnConfig {
+        has_token: !s.tailscale_api_token.trim().is_empty(),
+    })
+}
+
+#[tauri::command]
+pub async fn vpn_set_token(state: State<'_, AppState>, token: String) -> Result<(), String> {
+    let mut s = Settings::load(&state.paths.settings_file()).await;
+    s.tailscale_api_token = token.trim().to_string();
+    s.save(&state.paths.settings_file()).await
+}
+
+/// Player side: decode a join code and join the host's network. Phase 2.
+#[tauri::command]
+pub async fn vpn_join(code: String) -> Result<crate::vpn::JoinPayload, String> {
+    let payload = crate::vpn::decode_code(&code)?;
+    if crate::vpn::tailscale_exe().is_none() {
+        return Err("Install Aurora Net first — it sets up the secure connection.".into());
+    }
+    crate::vpn::up_with_authkey(&payload.key).await?;
+    Ok(payload)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShareArgs {
+    pub name: String,
+    pub port: u16,
+    /// "minecraft" | "skyrim" | "eldenring" | "cyberpunk".
+    pub game: String,
+    /// Also set Tailscale access rules so guests reach only this server.
+    pub configure_access: bool,
+}
+
+/// Host side: mint a guest key (+ optionally lock access to this server) and
+/// return a shareable join code. Phase 3.
+#[tauri::command]
+pub async fn vpn_share(state: State<'_, AppState>, args: ShareArgs) -> Result<String, String> {
+    let s = Settings::load(&state.paths.settings_file()).await;
+    let token = s.tailscale_api_token.trim().to_string();
+    if token.is_empty() {
+        return Err("Add your Tailscale access token first (Aurora Net → Hosting).".into());
+    }
+    let st = crate::vpn::status().await;
+    let ip = st
+        .ip
+        .ok_or("Connect to Aurora Net first — you need to be online to share.")?;
+    if args.configure_access {
+        crate::vpn::ensure_access_rules(&token, &ip, &[args.port]).await?;
+    }
+    let key = crate::vpn::mint_join_key(&token).await?;
+    let payload = crate::vpn::JoinPayload {
+        v: 1,
+        key,
+        ip,
+        port: args.port,
+        name: args.name,
+        game: args.game,
+    };
+    crate::vpn::encode_code(&payload)
+}
+
 // --- Accounts ------------------------------------------------------------
 
 #[tauri::command]

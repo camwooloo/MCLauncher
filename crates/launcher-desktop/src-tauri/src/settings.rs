@@ -19,6 +19,10 @@ pub struct Settings {
     pub ui_style: String,
     /// Background mode: "static" | "pulsing".
     pub background: String,
+    /// Tailscale API access token for *hosting* on Aurora Net (minting guest
+    /// keys + access rules). Stored locally only; never committed.
+    #[serde(default)]
+    pub tailscale_api_token: String,
 }
 
 impl Default for Settings {
@@ -30,6 +34,7 @@ impl Default for Settings {
             theme: "dark".to_string(),
             ui_style: "aurora".to_string(),
             background: "liquid".to_string(),
+            tailscale_api_token: String::new(),
         }
     }
 }

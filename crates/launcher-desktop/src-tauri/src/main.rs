@@ -14,6 +14,7 @@ mod progress;
 mod secrets;
 mod settings;
 mod state;
+mod vpn;
 
 use state::AppState;
 
@@ -71,6 +72,14 @@ fn main() {
             content::apply_update,
             content::set_skin,
             content::set_skin_from_url,
+            commands::vpn_status,
+            commands::vpn_install,
+            commands::vpn_login,
+            commands::vpn_disconnect,
+            commands::vpn_config,
+            commands::vpn_set_token,
+            commands::vpn_join,
+            commands::vpn_share,
             instances::list_instances,
             instances::save_instance,
             instances::delete_instance,

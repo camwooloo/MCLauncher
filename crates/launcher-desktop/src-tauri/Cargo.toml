@@ -23,6 +23,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 launcher-core.workspace = true
 reqwest.workspace = true
+base64.workspace = true
 flate2.workspace = true
 open = "5"
 sysinfo = "0.32"

@@ -22,8 +22,9 @@ import {
   CyberpunkMods,
 } from "./components/GamePanels";
 import { AccountsPanel, SettingsPanel } from "./components/SystemPanels";
+import { NetworkPanel } from "./components/NetworkPanel";
 
-type Section = GameKey | "home" | "accounts" | "settings";
+type Section = GameKey | "home" | "accounts" | "settings" | "network";
 
 const GAME_TABS: Record<GameKey, string[]> = {
   minecraft: ["Play", "Servers", "Skins"],
@@ -32,7 +33,7 @@ const GAME_TABS: Record<GameKey, string[]> = {
   cyberpunk: ["Play", "Co-op", "Mods"],
 };
 
-const SECTION_TITLE: Record<string, string> = { home: "Home", accounts: "Accounts", settings: "Settings" };
+const SECTION_TITLE: Record<string, string> = { home: "Home", accounts: "Accounts", settings: "Settings", network: "Aurora Net" };
 
 /* Sliding "liquid" tab indicator. */
 function TabBar({
@@ -185,6 +186,13 @@ function Shell() {
           </RailBtn>
           <div className="rail-spacer" />
           <button
+            className={`rail-btn rail-mini ${section === "network" ? "active" : ""}`}
+            onClick={() => setSection("network")}
+            title="Aurora Net — play together with no port forwarding"
+          >
+            <Icon.coop size={20} />
+          </button>
+          <button
             className={`rail-btn rail-mini ${section === "settings" ? "active" : ""}`}
             onClick={() => setSection("settings")}
             title="Settings"
@@ -273,6 +281,8 @@ function Panel({
       return <AccountsPanel />;
     case "settings":
       return <SettingsPanel />;
+    case "network":
+      return <NetworkPanel />;
   }
 }
 

@@ -353,6 +353,51 @@ export const setSkinFromUrl = (variant: string, url: string) =>
     ? call<void>("set_skin_from_url", { variant, url })
     : Promise.reject(new Error("Skins are only available in the desktop app"));
 
+// ---- Aurora Net (built-in Tailscale VPN) ----
+export interface VpnStatus {
+  installed: boolean;
+  running: boolean;
+  loggedIn: boolean;
+  ip: string | null;
+  hostname: string | null;
+}
+export interface JoinPayload {
+  v: number;
+  key: string;
+  ip: string;
+  port: number;
+  name: string;
+  game: string;
+}
+
+const mockVpn: VpnStatus = { installed: false, running: false, loggedIn: false, ip: null, hostname: null };
+
+export const vpnStatus = (): Promise<VpnStatus> =>
+  isTauri ? call<VpnStatus>("vpn_status") : Promise.resolve(mockVpn);
+export const vpnInstall = (): Promise<void> =>
+  isTauri ? call<void>("vpn_install") : Promise.resolve();
+export const vpnLogin = (): Promise<string | null> =>
+  isTauri ? call<string | null>("vpn_login") : Promise.resolve(null);
+export const vpnDisconnect = (): Promise<void> =>
+  isTauri ? call<void>("vpn_disconnect") : Promise.resolve();
+export const vpnConfig = (): Promise<{ hasToken: boolean }> =>
+  isTauri ? call<{ hasToken: boolean }>("vpn_config") : Promise.resolve({ hasToken: false });
+export const vpnSetToken = (token: string): Promise<void> =>
+  isTauri ? call<void>("vpn_set_token", { token }) : Promise.resolve();
+export const vpnJoin = (code: string): Promise<JoinPayload> =>
+  isTauri
+    ? call<JoinPayload>("vpn_join", { code })
+    : Promise.reject(new Error("Aurora Net is only available in the desktop app"));
+export const vpnShare = (args: {
+  name: string;
+  port: number;
+  game: string;
+  configureAccess: boolean;
+}): Promise<string> =>
+  isTauri
+    ? call<string>("vpn_share", { args })
+    : Promise.reject(new Error("Aurora Net is only available in the desktop app"));
+
 // ---- Instances ----
 import type { InstanceConfig } from "./types";
 

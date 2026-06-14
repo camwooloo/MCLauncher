@@ -1021,6 +1021,20 @@ code {
   overflow: hidden;
 }
 
+/* Aurora Net status dot */
+.net-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--text-mute);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
+  flex: 0 0 auto;
+}
+.net-dot.on {
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.18), 0 0 10px rgba(52, 211, 153, 0.6);
+}
+
 /* Skin gallery */
 .skin-grid {
   display: grid;
