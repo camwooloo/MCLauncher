@@ -24,6 +24,7 @@ export interface Settings {
   theme: "dark" | "light";
   uiStyle: "aurora" | "liquidglass";
   background: "static" | "pulsing" | "liquid";
+  discordRpc?: boolean;
 }
 
 export interface PackHit {

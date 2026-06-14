@@ -230,6 +230,33 @@ export function SettingsPanel() {
         </div>
       </div>
 
+      {/* Integrations */}
+      <div className="sect">
+        <div className="sect-head">
+          <div className="sect-title">Integrations</div>
+        </div>
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 600 }}>Discord Rich Presence</div>
+            <div className="muted">Show "Playing … via Aurora Launcher" on your Discord profile.</div>
+          </div>
+          <div className="seg">
+            <button
+              className={settings.discordRpc !== false ? "on" : ""}
+              onClick={() => persistSettings({ discordRpc: true })}
+            >
+              On
+            </button>
+            <button
+              className={settings.discordRpc === false ? "on" : ""}
+              onClick={() => persistSettings({ discordRpc: false })}
+            >
+              Off
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Locations */}
       <div className="sect">
         <div className="sect-head">

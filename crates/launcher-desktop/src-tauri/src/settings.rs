@@ -23,6 +23,13 @@ pub struct Settings {
     /// keys + access rules). Stored locally only; never committed.
     #[serde(default)]
     pub tailscale_api_token: String,
+    /// Show "Playing … via Aurora Launcher" in Discord.
+    #[serde(default = "default_true")]
+    pub discord_rpc: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for Settings {
@@ -35,6 +42,7 @@ impl Default for Settings {
             ui_style: "aurora".to_string(),
             background: "liquid".to_string(),
             tailscale_api_token: String::new(),
+            discord_rpc: true,
         }
     }
 }

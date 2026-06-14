@@ -79,6 +79,7 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<Settings, String
 
 #[tauri::command]
 pub async fn save_settings(state: State<'_, AppState>, settings: Settings) -> Result<(), String> {
+    crate::discord::set_enabled(settings.discord_rpc);
     settings.save(&state.paths.settings_file()).await
 }
 

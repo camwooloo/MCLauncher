@@ -30,6 +30,17 @@ fn main() {
 
     tauri::Builder::default()
         .manage(AppState::new())
+        .setup(|app| {
+            // Apply the saved Discord Rich Presence preference on startup.
+            use tauri::Manager;
+            let path = app.state::<AppState>().paths.settings_file();
+            if let Ok(bytes) = std::fs::read(&path) {
+                if let Ok(s) = serde_json::from_slice::<settings::Settings>(&bytes) {
+                    discord::set_enabled(s.discord_rpc);
+                }
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::app_version,
             commands::open_url,
