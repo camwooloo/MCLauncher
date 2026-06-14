@@ -5,6 +5,7 @@ import * as api from "../lib/api";
 import type { InstanceConfig, PackHit, ServerConfig } from "../lib/types";
 import { Field, Progress, Pill, Icon, Select, HostAddress } from "./ui";
 import { MotdEditor } from "./MotdEditor";
+import { AccessModal } from "./AccessModal";
 
 function fmtDl(n: number) {
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
@@ -315,6 +316,8 @@ export function InstancesPanel() {
     openUpgrade,
     openBackups,
     openConfigEditor,
+    showToast,
+    refreshInstances,
   } = useLauncher();
   const [editing, setEditing] = useState<InstanceConfig | null>(null);
 
@@ -324,13 +327,35 @@ export function InstancesPanel() {
     <div className="sect">
       <div className="sect-head">
         <div className="sect-title">Your instances</div>
-        <button
-          className="btn-play"
-          style={{ padding: "11px 20px", fontSize: 14 }}
-          onClick={() => setEditing(blankInstance(fallbackVersion, instances.length, recommendRam(systemRamMb)))}
-        >
-          <Icon.plus size={17} /> New instance
-        </button>
+        <div className="row" style={{ gap: 8 }}>
+          <label className="btn" style={{ cursor: "pointer" }}>
+            <Icon.upgrade size={15} /> Import .mrpack
+            <input
+              type="file"
+              accept=".mrpack,.zip"
+              style={{ display: "none" }}
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                try {
+                  const buf = await f.arrayBuffer();
+                  await api.importMrpack(f.name, Array.from(new Uint8Array(buf)));
+                  await refreshInstances();
+                } catch (err) {
+                  showToast(`${err}`);
+                }
+              }}
+            />
+          </label>
+          <button
+            className="btn-play"
+            style={{ padding: "11px 20px", fontSize: 14 }}
+            onClick={() => setEditing(blankInstance(fallbackVersion, instances.length, recommendRam(systemRamMb)))}
+          >
+            <Icon.plus size={17} /> New instance
+          </button>
+        </div>
       </div>
 
       {busy && progress && (
@@ -424,6 +449,15 @@ export function InstancesPanel() {
                   onClick: () => openUpgrade({ kind: "instance", id: it.id, name: it.name, version: it.version, loader: it.loader }),
                 },
                 { label: "Open folder", icon: <Icon.folder size={15} />, onClick: () => openInstanceFolder(it.id) },
+                {
+                  label: "Export",
+                  icon: <Icon.upgrade size={15} />,
+                  onClick: () =>
+                    api
+                      .exportInstance(it.id)
+                      .then(() => showToast("Exported to your exports folder"))
+                      .catch((e) => showToast(`${e}`)),
+                },
                 { label: "Delete", icon: <Icon.trash size={15} />, onClick: () => deleteInstanceCfg(it.id), danger: true },
               ]}
             />
@@ -557,6 +591,7 @@ export function MinecraftServers() {
     openConfigEditor,
   } = useLauncher();
   const [editing, setEditing] = useState<ServerConfig | null>(null);
+  const [accessFor, setAccessFor] = useState<ServerConfig | null>(null);
 
   const fallbackVersion = settings.lastVersion || versions[0] || "1.21.4";
 
@@ -590,6 +625,10 @@ export function MinecraftServers() {
             setEditing(null);
           }}
         />
+      )}
+
+      {accessFor && (
+        <AccessModal id={accessFor.id} name={accessFor.name} onClose={() => setAccessFor(null)} />
       )}
 
       {servers.length === 0 && !editing && (
@@ -670,6 +709,11 @@ export function MinecraftServers() {
                     label: "Edit configs",
                     icon: <Icon.terminal size={15} />,
                     onClick: () => openConfigEditor({ kind: "server", id: s.id, name: s.name, version: s.version, loader: null }),
+                  },
+                  {
+                    label: "Players & ops",
+                    icon: <Icon.user size={15} />,
+                    onClick: () => setAccessFor(s),
                   },
                   ...(!running
                     ? [

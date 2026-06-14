@@ -61,6 +61,218 @@ pub struct InstanceConfig {
     pub icon: Option<String>,
 }
 
+// --- Import / export instances -------------------------------------------
+
+/// Zip an instance's content (mods/config/packs) to `<data>/exports/<name>.zip`
+/// and reveal the folder. Returns the zip path.
+#[tauri::command]
+pub async fn export_instance(state: State<'_, AppState>, id: String) -> Result<String, String> {
+    let cfg = load_instances(&state)
+        .await
+        .into_iter()
+        .find(|c| c.id == id)
+        .ok_or("Instance not found")?;
+    let dir = instance_dir(&state, &id);
+    let safe: String = cfg
+        .name
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .collect();
+    let exports = state.paths.data_dir.join("exports");
+    let dest = exports.join(format!("{safe}.zip"));
+    let dest2 = dest.clone();
+    let added = tokio::task::spawn_blocking(move || {
+        launcher_core::backup::create(&dir, &["config", "mods", "resourcepacks", "shaderpacks"], &dest2)
+    })
+    .await
+    .map_err(err)?
+    .map_err(err)?;
+    if added == 0 {
+        let _ = std::fs::remove_file(&dest);
+        return Err("Nothing to export yet — add some mods/config first.".into());
+    }
+    let _ = open::that(&exports);
+    Ok(dest.to_string_lossy().into_owned())
+}
+
+/// Create a new instance from a local `.mrpack` file's bytes.
+#[tauri::command]
+pub async fn import_mrpack(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    name: String,
+    bytes: Vec<u8>,
+) -> Result<InstanceConfig, String> {
+    let stem = std::path::Path::new(&name)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "Imported pack".into());
+    let safe_id: String = stem
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .collect();
+    let id = format!("import-{safe_id}");
+    let inst = instance_dir(&state, &id);
+    let tmp = std::env::temp_dir().join("aurora-import.mrpack");
+    tokio::fs::write(&tmp, &bytes).await.map_err(err)?;
+
+    let reporter = Arc::new(EventReporter::default());
+    let pump_reporter = reporter.clone();
+    let pump_app = app.clone();
+    let done = Arc::new(AtomicBool::new(false));
+    let pump_done = done.clone();
+    tokio::spawn(async move {
+        loop {
+            let _ = pump_app.emit("mc-progress", pump_reporter.snapshot());
+            if pump_done.load(Ordering::Relaxed) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(120)).await;
+        }
+    });
+    let rep: SharedReporter = reporter.clone();
+    reporter.stage("Importing modpack");
+
+    let meta = modrinth::install_mrpack_path(&tmp, &inst, &rep).await;
+    done.store(true, Ordering::Relaxed);
+    let _ = app.emit("mc-progress", reporter.snapshot());
+    let _ = tokio::fs::remove_file(&tmp).await;
+    let meta = meta.map_err(err)?;
+
+    let cfg = InstanceConfig {
+        id,
+        name: stem,
+        version: if meta.minecraft.is_empty() { "1.21.1".into() } else { meta.minecraft },
+        loader: meta.loader,
+        max_ram_mb: 6144,
+        icon: None,
+    };
+    let mut list = load_instances(&state).await;
+    match list.iter_mut().find(|c| c.id == cfg.id) {
+        Some(e) => *e = cfg.clone(),
+        None => list.push(cfg.clone()),
+    }
+    store_instances(&state, &list).await?;
+    let _ = app.emit("mc-done", serde_json::json!({ "message": format!("Imported {}", cfg.name) }));
+    Ok(cfg)
+}
+
+// --- Server whitelist / ops manager --------------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessMember {
+    pub name: String,
+    pub uuid: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerAccess {
+    pub whitelist: Vec<AccessMember>,
+    pub ops: Vec<AccessMember>,
+}
+
+fn load_raw(path: &std::path::Path) -> Vec<serde_json::Value> {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default()
+}
+
+fn read_members(path: &std::path::Path) -> Vec<AccessMember> {
+    load_raw(path)
+        .iter()
+        .filter_map(|v| {
+            Some(AccessMember {
+                name: v.get("name")?.as_str()?.to_string(),
+                uuid: v.get("uuid").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+            })
+        })
+        .collect()
+}
+
+fn dash_uuid(id: &str) -> String {
+    if id.len() == 32 {
+        format!("{}-{}-{}-{}-{}", &id[0..8], &id[8..12], &id[12..16], &id[16..20], &id[20..32])
+    } else {
+        id.to_string()
+    }
+}
+
+/// Resolve a Minecraft username → (dashed uuid, canonical name) via Mojang.
+async fn resolve_uuid(name: &str) -> Result<(String, String), String> {
+    let resp = launcher_core::http::client()
+        .get(format!("https://api.mojang.com/users/profiles/minecraft/{name}"))
+        .send()
+        .await
+        .map_err(err)?;
+    if matches!(
+        resp.status(),
+        reqwest::StatusCode::NO_CONTENT | reqwest::StatusCode::NOT_FOUND
+    ) {
+        return Err(format!("No Minecraft account named \"{name}\""));
+    }
+    let v: serde_json::Value = resp.error_for_status().map_err(err)?.json().await.map_err(err)?;
+    let id = v.get("id").and_then(|x| x.as_str()).ok_or("Mojang returned no id")?;
+    let canon = v.get("name").and_then(|x| x.as_str()).unwrap_or(name).to_string();
+    Ok((dash_uuid(id), canon))
+}
+
+#[tauri::command]
+pub fn server_access(state: State<'_, AppState>, id: String) -> Result<ServerAccess, String> {
+    let dir = launcher_core::server::server_dir(&state.paths, &id);
+    Ok(ServerAccess {
+        whitelist: read_members(&dir.join("whitelist.json")),
+        ops: read_members(&dir.join("ops.json")),
+    })
+}
+
+fn save_raw(path: &std::path::Path, arr: &[serde_json::Value]) -> Result<(), String> {
+    if let Some(p) = path.parent() {
+        let _ = std::fs::create_dir_all(p);
+    }
+    std::fs::write(path, serde_json::to_vec_pretty(arr).map_err(err)?).map_err(err)
+}
+
+#[tauri::command]
+pub async fn access_add(
+    state: State<'_, AppState>,
+    id: String,
+    list: String, // "whitelist" | "ops"
+    name: String,
+) -> Result<AccessMember, String> {
+    let dir = launcher_core::server::server_dir(&state.paths, &id);
+    let (uuid, canon) = resolve_uuid(name.trim()).await?;
+    let file = if list == "ops" { "ops.json" } else { "whitelist.json" };
+    let path = dir.join(file);
+    let mut arr = load_raw(&path);
+    if !arr.iter().any(|v| v.get("uuid").and_then(|x| x.as_str()) == Some(uuid.as_str())) {
+        arr.push(if list == "ops" {
+            serde_json::json!({ "uuid": uuid, "name": canon, "level": 4, "bypassesPlayerLimit": false })
+        } else {
+            serde_json::json!({ "uuid": uuid, "name": canon })
+        });
+        save_raw(&path, &arr)?;
+    }
+    Ok(AccessMember { name: canon, uuid })
+}
+
+#[tauri::command]
+pub fn access_remove(
+    state: State<'_, AppState>,
+    id: String,
+    list: String,
+    uuid: String,
+) -> Result<(), String> {
+    let dir = launcher_core::server::server_dir(&state.paths, &id);
+    let file = if list == "ops" { "ops.json" } else { "whitelist.json" };
+    let path = dir.join(file);
+    let mut arr = load_raw(&path);
+    arr.retain(|v| v.get("uuid").and_then(|x| x.as_str()) != Some(uuid.as_str()));
+    save_raw(&path, &arr)
+}
+
 // --- Built-in config / text editor --------------------------------------
 
 const TEXT_EXTS: &[&str] = &[
@@ -670,6 +882,8 @@ pub async fn instance_play(
     app: AppHandle,
     state: State<'_, AppState>,
     id: String,
+    // Optional `host:port` to join directly via Quick Play (1.20+).
+    server: Option<String>,
 ) -> Result<String, String> {
     let cfg = load_instances(&state)
         .await
@@ -770,12 +984,16 @@ pub async fn instance_play(
         let _ = tokio::fs::create_dir_all(inst_dir.join("mods")).await;
 
         reporter.stage("Launching");
-        let options = LaunchOptions {
+        let mut options = LaunchOptions {
             max_memory_mb: cfg.max_ram_mb,
             game_directory: Some(inst_dir.clone()),
             launcher_name: "Aurora Launcher".to_string(),
             ..Default::default()
         };
+        if let Some(addr) = server.as_deref().filter(|s| !s.is_empty()) {
+            // Quick Play straight into the server, skipping the menus.
+            options.extra_game_args = vec!["--quickPlayMultiplayer".into(), addr.to_string()];
+        }
         let env = Environment::detect();
 
         // Capture the game's stdout/stderr to a log file in the instance dir.

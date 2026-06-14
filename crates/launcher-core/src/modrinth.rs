@@ -198,6 +198,16 @@ pub async fn install_file(
 struct MrpackIndex {
     #[serde(default)]
     files: Vec<MrpackFile>,
+    /// e.g. {"minecraft":"1.21.1","fabric-loader":"0.16.0"}
+    #[serde(default)]
+    dependencies: std::collections::HashMap<String, String>,
+}
+
+/// Minecraft version + loader a `.mrpack` targets (for building an instance).
+#[derive(Debug, Clone)]
+pub struct MrpackMeta {
+    pub minecraft: String,
+    pub loader: String,
 }
 
 #[derive(Deserialize)]
@@ -232,8 +242,6 @@ pub async fn install_modpack(
     version: &Version,
     reporter: &SharedReporter,
 ) -> Result<()> {
-    use std::io::Read;
-
     let file = version
         .primary_file()
         .ok_or_else(|| crate::Error::other("modpack has no downloadable file"))?;
@@ -244,12 +252,27 @@ pub async fn install_modpack(
         dl = dl.sha1(sha1.clone());
     }
     download::download_all(vec![dl], 2, reporter.clone()).await?;
+    let _ = install_mrpack_path(&mrpack, game_dir, reporter).await?;
+    let _ = tokio::fs::remove_file(&mrpack).await;
+    Ok(())
+}
 
-    // Parse the index and extract overrides on the blocking pool (zip is sync).
-    let mrpack2 = mrpack.clone();
+/// Install a modpack from a local `.mrpack` file: extract `overrides/` into
+/// `game_dir` and download every listed file. Returns the pack's target
+/// Minecraft version + loader (from `dependencies`), for building an instance.
+pub async fn install_mrpack_path(
+    mrpack: &std::path::Path,
+    game_dir: &std::path::Path,
+    reporter: &SharedReporter,
+) -> Result<MrpackMeta> {
+    use std::io::Read;
+    crate::util::ensure_dir(game_dir).await?;
+
+    let mrpack2 = mrpack.to_path_buf();
     let game2 = game_dir.to_path_buf();
-    let listed: Vec<(String, Vec<String>, Option<String>)> = tokio::task::spawn_blocking(
-        move || -> Result<Vec<(String, Vec<String>, Option<String>)>> {
+    type Listed = Vec<(String, Vec<String>, Option<String>)>;
+    let (listed, meta): (Listed, MrpackMeta) = tokio::task::spawn_blocking(
+        move || -> Result<(Listed, MrpackMeta)> {
             let f = std::fs::File::open(&mrpack2).map_err(|e| crate::Error::io(&mrpack2, e))?;
             let mut zip = zip::ZipArchive::new(f)?;
 
@@ -297,7 +320,24 @@ pub async fn install_modpack(
                     out.push((mf.path, mf.downloads, mf.hashes.sha1));
                 }
             }
-            Ok(out)
+
+            let deps = &index.dependencies;
+            let loader = if deps.contains_key("fabric-loader") {
+                "fabric"
+            } else if deps.contains_key("quilt-loader") {
+                "quilt"
+            } else if deps.contains_key("neoforge") {
+                "neoforge"
+            } else if deps.contains_key("forge") {
+                "forge"
+            } else {
+                "vanilla"
+            };
+            let meta = MrpackMeta {
+                minecraft: deps.get("minecraft").cloned().unwrap_or_default(),
+                loader: loader.to_string(),
+            };
+            Ok((out, meta))
         },
     )
     .await
@@ -315,9 +355,7 @@ pub async fn install_modpack(
         })
         .collect();
     download::download_all(downloads, crate::download::DEFAULT_CONCURRENCY, reporter.clone()).await?;
-
-    let _ = tokio::fs::remove_file(&mrpack).await;
-    Ok(())
+    Ok(meta)
 }
 
 #[cfg(test)]

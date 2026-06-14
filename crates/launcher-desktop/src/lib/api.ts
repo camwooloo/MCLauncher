@@ -601,10 +601,28 @@ export const createServerFromPack = (
     ? call("create_server_from_pack", { source, projectId, title, icon })
     : Promise.reject(new Error("Modpack install is only available in the desktop app"));
 
-export const instancePlay = (id: string): Promise<string> =>
+export const instancePlay = (id: string, server?: string | null): Promise<string> =>
   isTauri
-    ? call("instance_play", { id })
+    ? call("instance_play", { id, server: server ?? null })
     : Promise.reject(new Error("Launching is only available in the desktop app"));
+
+// ---- Server whitelist / ops ----
+export interface AccessMember { name: string; uuid: string }
+export interface ServerAccess { whitelist: AccessMember[]; ops: AccessMember[] }
+export const serverAccess = (id: string): Promise<ServerAccess> =>
+  isTauri ? call<ServerAccess>("server_access", { id }) : Promise.resolve({ whitelist: [], ops: [] });
+export const accessAdd = (id: string, list: "whitelist" | "ops", name: string): Promise<AccessMember> =>
+  isTauri ? call<AccessMember>("access_add", { id, list, name }) : Promise.resolve({ name, uuid: "0000" });
+export const accessRemove = (id: string, list: "whitelist" | "ops", uuid: string): Promise<void> =>
+  isTauri ? call<void>("access_remove", { id, list, uuid }) : Promise.resolve();
+
+// ---- Import / export instances ----
+export const exportInstance = (id: string): Promise<string> =>
+  isTauri ? call<string>("export_instance", { id }) : Promise.resolve("");
+export const importMrpack = (name: string, bytes: number[]): Promise<InstanceConfig> =>
+  isTauri
+    ? call<InstanceConfig>("import_mrpack", { name, bytes })
+    : Promise.reject(new Error("Import is only available in the desktop app"));
 
 export const openInstanceFolder = (id: string) =>
   isTauri ? call<void>("open_instance_folder", { id }) : Promise.resolve();

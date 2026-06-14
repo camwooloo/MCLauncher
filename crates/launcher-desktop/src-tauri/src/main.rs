@@ -31,15 +31,58 @@ fn main() {
     tauri::Builder::default()
         .manage(AppState::new())
         .setup(|app| {
-            // Apply the saved Discord Rich Presence preference on startup.
             use tauri::Manager;
+            // Apply the saved Discord Rich Presence preference on startup.
             let path = app.state::<AppState>().paths.settings_file();
             if let Ok(bytes) = std::fs::read(&path) {
                 if let Ok(s) = serde_json::from_slice::<settings::Settings>(&bytes) {
                     discord::set_enabled(s.discord_rpc);
                 }
             }
+
+            // System tray: closing the window hides to tray (so hosted servers
+            // keep running); the tray menu shows it again or quits for real.
+            use tauri::menu::{Menu, MenuItem};
+            use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+            let show = MenuItem::with_id(app, "show", "Open Aurora", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Quit (stops servers)", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show, &quit])?;
+            let mut tray = TrayIconBuilder::new()
+                .tooltip("Aurora Launcher")
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.unminimize();
+                            let _ = w.set_focus();
+                        }
+                    }
+                    "quit" => app.exit(0),
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click { .. } = event {
+                        if let Some(w) = tray.app_handle().get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.unminimize();
+                            let _ = w.set_focus();
+                        }
+                    }
+                });
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+            }
+            tray.build(app)?;
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // Hide to tray instead of quitting on the window close button.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_version,
@@ -104,6 +147,11 @@ fn main() {
             instances::list_config_files,
             instances::read_config_file,
             instances::write_config_file,
+            instances::server_access,
+            instances::access_add,
+            instances::access_remove,
+            instances::export_instance,
+            instances::import_mrpack,
             commands::check_app_update,
             commands::apply_app_update,
             commands::list_releases,

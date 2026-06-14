@@ -81,18 +81,47 @@ function RecentlyPlayed({ onContinue }: { onContinue: (r: api.PlayRecord) => voi
   );
 }
 
+interface LastSession {
+  id: string;
+  name: string;
+  address: string;
+}
+
 export function HomePanel({
   onSelect,
   onContinue,
+  onRejoin,
 }: {
   onSelect: (g: GameKey) => void;
   onContinue: (r: api.PlayRecord) => void;
+  onRejoin: (s: LastSession) => void;
 }) {
+  const [last, setLast] = useState<LastSession | null>(null);
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem("aurora:lastSession");
+      if (s) setLast(JSON.parse(s));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   return (
     <div className="hero">
       <div className="eyebrow">Welcome to</div>
       <h1 className="title">Aurora</h1>
       <p className="subtitle">One launcher for playing, modding and hosting — together.</p>
+
+      {last && (
+        <button className="rejoin-card" onClick={() => onRejoin(last)}>
+          <Icon.coop size={18} />
+          <span className="grow">
+            <b>Rejoin {last.name}</b>
+            <span className="muted" style={{ display: "block", fontSize: 12 }}>{last.address}</span>
+          </span>
+          <Icon.play size={14} />
+        </button>
+      )}
 
       <RecentlyPlayed onContinue={onContinue} />
 

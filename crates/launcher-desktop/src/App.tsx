@@ -216,6 +216,10 @@ function Shell() {
       selectGame(r.kind as GameKey);
     }
   };
+  const rejoin = (s: { id: string; name: string; address: string }) => {
+    selectGame("minecraft");
+    void playInstance(s.id, s.address);
+  };
   const setTab = (t: string) => setTabs((prev) => ({ ...prev, [activeGame]: t }));
   const currentTab = isGame ? tabs[section as GameKey] : "";
   // Accounts are Minecraft/Microsoft — only surface the chip there.
@@ -291,7 +295,7 @@ function Shell() {
 
           <div className="panel-scroll">
             <div className="view" key={`${section}:${currentTab}`}>
-              <Panel section={section} tab={currentTab} onSelectGame={selectGame} onContinue={continuePlay} />
+              <Panel section={section} tab={currentTab} onSelectGame={selectGame} onContinue={continuePlay} onRejoin={rejoin} />
             </div>
           </div>
         </main>
@@ -332,11 +336,13 @@ function Panel({
   tab,
   onSelectGame,
   onContinue,
+  onRejoin,
 }: {
   section: Section;
   tab: string;
   onSelectGame: (g: GameKey) => void;
   onContinue: (r: PlayRecord) => void;
+  onRejoin: (s: { id: string; name: string; address: string }) => void;
 }) {
   switch (section) {
     case "minecraft":
@@ -356,7 +362,7 @@ function Panel({
       if (tab === "Mods") return <CyberpunkMods />;
       return <CyberpunkPlay />;
     case "home":
-      return <HomePanel onSelect={onSelectGame} onContinue={onContinue} />;
+      return <HomePanel onSelect={onSelectGame} onContinue={onContinue} onRejoin={onRejoin} />;
     case "accounts":
       return <AccountsPanel />;
     case "settings":

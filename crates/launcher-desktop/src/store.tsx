@@ -56,7 +56,7 @@ interface Launcher {
   refreshInstances: () => Promise<void>;
   saveInstanceCfg: (cfg: InstanceConfig) => Promise<void>;
   deleteInstanceCfg: (id: string) => Promise<void>;
-  playInstance: (id: string) => Promise<void>;
+  playInstance: (id: string, server?: string) => Promise<void>;
   createFromPack: (source: string, projectId: string, title: string, icon: string | null) => Promise<void>;
   createServerFromPack: (source: string, projectId: string, title: string, icon: string | null) => Promise<void>;
   openInstanceFolder: (id: string) => Promise<void>;
@@ -240,12 +240,24 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     [refreshInstances, showToast]
   );
   const playInstance = useCallback(
-    async (id: string) => {
+    async (id: string, server?: string) => {
       setBusy(true);
       setProgress({ stage: "Preparing", total: 0, done: 0, fraction: 0 });
       try {
-        const msg = await api.instancePlay(id);
+        const msg = await api.instancePlay(id, server ?? null);
         showToast(msg);
+        // Remember a joined session so Home can offer "Rejoin".
+        if (server) {
+          const inst = instances.find((i) => i.id === id);
+          try {
+            localStorage.setItem(
+              "aurora:lastSession",
+              JSON.stringify({ id, name: inst?.name ?? "server", address: server })
+            );
+          } catch {
+            /* ignore */
+          }
+        }
       } catch (e) {
         showToast(`Error: ${e}`);
       } finally {
@@ -253,7 +265,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
         setProgress(null);
       }
     },
-    [showToast]
+    [showToast, instances]
   );
   const createFromPack = useCallback(
     async (source: string, projectId: string, title: string, icon: string | null) => {
@@ -352,6 +364,12 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       setBusy(true);
       setProgress({ stage: `Upgrading to ${newVersion}`, total: 0, done: 0, fraction: 0 });
       try {
+        // 0) auto-backup worlds before a version change (best-effort safety net)
+        try {
+          await api.createBackup(kind, id);
+        } catch {
+          /* no worlds yet / nothing to back up */
+        }
         // 1) bump the config version so content resolves against the new version
         if (kind === "instance") {
           const it = instances.find((i) => i.id === id);

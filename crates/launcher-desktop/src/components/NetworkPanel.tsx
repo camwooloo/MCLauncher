@@ -16,7 +16,7 @@ function packFromInstance(inst: InstanceConfig): api.PackRef | null {
 /** Aurora Net — built-in Tailscale VPN so friends can connect with no port
  *  forwarding. Phase 1 (setup/connect), Phase 2 (join), Phase 3 (host/share). */
 export function NetworkPanel() {
-  const { showToast } = useLauncher();
+  const { showToast, playInstance } = useLauncher();
   const [status, setStatus] = useState<api.VpnStatus | null>(null);
   const [hasToken, setHasToken] = useState(false);
   const [servers, setServers] = useState<ServerConfig[]>([]);
@@ -284,13 +284,19 @@ export function NetworkPanel() {
               </>
             )}
           </p>
-          <button
-            className="btn"
-            style={{ marginTop: 8 }}
-            onClick={() => copy(`${joined.ip}:${joined.port}`, "Address")}
-          >
-            <Icon.copy size={15} /> Copy address
-          </button>
+          <div className="row" style={{ marginTop: 8, gap: 8 }}>
+            {joined.game === "minecraft" && joined.pack && (
+              <button
+                className="btn-play"
+                onClick={() => void playInstance(`${joined.pack!.source}-${joined.pack!.projectId}`, `${joined.ip}:${joined.port}`)}
+              >
+                <Icon.play size={15} /> Launch &amp; join
+              </button>
+            )}
+            <button className="btn" onClick={() => copy(`${joined.ip}:${joined.port}`, "Address")}>
+              <Icon.copy size={15} /> Copy address
+            </button>
+          </div>
         </div>
       )}
 
