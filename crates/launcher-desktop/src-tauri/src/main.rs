@@ -8,6 +8,7 @@
 
 mod commands;
 mod content;
+mod discord;
 mod instances;
 mod inventory;
 mod progress;
@@ -84,6 +85,11 @@ fn main() {
             commands::vpn_set_token,
             commands::vpn_join,
             commands::vpn_share,
+            commands::vpn_peers,
+            instances::list_backups,
+            instances::create_backup,
+            instances::restore_backup,
+            instances::delete_backup,
             commands::check_app_update,
             commands::apply_app_update,
             commands::list_releases,

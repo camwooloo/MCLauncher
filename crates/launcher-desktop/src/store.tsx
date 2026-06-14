@@ -42,6 +42,7 @@ interface Launcher {
   consoleServerId: string | null;
   contentTarget: ContentTarget | null;
   inventoryTarget: ContentTarget | null;
+  backupTarget: ContentTarget | null;
   upgradeTarget: ContentTarget | null;
   systemRamMb: number;
 
@@ -71,6 +72,8 @@ interface Launcher {
   closeContent: () => void;
   openInventory: (target: ContentTarget) => void;
   closeInventory: () => void;
+  openBackups: (target: ContentTarget) => void;
+  closeBackups: () => void;
   openUpgrade: (target: ContentTarget) => void;
   closeUpgrade: () => void;
   upgrade: (kind: "instance" | "server", id: string, newVersion: string) => Promise<void>;
@@ -117,6 +120,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   const [consoleServerId, setConsoleServerId] = useState<string | null>(null);
   const [contentTarget, setContentTarget] = useState<ContentTarget | null>(null);
   const [inventoryTarget, setInventoryTarget] = useState<ContentTarget | null>(null);
+  const [backupTarget, setBackupTarget] = useState<ContentTarget | null>(null);
   const [upgradeTarget, setUpgradeTarget] = useState<ContentTarget | null>(null);
   const [systemRamMb, setSystemRamMb] = useState(16384);
   const [games, setGames] = useState<GamesStatus | null>(null);
@@ -333,6 +337,8 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   const closeContent = useCallback(() => setContentTarget(null), []);
   const openInventory = useCallback((t: ContentTarget) => setInventoryTarget(t), []);
   const closeInventory = useCallback(() => setInventoryTarget(null), []);
+  const openBackups = useCallback((t: ContentTarget) => setBackupTarget(t), []);
+  const closeBackups = useCallback(() => setBackupTarget(null), []);
   const openUpgrade = useCallback((t: ContentTarget) => setUpgradeTarget(t), []);
   const closeUpgrade = useCallback(() => setUpgradeTarget(null), []);
   const upgrade = useCallback(
@@ -559,6 +565,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       consoleServerId,
       contentTarget,
       inventoryTarget,
+      backupTarget,
       upgradeTarget,
       systemRamMb,
       activeAccount,
@@ -585,6 +592,8 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       closeContent,
       openInventory,
       closeInventory,
+      openBackups,
+      closeBackups,
       openUpgrade,
       closeUpgrade,
       upgrade,
@@ -620,6 +629,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       consoleServerId,
       contentTarget,
       inventoryTarget,
+      backupTarget,
       upgradeTarget,
       systemRamMb,
       activeAccount,
@@ -646,6 +656,8 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       closeContent,
       openInventory,
       closeInventory,
+      openBackups,
+      closeBackups,
       openUpgrade,
       closeUpgrade,
       upgrade,

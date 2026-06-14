@@ -61,6 +61,118 @@ pub struct InstanceConfig {
     pub icon: Option<String>,
 }
 
+// --- World backups -------------------------------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupInfo {
+    /// File name (also the id used to restore/delete).
+    pub file: String,
+    pub size: u64,
+    /// Created time (unix seconds), parsed from the filename.
+    pub created: u64,
+}
+
+/// `<data>/backups/<kind>-<id>/`
+fn backups_dir(state: &AppState, kind: &str, id: &str) -> PathBuf {
+    state.paths.data_dir.join("backups").join(format!("{kind}-{id}"))
+}
+
+/// The directory whose worlds we back up, and which subfolders hold worlds.
+fn backup_target(state: &AppState, kind: &str, id: &str) -> (PathBuf, Vec<&'static str>) {
+    if kind == "server" {
+        (
+            launcher_core::server::server_dir(&state.paths, id),
+            vec!["world", "world_nether", "world_the_end"],
+        )
+    } else {
+        (instance_dir(state, id), vec!["saves"])
+    }
+}
+
+#[tauri::command]
+pub async fn list_backups(
+    state: State<'_, AppState>,
+    kind: String,
+    id: String,
+) -> Result<Vec<BackupInfo>, String> {
+    let dir = backups_dir(&state, &kind, &id);
+    let mut out = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(&dir) {
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if !name.ends_with(".zip") {
+                continue;
+            }
+            let size = e.metadata().map(|m| m.len()).unwrap_or(0);
+            // filename: backup-<epoch>.zip
+            let created = name
+                .trim_start_matches("backup-")
+                .trim_end_matches(".zip")
+                .parse()
+                .unwrap_or(0);
+            out.push(BackupInfo { file: name, size, created });
+        }
+    }
+    out.sort_by(|a, b| b.created.cmp(&a.created));
+    Ok(out)
+}
+
+#[tauri::command]
+pub async fn create_backup(
+    state: State<'_, AppState>,
+    kind: String,
+    id: String,
+) -> Result<BackupInfo, String> {
+    let (root, include) = backup_target(&state, &kind, &id);
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let file = format!("backup-{secs}.zip");
+    let dest = backups_dir(&state, &kind, &id).join(&file);
+    let dest2 = dest.clone();
+    let added = tokio::task::spawn_blocking(move || launcher_core::backup::create(&root, &include, &dest2))
+        .await
+        .map_err(err)?
+        .map_err(err)?;
+    if added == 0 {
+        let _ = std::fs::remove_file(&dest);
+        return Err("No worlds found to back up yet — play once first.".into());
+    }
+    let size = std::fs::metadata(&dest).map(|m| m.len()).unwrap_or(0);
+    Ok(BackupInfo { file, size, created: secs })
+}
+
+#[tauri::command]
+pub async fn restore_backup(
+    state: State<'_, AppState>,
+    kind: String,
+    id: String,
+    file: String,
+) -> Result<(), String> {
+    let (root, _) = backup_target(&state, &kind, &id);
+    let zip = backups_dir(&state, &kind, &id).join(&file);
+    if !zip.exists() {
+        return Err("That backup no longer exists".into());
+    }
+    tokio::task::spawn_blocking(move || launcher_core::backup::restore(&zip, &root))
+        .await
+        .map_err(err)?
+        .map_err(err)
+}
+
+#[tauri::command]
+pub async fn delete_backup(
+    state: State<'_, AppState>,
+    kind: String,
+    id: String,
+    file: String,
+) -> Result<(), String> {
+    let zip = backups_dir(&state, &kind, &id).join(&file);
+    std::fs::remove_file(&zip).map_err(err)
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct InstancesFile {
     #[serde(default)]
@@ -624,6 +736,7 @@ pub async fn instance_play(
                 cfg.icon.clone(),
                 pid.unwrap_or(0),
             );
+            crate::discord::set_playing(&format!("Playing {}", cfg.name), "Minecraft · via Aurora");
             let msg = format!("Launched {}", cfg.name);
             let _ = app.emit("mc-done", serde_json::json!({ "message": msg, "pid": pid }));
             Ok(msg)

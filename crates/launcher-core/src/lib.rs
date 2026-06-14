@@ -17,6 +17,7 @@
 pub mod account;
 pub mod assets;
 pub mod auth;
+pub mod backup;
 pub mod download;
 pub mod epic;
 pub mod error;

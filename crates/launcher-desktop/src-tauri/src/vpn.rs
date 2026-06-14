@@ -93,6 +93,55 @@ pub async fn status() -> VpnStatus {
     st
 }
 
+/// A device on your Aurora Net (a "friend"), from `tailscale status`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Peer {
+    pub name: String,
+    pub ip: Option<String>,
+    pub online: bool,
+    /// This device (you).
+    pub me: bool,
+}
+
+fn node_to_peer(node: &serde_json::Value, me: bool) -> Peer {
+    Peer {
+        name: node.get("HostName").and_then(|s| s.as_str()).unwrap_or("device").to_string(),
+        ip: node
+            .get("TailscaleIPs")
+            .and_then(|a| a.as_array())
+            .and_then(|a| a.iter().find_map(|x| x.as_str()))
+            .map(String::from),
+        online: node.get("Online").and_then(|b| b.as_bool()).unwrap_or(false),
+        me,
+    }
+}
+
+/// Everyone on your tailnet (you + peers) with online state.
+pub async fn peers() -> Vec<Peer> {
+    let Some(exe) = tailscale_exe() else {
+        return vec![];
+    };
+    let Ok(out) = Command::new(&exe).args(["status", "--json"]).output().await else {
+        return vec![];
+    };
+    let Ok(v) = serde_json::from_slice::<serde_json::Value>(&out.stdout) else {
+        return vec![];
+    };
+    let mut peers = Vec::new();
+    if let Some(me) = v.get("Self") {
+        peers.push(node_to_peer(me, true));
+    }
+    if let Some(map) = v.get("Peer").and_then(|p| p.as_object()) {
+        for node in map.values() {
+            peers.push(node_to_peer(node, false));
+        }
+    }
+    // Online first, then by name.
+    peers.sort_by(|a, b| b.online.cmp(&a.online).then(a.name.cmp(&b.name)));
+    peers
+}
+
 /// Download and run the official Tailscale installer (shows a UAC prompt).
 pub async fn install() -> Result<(), String> {
     let bytes = launcher_core::http::client()
@@ -334,6 +383,18 @@ pub async fn ensure_access_rules(
 
 // --- Join code encoding --------------------------------------------------
 
+/// A Minecraft modpack reference carried in an invite, so the guest's launcher
+/// can build a matching client instance with one click.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackRef {
+    /// "modrinth" | "curseforge" | "ftb" | "technic".
+    pub source: String,
+    pub project_id: String,
+    pub title: String,
+    #[serde(default)]
+    pub icon: Option<String>,
+}
+
 /// The payload encoded into a join code and shared with friends.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JoinPayload {
@@ -346,6 +407,9 @@ pub struct JoinPayload {
     pub name: String,
     /// "minecraft" | "skyrim" | "eldenring" | "cyberpunk".
     pub game: String,
+    /// Optional modpack to auto-install on the guest (Minecraft co-op).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pack: Option<PackRef>,
 }
 
 /// Encode a payload into an opaque, copy-pasteable join code.
@@ -383,6 +447,12 @@ mod tests {
             port: 25565,
             name: "Cam's SMP".into(),
             game: "minecraft".into(),
+            pack: Some(PackRef {
+                source: "modrinth".into(),
+                project_id: "1KVo5zza".into(),
+                title: "Fabulously Optimized".into(),
+                icon: None,
+            }),
         };
         let code = encode_code(&p).unwrap();
         // Survives the user-facing prefix + stray whitespace.

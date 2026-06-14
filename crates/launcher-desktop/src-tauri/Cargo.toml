@@ -25,6 +25,7 @@ launcher-core.workspace = true
 reqwest.workspace = true
 base64.workspace = true
 flate2.workspace = true
+discord-rich-presence.workspace = true
 open = "5"
 sysinfo = "0.32"
 fastnbt = "2"

@@ -313,6 +313,7 @@ export function InstancesPanel() {
     openContent,
     openInventory,
     openUpgrade,
+    openBackups,
   } = useLauncher();
   const [editing, setEditing] = useState<InstanceConfig | null>(null);
 
@@ -405,6 +406,11 @@ export function InstancesPanel() {
                   label: "Edit inventory",
                   icon: <Icon.chest size={15} />,
                   onClick: () => openInventory({ kind: "instance", id: it.id, name: it.name, version: it.version, loader: null }),
+                },
+                {
+                  label: "World backups",
+                  icon: <Icon.host size={15} />,
+                  onClick: () => openBackups({ kind: "instance", id: it.id, name: it.name, version: it.version, loader: null }),
                 },
                 {
                   label: "Upgrade version",
@@ -541,6 +547,7 @@ export function MinecraftServers() {
     openUpgrade,
     createServerFromPack,
     showToast,
+    openBackups,
   } = useLauncher();
   const [editing, setEditing] = useState<ServerConfig | null>(null);
 
@@ -646,6 +653,11 @@ export function MinecraftServers() {
                     label: "Edit inventory",
                     icon: <Icon.chest size={15} />,
                     onClick: () => openInventory({ kind: "server", id: s.id, name: s.name, version: s.version, loader: null }),
+                  },
+                  {
+                    label: "World backups",
+                    icon: <Icon.host size={15} />,
+                    onClick: () => openBackups({ kind: "server", id: s.id, name: s.name, version: s.version, loader: null }),
                   },
                   ...(!running
                     ? [

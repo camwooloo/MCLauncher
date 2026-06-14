@@ -48,6 +48,8 @@ dirs = "5"
 url = "2"
 # OS CSPRNG for the OAuth PKCE verifier (loopback "no-code" sign-in).
 getrandom = "0.2"
+# Discord Rich Presence (optional; disabled if no client id is set).
+discord-rich-presence = "0.2"
 
 # Internal
 launcher-core = { path = "crates/launcher-core" }

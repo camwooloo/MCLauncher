@@ -460,6 +460,7 @@ export interface JoinPayload {
   port: number;
   name: string;
   game: string;
+  pack?: PackRef | null;
 }
 
 const mockVpn: VpnStatus = { installed: false, running: false, loggedIn: false, ip: null, hostname: null };
@@ -480,15 +481,53 @@ export const vpnJoin = (code: string): Promise<JoinPayload> =>
   isTauri
     ? call<JoinPayload>("vpn_join", { code })
     : Promise.reject(new Error("Aurora Net is only available in the desktop app"));
+export interface PackRef {
+  source: string;
+  projectId: string;
+  title: string;
+  icon?: string | null;
+}
 export const vpnShare = (args: {
   name: string;
   port: number;
   game: string;
   configureAccess: boolean;
+  pack?: PackRef | null;
 }): Promise<string> =>
   isTauri
     ? call<string>("vpn_share", { args })
     : Promise.reject(new Error("Aurora Net is only available in the desktop app"));
+
+export interface Peer {
+  name: string;
+  ip: string | null;
+  online: boolean;
+  me: boolean;
+}
+const mockPeers: Peer[] = [
+  { name: "your-pc", ip: "100.101.102.103", online: true, me: true },
+  { name: "cams-laptop", ip: "100.64.0.7", online: true, me: false },
+  { name: "alex-desktop", ip: "100.64.0.9", online: false, me: false },
+];
+export const vpnPeers = (): Promise<Peer[]> =>
+  isTauri ? call<Peer[]>("vpn_peers") : Promise.resolve(mockPeers);
+
+// ---- World backups ----
+export interface BackupInfo {
+  file: string;
+  size: number;
+  created: number;
+}
+export const listBackups = (kind: string, id: string): Promise<BackupInfo[]> =>
+  isTauri ? call<BackupInfo[]>("list_backups", { kind, id }) : Promise.resolve([]);
+export const createBackup = (kind: string, id: string): Promise<BackupInfo> =>
+  isTauri
+    ? call<BackupInfo>("create_backup", { kind, id })
+    : Promise.resolve({ file: "backup-0.zip", size: 0, created: Math.floor(Date.now() / 1000) });
+export const restoreBackup = (kind: string, id: string, file: string): Promise<void> =>
+  isTauri ? call<void>("restore_backup", { kind, id, file }) : Promise.resolve();
+export const deleteBackup = (kind: string, id: string, file: string): Promise<void> =>
+  isTauri ? call<void>("delete_backup", { kind, id, file }) : Promise.resolve();
 
 // ---- Instances ----
 import type { InstanceConfig } from "./types";

@@ -309,6 +309,12 @@ pub async fn vpn_disconnect() -> Result<(), String> {
     crate::vpn::down().await
 }
 
+/// Devices on your Aurora Net (friends), with online state.
+#[tauri::command]
+pub async fn vpn_peers() -> Result<Vec<crate::vpn::Peer>, String> {
+    Ok(crate::vpn::peers().await)
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VpnConfig {
@@ -352,6 +358,9 @@ pub struct ShareArgs {
     pub game: String,
     /// Also set Tailscale access rules so guests reach only this server.
     pub configure_access: bool,
+    /// Optional modpack bundled into the invite (Minecraft co-op).
+    #[serde(default)]
+    pub pack: Option<crate::vpn::PackRef>,
 }
 
 /// Host side: mint a guest key (+ optionally lock access to this server) and
@@ -378,6 +387,7 @@ pub async fn vpn_share(state: State<'_, AppState>, args: ShareArgs) -> Result<St
         port: args.port,
         name: args.name,
         game: args.game,
+        pack: args.pack,
     };
     crate::vpn::encode_code(&payload)
 }
@@ -658,13 +668,14 @@ pub fn launch_skyrim(state: State<'_, AppState>, mode: String) -> Result<u32, St
         _ => Vanilla,
     };
     let pid = skyrim::launch(&info, m).map_err(err)?;
-    crate::stats::record_session(&state.paths.data_dir, "game:skyrim", "Skyrim Special Edition", "skyrim", None, pid);
+    track_game(&state, "game:skyrim", "Skyrim Special Edition", "skyrim", pid);
     Ok(pid)
 }
 
-/// Record a launch + start playtime tracking (used by the game commands).
+/// Record a launch (stats + playtime tracking) and set Discord Rich Presence.
 fn track_game(state: &State<'_, AppState>, key: &str, name: &str, kind: &str, pid: u32) {
     crate::stats::record_session(&state.paths.data_dir, key, name, kind, None, pid);
+    crate::discord::set_playing(&format!("Playing {name}"), "via Aurora Launcher");
 }
 
 // --- Skyrim Together hosting (dedicated server) --------------------------

@@ -9,6 +9,7 @@ import { ServerDashboard } from "./components/ServerConsole";
 import { InstancesPanel, MinecraftServers, UpgradeModal } from "./components/MinecraftPanels";
 import { SkinsPanel, ContentOverlay } from "./components/ContentPanel";
 import { InventoryEditor } from "./components/InventoryEditor";
+import { BackupsModal } from "./components/BackupsModal";
 import {
   HomePanel,
   SkyrimPlay,
@@ -298,6 +299,7 @@ function Shell() {
       {consoleServerId && <ServerDashboard id={consoleServerId} onClose={closeConsole} />}
       {contentTarget && <ContentOverlay target={contentTarget} onClose={closeContent} />}
       {inventoryTarget && <InventoryEditor target={inventoryTarget} onClose={closeInventory} />}
+      <BackupsModal />
       <UpgradeModal />
       {toast && <div className="toast">{toast}</div>}
     </div>

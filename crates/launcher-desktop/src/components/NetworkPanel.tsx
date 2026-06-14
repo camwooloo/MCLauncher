@@ -2,8 +2,16 @@ import { useEffect, useState } from "react";
 
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
-import type { ServerConfig } from "../lib/types";
+import type { ServerConfig, InstanceConfig } from "../lib/types";
 import { Field, Icon, Pill, Select } from "./ui";
+
+/** Derive a modpack reference from an instance created from a pack (its id is
+ *  `<source>-<projectId>`). Returns null for hand-made instances. */
+function packFromInstance(inst: InstanceConfig): api.PackRef | null {
+  const m = /^(modrinth|curseforge|ftb|technic)-(.+)$/.exec(inst.id);
+  if (!m) return null;
+  return { source: m[1], projectId: m[2], title: inst.name, icon: inst.icon ?? null };
+}
 
 /** Aurora Net — built-in Tailscale VPN so friends can connect with no port
  *  forwarding. Phase 1 (setup/connect), Phase 2 (join), Phase 3 (host/share). */
@@ -12,6 +20,8 @@ export function NetworkPanel() {
   const [status, setStatus] = useState<api.VpnStatus | null>(null);
   const [hasToken, setHasToken] = useState(false);
   const [servers, setServers] = useState<ServerConfig[]>([]);
+  const [instances, setInstances] = useState<InstanceConfig[]>([]);
+  const [peers, setPeers] = useState<api.Peer[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
   const [joinCode, setJoinCode] = useState("");
@@ -21,13 +31,16 @@ export function NetworkPanel() {
   const [shareName, setShareName] = useState("");
   const [sharePort, setSharePort] = useState(25565);
   const [shareGame, setShareGame] = useState("minecraft");
+  const [sharePackId, setSharePackId] = useState("");
   const [lockAccess, setLockAccess] = useState(true);
   const [shareCode, setShareCode] = useState<string | null>(null);
 
   const refresh = async () => {
     try {
-      setStatus(await api.vpnStatus());
+      const st = await api.vpnStatus();
+      setStatus(st);
       setHasToken((await api.vpnConfig()).hasToken);
+      if (st.running) setPeers(await api.vpnPeers());
     } catch {
       /* ignore */
     }
@@ -36,7 +49,11 @@ export function NetworkPanel() {
   useEffect(() => {
     void refresh();
     api.listServers().then(setServers).catch(() => {});
+    api.listInstances().then(setInstances).catch(() => {});
   }, []);
+
+  // Instances that came from a modpack can be bundled into a Minecraft invite.
+  const packInstances = instances.filter((i) => packFromInstance(i));
 
   const copy = (text: string, what: string) => {
     void navigator.clipboard?.writeText(text);
@@ -96,6 +113,25 @@ export function NetworkPanel() {
       setJoinCode("");
       await refresh();
       showToast(`Joined ${payload.name}`);
+      // One-click: if the invite carries a modpack, build a matching instance.
+      if (payload.pack) {
+        const have = instances.some((i) => i.id === `${payload.pack!.source}-${payload.pack!.projectId}`);
+        if (!have) {
+          showToast(`Installing ${payload.pack.title}…`);
+          try {
+            await api.createInstanceFromPack(
+              payload.pack.source,
+              payload.pack.projectId,
+              payload.pack.title,
+              payload.pack.icon ?? null
+            );
+            api.listInstances().then(setInstances).catch(() => {});
+            showToast(`${payload.pack.title} ready — launch it from Minecraft`);
+          } catch (e) {
+            showToast(`Couldn't install the modpack: ${e}`);
+          }
+        }
+      }
     });
 
   const saveToken = () =>
@@ -108,11 +144,14 @@ export function NetworkPanel() {
 
   const share = () =>
     run("share", async () => {
+      const inst = packInstances.find((i) => i.id === sharePackId);
+      const pack = shareGame === "minecraft" && inst ? packFromInstance(inst) : null;
       const code = await api.vpnShare({
         name: shareName || "My server",
         port: sharePort,
         game: shareGame,
         configureAccess: lockAccess,
+        pack,
       });
       setShareCode(code);
       copy(code, "Join code");
@@ -181,6 +220,34 @@ export function NetworkPanel() {
           </div>
         </div>
       </div>
+
+      {/* Friends on Aurora Net */}
+      {running && peers.length > 0 && (
+        <>
+          <div className="sect-head" style={{ marginTop: 20 }}>
+            <div className="sect-title">Friends on Aurora Net</div>
+            <Pill tone="ok">{peers.filter((p) => p.online).length} online</Pill>
+          </div>
+          <div className="col" style={{ gap: 2 }}>
+            {peers.map((p) => (
+              <div className="lrow" key={p.ip ?? p.name}>
+                <span className={`net-dot ${p.online ? "on" : ""}`} style={{ marginLeft: 4 }} />
+                <div className="grow" style={{ marginLeft: 10 }}>
+                  <div className="name">
+                    {p.name} {p.me && <Pill>you</Pill>}
+                  </div>
+                  <div className="sub">{p.ip ?? "—"} · {p.online ? "online" : "offline"}</div>
+                </div>
+                {p.ip && !p.me && (
+                  <button className="btn ghost" onClick={() => copy(p.ip!, "Address")}>
+                    <Icon.copy size={14} /> Copy IP
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Join a friend */}
       <div className="sect-head" style={{ marginTop: 20 }}>
@@ -313,7 +380,25 @@ export function NetworkPanel() {
                 ]}
               />
             </Field>
+            {shareGame === "minecraft" && packInstances.length > 0 && (
+              <Field label="Bundle modpack (one-click join)">
+                <Select
+                  minWidth={220}
+                  value={sharePackId}
+                  onChange={setSharePackId}
+                  options={[
+                    { value: "", label: "None" },
+                    ...packInstances.map((i) => ({ value: i.id, label: i.name })),
+                  ]}
+                />
+              </Field>
+            )}
           </div>
+          {shareGame === "minecraft" && sharePackId && (
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              Friends who use this code will auto-install <b>{packInstances.find((i) => i.id === sharePackId)?.name}</b> and join — no manual setup.
+            </p>
+          )}
           <label className="row" style={{ gap: 8, marginTop: 10, alignItems: "center", cursor: "pointer" }}>
             <input type="checkbox" checked={lockAccess} onChange={(e) => setLockAccess(e.target.checked)} />
             <span>Lock guests to only this server (sets your Tailscale access rules)</span>
