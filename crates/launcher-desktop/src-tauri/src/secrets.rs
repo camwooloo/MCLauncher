@@ -19,7 +19,7 @@ pub const AZURE_CLIENT_ID: &str = "807e7c3a-1ab3-4dd0-a78c-95e5892945d5";
 /// Discord application (client) id for Rich Presence — a public identifier.
 /// Create a free app at https://discord.com/developers/applications, then paste
 /// its Application ID here. Empty = Rich Presence disabled.
-pub const DISCORD_CLIENT_ID: &str = "";
+pub const DISCORD_CLIENT_ID: &str = "1515804872740438250";
 
 /// Public repo URL — used for the "Get Aurora Launcher" Rich Presence button.
 pub const GITHUB_URL: &str = "https://github.com/camwooloo/MCLauncher";
