@@ -4,7 +4,7 @@
 
 # Aurora Launcher
 
-**A beautiful, liquid-glass multi-game launcher** — host & play modded Minecraft, launch Skyrim Together, run Elden Ring Seamless Co-op, and jack into CyberpunkMP, all from one place.
+**A beautiful, liquid-glass multi-game launcher** — host & play modded Minecraft, launch Skyrim Together, run Elden Ring Seamless Co-op, and jack into CyberpunkMP, all from one place. With a **built-in VPN** so you and your friends play together with **zero port forwarding**.
 
 [![Built with Rust](https://img.shields.io/badge/core-Rust-000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![Tauri 2](https://img.shields.io/badge/shell-Tauri%202-24C8DB?logo=tauri&logoColor=white)](https://tauri.app/)
@@ -25,6 +25,10 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 ---
 
 ## 📸 Screenshots
+
+**🌐 Aurora Net — play together with no port forwarding**
+
+![Aurora Net](docs/screenshots/09-aurora-net.png)
 
 | Home — pick a game | Minecraft — instances |
 |:---:|:---:|
@@ -67,6 +71,14 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 - Detects your install (**Steam or Epic**)
 - **CyberpunkMP** one-click install — the experimental multiplayer mod by the Skyrim Together team
 - **Cyber Engine Tweaks** one-click install for modding
+
+### 🌐 Aurora Net — co-op with **no port forwarding**
+The bit no other game launcher has: a **built-in mesh VPN** (powered by [Tailscale](https://tailscale.com/)) so you and your friends share a private, encrypted network — no router config, no port forwarding, no exposing your IP.
+
+- **One-time setup** — Aurora installs the secure-connection client and signs you in from inside the app (opens your browser, you approve). After that it's invisible.
+- **Join a friend** — paste the join code they send you. Aurora drops you onto their network as a throwaway guest and hands back the in-game address (for Minecraft, just add it as a server).
+- **Host** — flip on sharing for a server to generate a one-time join code. Guests can be **locked to only that server** (nothing else on your network) via auto-managed access rules.
+- Works for **Minecraft servers, Skyrim Together, Elden Ring Seamless Co-op and CyberpunkMP** alike — anything that listens on a port.
 
 ### 🎨 The whole thing is *gorgeous*
 - A **homepage** with big per-game tiles, in the launcher's own aurora purple/green identity

@@ -23,7 +23,9 @@ use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-const MSI_URL: &str = "https://pkgs.tailscale.com/stable/tailscale-setup-latest.msi";
+// Arch-specific MSI (the plain `-latest.msi` 404s); redirects to the current
+// versioned MSI, which reqwest follows.
+const MSI_URL: &str = "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi";
 const API_BASE: &str = "https://api.tailscale.com/api/v2";
 /// Tag applied to guest devices so access rules can target them.
 const GUEST_TAG: &str = "tag:aurora-guest";
