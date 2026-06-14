@@ -316,6 +316,7 @@ export function InstancesPanel() {
     openUpgrade,
     openBackups,
     openConfigEditor,
+    openCrash,
     showToast,
     refreshInstances,
   } = useLauncher();
@@ -442,6 +443,11 @@ export function InstancesPanel() {
                   label: "Edit configs",
                   icon: <Icon.terminal size={15} />,
                   onClick: () => openConfigEditor({ kind: "instance", id: it.id, name: it.name, version: it.version, loader: null }),
+                },
+                {
+                  label: "Diagnose last crash",
+                  icon: <Icon.refresh size={15} />,
+                  onClick: () => openCrash(it.id, it.name),
                 },
                 {
                   label: "Upgrade version",

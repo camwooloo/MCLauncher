@@ -78,6 +78,9 @@ interface Launcher {
   closeBackups: () => void;
   openConfigEditor: (target: ContentTarget) => void;
   closeConfigEditor: () => void;
+  crashTarget: { id: string; name: string } | null;
+  openCrash: (id: string, name: string) => void;
+  closeCrash: () => void;
   openUpgrade: (target: ContentTarget) => void;
   closeUpgrade: () => void;
   upgrade: (kind: "instance" | "server", id: string, newVersion: string) => Promise<void>;
@@ -247,9 +250,22 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     async (id: string, server?: string) => {
       setBusy(true);
       setProgress({ stage: "Preparing", total: 0, done: 0, fraction: 0 });
+      const launchAt = Math.floor(Date.now() / 1000);
       try {
         const msg = await api.instancePlay(id, server ?? null);
         showToast(msg);
+        // Watch for an early crash; if one lands, surface the analyzer.
+        const name = instances.find((i) => i.id === id)?.name ?? "Instance";
+        [7000, 16000, 28000].forEach((delay) =>
+          setTimeout(() => {
+            api
+              .analyzeCrash(id)
+              .then((c) => {
+                if (c.found && c.when >= launchAt - 2 && c.culpritFile) setCrashTarget({ id, name });
+              })
+              .catch(() => {});
+          }, delay)
+        );
         // Remember a joined session so Home can offer "Rejoin".
         if (server) {
           const inst = instances.find((i) => i.id === id);
@@ -361,6 +377,9 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   const closeBackups = useCallback(() => setBackupTarget(null), []);
   const openConfigEditor = useCallback((t: ContentTarget) => setConfigTarget(t), []);
   const closeConfigEditor = useCallback(() => setConfigTarget(null), []);
+  const [crashTarget, setCrashTarget] = useState<{ id: string; name: string } | null>(null);
+  const openCrash = useCallback((id: string, name: string) => setCrashTarget({ id, name }), []);
+  const closeCrash = useCallback(() => setCrashTarget(null), []);
   const openUpgrade = useCallback((t: ContentTarget) => setUpgradeTarget(t), []);
   const closeUpgrade = useCallback(() => setUpgradeTarget(null), []);
   const upgrade = useCallback(
@@ -626,6 +645,9 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       closeBackups,
       openConfigEditor,
       closeConfigEditor,
+      crashTarget,
+      openCrash,
+      closeCrash,
       openUpgrade,
       closeUpgrade,
       upgrade,
@@ -694,6 +716,9 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       closeBackups,
       openConfigEditor,
       closeConfigEditor,
+      crashTarget,
+      openCrash,
+      closeCrash,
       openUpgrade,
       closeUpgrade,
       upgrade,

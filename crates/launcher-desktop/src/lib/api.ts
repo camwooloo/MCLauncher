@@ -616,6 +616,22 @@ export const accessAdd = (id: string, list: "whitelist" | "ops", name: string): 
 export const accessRemove = (id: string, list: "whitelist" | "ops", uuid: string): Promise<void> =>
   isTauri ? call<void>("access_remove", { id, list, uuid }) : Promise.resolve();
 
+// ---- Crash analyzer ----
+export interface CrashInfo {
+  found: boolean;
+  when: number;
+  title: string;
+  culpritName: string | null;
+  culpritFile: string | null;
+  reportPath: string;
+}
+export const analyzeCrash = (id: string): Promise<CrashInfo> =>
+  isTauri
+    ? call<CrashInfo>("analyze_crash", { id })
+    : Promise.resolve({ found: true, when: Math.floor(Date.now() / 1000), title: "Failed to initialize Controlify", culpritName: "Controlify", culpritFile: "controlify-3.0.0+lts+1.21.5-fabric.jar", reportPath: "crash-reports/latest.txt" });
+export const disableMod = (id: string, file: string): Promise<void> =>
+  isTauri ? call<void>("disable_mod", { id, file }) : Promise.resolve();
+
 // ---- Import / export instances ----
 export const exportInstance = (id: string): Promise<string> =>
   isTauri ? call<string>("export_instance", { id }) : Promise.resolve("");

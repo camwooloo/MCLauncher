@@ -61,6 +61,141 @@ pub struct InstanceConfig {
     pub icon: Option<String>,
 }
 
+// --- Crash analyzer ------------------------------------------------------
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CrashInfo {
+    pub found: bool,
+    /// Crash-report mtime (unix secs) — lets the UI ignore stale reports.
+    pub when: u64,
+    /// The crash report's "Description" line.
+    pub title: String,
+    /// Friendly name of the mod we think caused it.
+    pub culprit_name: Option<String>,
+    /// The jar in mods/ to disable (file name only).
+    pub culprit_file: Option<String>,
+    pub report_path: String,
+}
+
+/// Find the third-party mod token most likely responsible for a crash.
+fn crash_culprit_token(text: &str) -> Option<String> {
+    // 1) "Description: Failed to initialize Controlify" → "controlify".
+    for line in text.lines() {
+        if let Some(rest) = line.trim().strip_prefix("Description:") {
+            if let Some(name) = rest.trim().strip_prefix("Failed to initialize ") {
+                let tok = name.trim().split_whitespace().next().unwrap_or("").to_lowercase();
+                if !tok.is_empty() {
+                    return Some(tok);
+                }
+            }
+        }
+    }
+    // 2) First stack frame in a third-party package (skip vanilla/loader/jdk).
+    for line in text.lines() {
+        let l = line.trim();
+        if !l.starts_with("at ") {
+            continue;
+        }
+        let pkg = l.trim_start_matches("at ").split("//").last().unwrap_or("");
+        let segs: Vec<&str> = pkg.split('.').collect();
+        if segs.len() < 3 {
+            continue;
+        }
+        let (root, second) = (segs[0], segs[1]);
+        let skip = matches!(root, "java" | "javax" | "sun" | "jdk" | "kotlin" | "knot")
+            || (root == "net" && matches!(second, "minecraft" | "fabricmc"))
+            || (root == "com" && second == "mojang");
+        if matches!(root, "dev" | "com" | "io" | "me" | "org" | "net" | "gg" | "fr") && !skip {
+            // e.g. dev.isxander.controlify → "controlify"; com.x.coolmod → "coolmod"
+            let tok = segs[2].to_lowercase();
+            if tok.len() > 2 {
+                return Some(tok);
+            }
+        }
+    }
+    None
+}
+
+#[tauri::command]
+pub fn analyze_crash(state: State<'_, AppState>, id: String) -> Result<CrashInfo, String> {
+    let inst = instance_dir(&state, &id);
+    let dir = inst.join("crash-reports");
+    let newest = std::fs::read_dir(&dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().extension().map(|x| x == "txt").unwrap_or(false))
+        .max_by_key(|e| e.metadata().and_then(|m| m.modified()).ok());
+
+    let empty = CrashInfo {
+        found: false,
+        when: 0,
+        title: String::new(),
+        culprit_name: None,
+        culprit_file: None,
+        report_path: String::new(),
+    };
+    let Some(entry) = newest else { return Ok(empty) };
+
+    let path = entry.path();
+    let when = entry
+        .metadata()
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+    let title = text
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("Description:").map(|s| s.trim().to_string()))
+        .unwrap_or_else(|| "Minecraft crashed".into());
+
+    let token = crash_culprit_token(&text);
+    let (culprit_name, culprit_file) = match token {
+        Some(tok) => {
+            let jar = std::fs::read_dir(inst.join("mods"))
+                .ok()
+                .into_iter()
+                .flatten()
+                .flatten()
+                .filter_map(|e| e.file_name().to_str().map(String::from))
+                .find(|f| f.to_lowercase().ends_with(".jar") && f.to_lowercase().contains(&tok));
+            // Friendly name: prefer the word from the Description, else the token.
+            let name = title
+                .strip_prefix("Failed to initialize ")
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|| {
+                    let mut c = tok.chars();
+                    c.next().map(|f| f.to_uppercase().collect::<String>() + c.as_str()).unwrap_or(tok.clone())
+                });
+            (Some(name), jar)
+        }
+        None => (None, None),
+    };
+
+    Ok(CrashInfo {
+        found: true,
+        when,
+        title,
+        culprit_name,
+        culprit_file,
+        report_path: path.to_string_lossy().into_owned(),
+    })
+}
+
+/// Disable a mod by renaming its jar to `.jar.disabled` (Fabric ignores it).
+#[tauri::command]
+pub fn disable_mod(state: State<'_, AppState>, id: String, file: String) -> Result<(), String> {
+    if file.contains('/') || file.contains('\\') || file.contains("..") {
+        return Err("Invalid file name".into());
+    }
+    let mods = instance_dir(&state, &id).join("mods");
+    std::fs::rename(mods.join(&file), mods.join(format!("{file}.disabled"))).map_err(err)
+}
+
 // --- Import / export instances -------------------------------------------
 
 /// Zip an instance's content (mods/config/packs) to `<data>/exports/<name>.zip`

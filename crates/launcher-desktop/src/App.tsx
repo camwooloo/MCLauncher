@@ -11,6 +11,7 @@ import { SkinsPanel, ContentOverlay } from "./components/ContentPanel";
 import { InventoryEditor } from "./components/InventoryEditor";
 import { BackupsModal } from "./components/BackupsModal";
 import { ConfigEditor } from "./components/ConfigEditor";
+import { CrashModal } from "./components/CrashModal";
 import {
   HomePanel,
   SkyrimPlay,
@@ -325,6 +326,7 @@ function Shell() {
       {inventoryTarget && <InventoryEditor target={inventoryTarget} onClose={closeInventory} />}
       <BackupsModal />
       {configTarget && <ConfigEditor target={configTarget} onClose={closeConfigEditor} />}
+      <CrashModal />
       <UpgradeModal />
       {toast && <div className="toast">{toast}</div>}
     </div>

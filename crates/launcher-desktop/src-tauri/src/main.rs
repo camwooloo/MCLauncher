@@ -152,6 +152,8 @@ fn main() {
             instances::access_remove,
             instances::export_instance,
             instances::import_mrpack,
+            instances::analyze_crash,
+            instances::disable_mod,
             commands::check_app_update,
             commands::apply_app_update,
             commands::list_releases,
