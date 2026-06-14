@@ -70,6 +70,7 @@ fn main() {
             content::check_updates,
             content::apply_update,
             content::set_skin,
+            content::set_skin_from_url,
             instances::list_instances,
             instances::save_instance,
             instances::delete_instance,

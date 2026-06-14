@@ -1021,6 +1021,44 @@ code {
   overflow: hidden;
 }
 
+/* Skin gallery */
+.skin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+.skin-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 8px 10px;
+  border-radius: 16px;
+  background: var(--glass);
+  border: 1px solid var(--stroke);
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.skin-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: var(--glass-2);
+  border-color: var(--stroke-2);
+}
+.skin-card.sel {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.skin-card:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.skin-card .skin-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* Inline text button that reads as a link. */
 .linklike {
   background: none;

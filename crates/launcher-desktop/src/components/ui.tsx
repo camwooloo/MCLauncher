@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 const TEX_BASE =
   "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21.1/assets/minecraft/textures";
@@ -250,6 +250,37 @@ export const Icon = {
 
 export function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
+}
+
+/** Render the face (head + hat overlay) of a 64×64 skin texture onto a canvas,
+ *  for previewing any skin URL in the gallery. Drawn at native pixels then
+ *  scaled up crisp — no external render service needed. */
+export function SkinFace({ url, size = 72 }: { url: string; size?: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      ctx.clearRect(0, 0, size, size);
+      ctx.imageSmoothingEnabled = false;
+      // Head front face at (8,8) and the hat/overlay layer at (40,8), each 8×8.
+      ctx.drawImage(img, 8, 8, 8, 8, 0, 0, size, size);
+      ctx.drawImage(img, 40, 8, 8, 8, 0, 0, size, size);
+    };
+    img.src = url;
+  }, [url, size]);
+  return (
+    <canvas
+      ref={ref}
+      width={size}
+      height={size}
+      style={{ width: size, height: size, imageRendering: "pixelated", display: "block" }}
+    />
+  );
 }
 
 /** Render URL for a player's skin head (face), by UUID — what other launchers

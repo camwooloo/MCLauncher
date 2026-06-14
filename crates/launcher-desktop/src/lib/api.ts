@@ -348,6 +348,11 @@ export const setSkin = (variant: string, png: number[]) =>
     ? call<void>("set_skin", { variant, png })
     : Promise.reject(new Error("Skins are only available in the desktop app"));
 
+export const setSkinFromUrl = (variant: string, url: string) =>
+  isTauri
+    ? call<void>("set_skin_from_url", { variant, url })
+    : Promise.reject(new Error("Skins are only available in the desktop app"));
+
 // ---- Instances ----
 import type { InstanceConfig } from "./types";
 

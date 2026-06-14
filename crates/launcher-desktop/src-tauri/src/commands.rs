@@ -169,6 +169,32 @@ pub async fn microsoft_login_code(
     finish_login(&app, &state, result, "microsoft_login_code").await
 }
 
+/// Load the active account, silently refreshing a Microsoft token first so
+/// online actions (launching, skins) use a valid token. The refreshed token is
+/// persisted. Falls back to the stored account if the refresh fails (offline,
+/// transient error) so the caller still gets *something* usable.
+pub(crate) async fn active_account_refreshed(
+    paths: &launcher_core::paths::Paths,
+) -> Result<Account, String> {
+    let path = paths.accounts_file();
+    let mut store = AccountStore::load(&path).await.map_err(err)?;
+    let active = store
+        .active()
+        .cloned()
+        .ok_or_else(|| "No active account".to_string())?;
+    if active.account.is_online() && !active.refresh_token.is_empty() {
+        if let Ok(res) = Auth::new(crate::secrets::AZURE_CLIENT_ID.to_string())
+            .login_with_refresh(&active.refresh_token)
+            .await
+        {
+            store.upsert(res.account.clone(), res.refresh_token);
+            let _ = store.save(&path).await;
+            return Ok(res.account);
+        }
+    }
+    Ok(active.account)
+}
+
 /// Shared tail of both sign-in flows: persist the account or surface the error.
 async fn finish_login(
     app: &AppHandle,

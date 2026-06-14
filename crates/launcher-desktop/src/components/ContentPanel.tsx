@@ -3,7 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
 import type { ContentTarget, InstalledItem, SearchHit, UpdateResult } from "../lib/types";
-import { Field, Pill, Icon } from "./ui";
+import { Field, Pill, Icon, SkinFace } from "./ui";
+import { SKIN_GALLERY, type GallerySkin } from "../lib/skins";
 
 function fmt(n: number) {
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
@@ -290,70 +291,117 @@ function Installed({ target, showToast }: { target: ContentTarget; showToast: (m
 export function SkinsPanel() {
   const { activeAccount, showToast } = useLauncher();
   const [variant, setVariant] = useState<"classic" | "slim">("classic");
-  const [png, setPng] = useState<number[] | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [urlInput, setUrlInput] = useState("");
   const account = activeAccount();
   const online = account?.user_type === "msa";
+
+  const applyUrl = async (url: string, key: string) => {
+    setBusy(key);
+    try {
+      await api.setSkinFromUrl(variant, url);
+      showToast("Skin applied — restart your game to see it");
+    } catch (e) {
+      showToast(`${e}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const applyGallery = (s: GallerySkin) => {
+    setSelected(s.id);
+    setVariant(s.variant);
+    void applyUrl(s.url, s.id);
+  };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    const buf = await f.arrayBuffer();
-    setPng(Array.from(new Uint8Array(buf)));
-    setPreview(URL.createObjectURL(f));
-  };
-
-  const apply = async () => {
-    if (!png) return;
-    setBusy(true);
+    setBusy("upload");
     try {
-      await api.setSkin(variant, png);
-      showToast("Skin applied");
-    } catch (e) {
-      showToast(`${e}`);
+      const buf = await f.arrayBuffer();
+      await api.setSkin(variant, Array.from(new Uint8Array(buf)));
+      showToast("Skin applied — restart your game to see it");
+    } catch (err) {
+      showToast(`${err}`);
     } finally {
-      setBusy(false);
+      setBusy(null);
+      e.target.value = "";
     }
   };
+
+  if (!online) {
+    return (
+      <div className="sect">
+        <div className="sect-head">
+          <div className="sect-title">Skins</div>
+        </div>
+        <p className="muted">Sign in with a Microsoft account (top-right) to change your skin.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="sect">
       <div className="sect-head">
         <div className="sect-title">Skins</div>
-      </div>
-      {!online ? (
-        <p className="muted">Sign in with a Microsoft account (top-right) to change your skin.</p>
-      ) : (
-        <>
-          <p className="muted">Upload a 64×64 PNG skin for {account?.username} and apply it instantly.</p>
-          <div className="row wrap" style={{ alignItems: "flex-end" }}>
-            {preview && (
-              <img
-                src={preview}
-                alt="skin preview"
-                style={{ width: 96, height: 96, imageRendering: "pixelated", borderRadius: 12, border: "1px solid var(--stroke)" }}
-              />
-            )}
-            <Field label="Skin file (.png)">
-              <input className="input" type="file" accept="image/png" onChange={onFile} />
-            </Field>
-            <Field label="Model">
-              <div className="seg">
-                <button className={variant === "classic" ? "on" : ""} onClick={() => setVariant("classic")}>
-                  Classic
-                </button>
-                <button className={variant === "slim" ? "on" : ""} onClick={() => setVariant("slim")}>
-                  Slim
-                </button>
-              </div>
-            </Field>
-            <button className="btn-play" style={{ padding: "11px 22px", fontSize: 14 }} disabled={!png || busy} onClick={apply}>
-              <Icon.check size={16} /> Apply skin
+        <Field label="Model">
+          <div className="seg">
+            <button className={variant === "classic" ? "on" : ""} onClick={() => setVariant("classic")}>
+              Classic
+            </button>
+            <button className={variant === "slim" ? "on" : ""} onClick={() => setVariant("slim")}>
+              Slim
             </button>
           </div>
-        </>
-      )}
+        </Field>
+      </div>
+      <p className="muted">Pick a skin for {account?.username} — it applies instantly.</p>
+
+      <div className="skin-grid">
+        {SKIN_GALLERY.map((s) => (
+          <button
+            key={s.id}
+            className={`skin-card${selected === s.id ? " sel" : ""}`}
+            disabled={busy !== null}
+            onClick={() => applyGallery(s)}
+            title={`Apply ${s.name} (${s.variant})`}
+          >
+            <SkinFace url={s.url} size={72} />
+            <span className="skin-name">{busy === s.id ? "Applying…" : s.name}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="sect-head" style={{ marginTop: 20 }}>
+        <div className="sect-title">Use your own</div>
+      </div>
+      <p className="muted">
+        Paste a skin link from any site (e.g. NameMC, The Skindex) or upload a 64×64 PNG. The chosen
+        model (Classic / Slim) above is used.
+      </p>
+      <div className="row wrap" style={{ alignItems: "flex-end" }}>
+        <Field label="Skin image URL">
+          <input
+            className="input"
+            style={{ minWidth: 320 }}
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            placeholder="https://…/skin.png"
+          />
+        </Field>
+        <button
+          className="btn"
+          disabled={busy !== null || !urlInput.trim()}
+          onClick={() => applyUrl(urlInput.trim(), "url")}
+        >
+          <Icon.check size={16} /> {busy === "url" ? "Applying…" : "Apply URL"}
+        </button>
+        <Field label="Upload a .png">
+          <input className="input" type="file" accept="image/png" onChange={onFile} disabled={busy !== null} />
+        </Field>
+      </div>
     </div>
   );
 }

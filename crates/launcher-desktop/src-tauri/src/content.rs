@@ -324,16 +324,48 @@ pub async fn set_skin(
     variant: String,
     png: Vec<u8>,
 ) -> Result<(), String> {
-    use launcher_core::account::AccountStore;
+    let account = crate::commands::active_account_refreshed(&state.paths).await?;
+    upload_skin(&account, &variant, png).await
+}
 
-    let store = AccountStore::load(&state.paths.accounts_file()).await.map_err(err)?;
-    let acct = store.active().ok_or_else(|| "No active account".to_string())?;
-    if acct.account.user_type != "msa" || acct.account.access_token == "0" {
+/// Apply a skin from any image URL (gallery items, or a pasted link). We
+/// download the PNG ourselves and upload the bytes — so it works for any URL
+/// the launcher can reach, not just ones Mojang's own fetcher would accept.
+#[tauri::command]
+pub async fn set_skin_from_url(
+    state: State<'_, AppState>,
+    variant: String,
+    url: String,
+) -> Result<(), String> {
+    let account = crate::commands::active_account_refreshed(&state.paths).await?;
+    let bytes = launcher_core::http::client()
+        .get(&url)
+        .send()
+        .await
+        .map_err(err)?
+        .error_for_status()
+        .map_err(|_| "Couldn't download that skin URL".to_string())?
+        .bytes()
+        .await
+        .map_err(err)?;
+    // PNG magic number — reject HTML error pages / non-PNG images early.
+    if bytes.len() < 8 || &bytes[..8] != b"\x89PNG\r\n\x1a\n" {
+        return Err("That link isn't a PNG image. Use a direct .png skin URL.".into());
+    }
+    upload_skin(&account, &variant, bytes.to_vec()).await
+}
+
+/// Shared skin upload: validate the account is online, POST the PNG to Mojang.
+async fn upload_skin(
+    account: &launcher_core::account::Account,
+    variant: &str,
+    png: Vec<u8>,
+) -> Result<(), String> {
+    if account.user_type != "msa" || account.access_token == "0" {
         return Err("Sign in with a Microsoft account to change your skin".into());
     }
-
     let model = if variant == "slim" { "slim" } else { "classic" };
-    let form = reqwest::multipart::Form::new().text("variant", model).part(
+    let form = reqwest::multipart::Form::new().text("variant", model.to_string()).part(
         "file",
         reqwest::multipart::Part::bytes(png)
             .file_name("skin.png")
@@ -343,7 +375,7 @@ pub async fn set_skin(
 
     let resp = launcher_core::http::client()
         .post("https://api.minecraftservices.com/minecraft/profile/skins")
-        .bearer_auth(&acct.account.access_token)
+        .bearer_auth(&account.access_token)
         .multipart(form)
         .send()
         .await
