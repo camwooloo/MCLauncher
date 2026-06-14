@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import * as api from "../lib/api";
 import type { ServerLog, ServerStatus } from "../lib/types";
-import { Icon } from "./ui";
+import { Icon, HostAddress } from "./ui";
+import { useLauncher } from "../store";
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
@@ -24,6 +25,7 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 
 /** In-app dashboard overlay for one hosted server. */
 export function ServerDashboard({ id, onClose }: { id: string; onClose: () => void }) {
+  const { showToast } = useLauncher();
   const [lines, setLines] = useState<ServerLog[]>([]);
   const [status, setStatus] = useState<ServerStatus | null>(null);
   const [cmd, setCmd] = useState("");
@@ -98,6 +100,8 @@ export function ServerDashboard({ id, onClose }: { id: string; onClose: () => vo
           <Stat label="Port" value={status?.port ? String(status.port) : "—"} />
           <Stat label="Version" value={status?.version || "—"} />
         </div>
+
+        {running && status?.port && <HostAddress port={status.port} onCopy={showToast} />}
 
         <div className="console">
           {lines.length === 0 && <div style={{ opacity: 0.5 }}>Waiting for server output…</div>}
