@@ -311,9 +311,24 @@ impl VersionJson {
     /// The child wins for scalar fields it specifies; libraries are
     /// concatenated with the child's first (so its overrides take precedence
     /// on the classpath); arguments are appended.
+    ///
+    /// Crucially, libraries are **deduplicated by Maven coordinate**
+    /// (`group:artifact[:classifier]`, ignoring version). A modloader profile
+    /// often pins a newer version of a library the vanilla profile also ships
+    /// (e.g. Fabric needs `org.ow2.asm:asm:9.10.1` while 1.21.5 vanilla carries
+    /// `9.6`). Putting *both* on the classpath makes Fabric's loader abort with
+    /// "duplicate ASM classes found on classpath". Keeping the first occurrence
+    /// means the child's (loader's) version wins, exactly as the official
+    /// launcher resolves it.
     pub fn merge_onto_parent(self, parent: VersionJson) -> VersionJson {
-        let mut libraries = self.libraries;
-        libraries.extend(parent.libraries);
+        let mut combined = self.libraries;
+        combined.extend(parent.libraries);
+
+        let mut seen = std::collections::HashSet::new();
+        let libraries: Vec<Library> = combined
+            .into_iter()
+            .filter(|lib| seen.insert(library_dedupe_key(&lib.name)))
+            .collect();
 
         let arguments = match (self.arguments, parent.arguments) {
             (Some(mut child), Some(p)) => {
@@ -341,6 +356,23 @@ impl VersionJson {
             java_version: self.java_version.or(parent.java_version),
             kind: self.kind.or(parent.kind),
         }
+    }
+}
+
+/// Key a Maven library `name` by everything *except* its version, so two
+/// versions of the same artifact collapse to one entry while the main jar and
+/// its natives sibling (which differ by classifier) stay distinct.
+///
+/// `group:artifact:version`              → `group:artifact`
+/// `group:artifact:version:classifier`   → `group:artifact:classifier`
+fn library_dedupe_key(name: &str) -> String {
+    let parts: Vec<&str> = name.split(':').collect();
+    match parts.as_slice() {
+        [group, artifact, _version, classifier, ..] => {
+            format!("{group}:{artifact}:{classifier}")
+        }
+        [group, artifact, ..] => format!("{group}:{artifact}"),
+        _ => name.to_string(),
     }
 }
 
@@ -429,6 +461,74 @@ mod tests {
             os_version: "10.0".into(),
             features: Features::default(),
         }
+    }
+
+    impl VersionJson {
+        fn empty() -> Self {
+            VersionJson {
+                id: String::new(),
+                inherits_from: None,
+                main_class: None,
+                assets: None,
+                asset_index: None,
+                downloads: None,
+                libraries: Vec::new(),
+                arguments: None,
+                minecraft_arguments: None,
+                java_version: None,
+                kind: None,
+            }
+        }
+    }
+
+    fn lib(name: &str) -> Library {
+        Library {
+            name: name.to_string(),
+            downloads: None,
+            url: None,
+            rules: Vec::new(),
+            natives: None,
+            extract: None,
+        }
+    }
+
+    #[test]
+    fn dedupe_key_ignores_version_keeps_classifier() {
+        // Two ASM versions collapse to one key…
+        assert_eq!(
+            library_dedupe_key("org.ow2.asm:asm:9.10.1"),
+            library_dedupe_key("org.ow2.asm:asm:9.6")
+        );
+        // …but the main jar and its natives sibling stay distinct.
+        assert_ne!(
+            library_dedupe_key("org.lwjgl:lwjgl:3.3.3"),
+            library_dedupe_key("org.lwjgl:lwjgl:3.3.3:natives-windows")
+        );
+    }
+
+    #[test]
+    fn merge_dedupes_duplicate_library_versions_child_wins() {
+        // Child (loader) pins asm 9.10.1; parent (vanilla) ships 9.6.
+        let child = VersionJson {
+            id: "fabric-loader-1.21.5".into(),
+            inherits_from: Some("1.21.5".into()),
+            libraries: vec![lib("org.ow2.asm:asm:9.10.1")],
+            ..VersionJson::empty()
+        };
+        let parent = VersionJson {
+            id: "1.21.5".into(),
+            inherits_from: None,
+            libraries: vec![lib("org.ow2.asm:asm:9.6"), lib("org.lwjgl:lwjgl:3.3.3")],
+            ..VersionJson::empty()
+        };
+        let merged = child.merge_onto_parent(parent);
+        let names: Vec<&str> = merged.libraries.iter().map(|l| l.name.as_str()).collect();
+        // Only ONE asm, and it's the child's newer version.
+        assert_eq!(names.iter().filter(|n| n.contains(":asm:")).count(), 1);
+        assert!(names.contains(&"org.ow2.asm:asm:9.10.1"));
+        assert!(!names.contains(&"org.ow2.asm:asm:9.6"));
+        // Unrelated parent libs survive.
+        assert!(names.contains(&"org.lwjgl:lwjgl:3.3.3"));
     }
 
     #[test]

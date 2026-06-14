@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { useLauncher } from "../store";
-import { Icon, initials } from "./ui";
+import { Avatar, Icon } from "./ui";
 
 /** Top-right account chip + dropdown — the home for account switching/sign-in. */
 export function AccountMenu({ onManage }: { onManage: () => void }) {
@@ -12,7 +12,7 @@ export function AccountMenu({ onManage }: { onManage: () => void }) {
   return (
     <div style={{ position: "relative" }}>
       <button className="acct-chip" onClick={() => setOpen((o) => !o)}>
-        <span className="av">{acct ? initials(acct.username) : "?"}</span>
+        {acct ? <Avatar account={acct} size={30} /> : <span className="av">?</span>}
         <span className="nm">{acct ? acct.username : "Sign in"}</span>
         <Icon.chevron size={15} />
       </button>
@@ -32,9 +32,7 @@ export function AccountMenu({ onManage }: { onManage: () => void }) {
                       setOpen(false);
                     }}
                   >
-                    <span className="av" style={{ width: 28, height: 28, fontSize: 11 }}>
-                      {initials(a.username)}
-                    </span>
+                    <Avatar account={a} size={28} />
                     <span className="grow" style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: 13.5 }}>{a.username}</div>
                       <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>

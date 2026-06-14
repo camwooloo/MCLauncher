@@ -252,6 +252,47 @@ export function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 
+/** Render URL for a player's skin head (face), by UUID — what other launchers
+ *  show. mc-heads accepts the dashless UUID we store and renders the account's
+ *  *current* skin. */
+export function skinHeadUrl(uuid: string, size = 64) {
+  return `https://mc-heads.net/avatar/${uuid}/${size}`;
+}
+
+/** A player avatar: the live skin-head portrait for Microsoft accounts, with a
+ *  graceful fall back to monogram initials (offline accounts, or if the head
+ *  service is unreachable). */
+export function Avatar({
+  account,
+  size = 32,
+}: {
+  account: { username: string; uuid: string; user_type: string };
+  size?: number;
+}) {
+  const isMsa = account.user_type === "msa";
+  const [failed, setFailed] = useState(false);
+  const showHead = isMsa && !failed;
+  return (
+    <span
+      className="av"
+      style={{ width: size, height: size, fontSize: size * 0.38, borderRadius: Math.round(size * 0.3), padding: 0 }}
+    >
+      {showHead ? (
+        <img
+          src={skinHeadUrl(account.uuid, Math.max(64, Math.round(size * 2)))}
+          alt={account.username}
+          width={size}
+          height={size}
+          style={{ width: "100%", height: "100%", objectFit: "cover", imageRendering: "pixelated" }}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        initials(account.username)
+      )}
+    </span>
+  );
+}
+
 /** The Aurora logo: northern-lights ribbons over a night sky, with a star. */
 export function AuroraMark({ size = 24 }: { size?: number }) {
   return (

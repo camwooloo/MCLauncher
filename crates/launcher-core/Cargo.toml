@@ -25,6 +25,7 @@ thiserror.workspace = true
 tracing.workspace = true
 dirs.workspace = true
 url.workspace = true
+getrandom.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

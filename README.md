@@ -78,7 +78,7 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 
 ## 🛠️ Tech stack
 
-- **`launcher-core`** — Rust library: Mojang manifest, parallel download engine, Adoptium Java auto-download, Microsoft (device-code) auth, Fabric/Quilt/Forge/NeoForge installers, Modrinth/CurseForge/FTB/Technic modpack installs, server hosting, NBT inventory editing.
+- **`launcher-core`** — Rust library: Mojang manifest, parallel download engine, Adoptium Java auto-download, Microsoft auth (browser "no-code" loopback **and** device-code fallback), Fabric/Quilt/Forge/NeoForge installers, Modrinth/CurseForge/FTB/Technic modpack installs, server hosting, NBT inventory editing.
 - **`launcher-desktop`** — [Tauri 2](https://tauri.app/) shell + a React 18 / TypeScript / Vite frontend, bridged by typed commands.
 - Packaged as an **NSIS** Windows installer.
 
@@ -121,7 +121,7 @@ Modrinth, FTB, sign-in and server hosting all work without any key.
 
 ## 🔐 Privacy & accounts
 
-Aurora uses the official **Microsoft device-code** flow for Minecraft sign-in — no passwords pass through the app, and tokens are stored locally on your machine. Offline accounts are supported for testing.
+Aurora signs you in through the **official Microsoft OAuth flow** — it opens your browser, you sign in and approve, and Aurora captures the result over a temporary local redirect (no code to copy). A **device-code** fallback ("use a sign-in code instead") is available too. No passwords pass through the app, and tokens are stored locally on your machine. Once signed in, your account shows your live **skin portrait**. Offline accounts are supported for testing.
 
 ---
 

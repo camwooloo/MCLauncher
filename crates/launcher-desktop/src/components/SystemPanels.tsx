@@ -2,11 +2,20 @@ import { useState } from "react";
 
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
-import { Field, Pill, Icon, Select, initials } from "./ui";
+import { Field, Pill, Icon, Select, Avatar } from "./ui";
 
 export function AccountsPanel() {
-  const { store, addOffline, microsoftLogin, setActive, removeAccount, loginPrompt, loginError, busy } =
-    useLauncher();
+  const {
+    store,
+    addOffline,
+    microsoftLogin,
+    microsoftLoginCode,
+    setActive,
+    removeAccount,
+    loginPrompt,
+    loginError,
+    busy,
+  } = useLauncher();
   const [name, setName] = useState("");
 
   return (
@@ -14,9 +23,15 @@ export function AccountsPanel() {
       <div className="sect-head">
         <div className="sect-title">Sign in</div>
         <button className="btn-play" style={{ padding: "11px 22px", fontSize: 14 }} disabled={busy} onClick={microsoftLogin}>
-          <Icon.user size={17} /> Microsoft
+          <Icon.user size={17} /> Sign in with Microsoft
         </button>
       </div>
+      <p className="muted" style={{ marginTop: -4 }}>
+        Opens your browser — just sign in and approve, no code to copy.{" "}
+        <button className="linklike" disabled={busy} onClick={microsoftLoginCode}>
+          Use a sign-in code instead
+        </button>
+      </p>
 
       <div className="row wrap" style={{ alignItems: "flex-end" }}>
         <Field label="Offline username">
@@ -70,7 +85,7 @@ export function AccountsPanel() {
           const active = a.uuid === store.active_uuid;
           return (
             <div className="lrow" key={a.uuid}>
-              <div className="avatar">{initials(a.username)}</div>
+              <Avatar account={a} size={38} />
               <div className="grow">
                 <div className="name">
                   {a.username} {active && <Pill tone="ok">active</Pill>}

@@ -7,6 +7,7 @@
 //! isolated per instance.
 
 use std::path::PathBuf;
+use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -15,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
 use launcher_core::account::AccountStore;
+use launcher_core::auth::Auth;
 use launcher_core::launch::{self, LaunchOptions};
 use launcher_core::manifest::VersionManifest;
 use launcher_core::modloader::{fabric, forge, neoforge, quilt};
@@ -29,6 +31,19 @@ use crate::state::AppState;
 
 fn err<E: std::fmt::Display>(e: E) -> String {
     e.to_string()
+}
+
+/// Read the last `n` non-empty lines of a log file (best-effort), for surfacing
+/// the reason a freshly-launched game crashed on startup.
+fn tail_of(path: &std::path::Path, n: usize) -> String {
+    match std::fs::read_to_string(path) {
+        Ok(text) => {
+            let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+            let start = lines.len().saturating_sub(n);
+            lines[start..].join("\n")
+        }
+        Err(_) => "(no log captured)".to_string(),
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -459,11 +474,37 @@ pub async fn instance_play(
     let paths = state.paths.clone();
     let inst_dir = instance_dir(&state, &id);
 
-    let store = AccountStore::load(&paths.accounts_file()).await.map_err(err)?;
-    let account = store
+    let accounts_path = paths.accounts_file();
+    let mut store = AccountStore::load(&accounts_path).await.map_err(err)?;
+    let active = store
         .active()
-        .map(|a| a.account.clone())
+        .cloned()
         .ok_or_else(|| "Add an account first (top-right menu)".to_string())?;
+
+    // For Microsoft accounts, silently refresh the access token before
+    // launching so the session is genuinely *online*: multiplayer works and
+    // mods like Fabulously Optimized's Crash Assistant won't flag "offline
+    // mode / unsupported launcher". Tokens expire after ~24h. A refresh failure
+    // is non-fatal — we fall back to the stored token (the game still runs;
+    // online features just may not).
+    let account = if active.account.is_online() && !active.refresh_token.is_empty() {
+        match Auth::new(crate::secrets::AZURE_CLIENT_ID.to_string())
+            .login_with_refresh(&active.refresh_token)
+            .await
+        {
+            Ok(res) => {
+                store.upsert(res.account.clone(), res.refresh_token);
+                let _ = store.save(&accounts_path).await;
+                res.account
+            }
+            Err(e) => {
+                eprintln!("[instance_play] token refresh failed, using stored token: {e}");
+                active.account.clone()
+            }
+        }
+    } else {
+        active.account.clone()
+    };
 
     // Progress pump → "mc-progress" events (shared with the UI's existing bar).
     let reporter = Arc::new(EventReporter::default());
@@ -526,12 +567,46 @@ pub async fn instance_play(
         let options = LaunchOptions {
             max_memory_mb: cfg.max_ram_mb,
             game_directory: Some(inst_dir.clone()),
+            launcher_name: "Aurora Launcher".to_string(),
             ..Default::default()
         };
         let env = Environment::detect();
-        let child = launch::launch(&installed, &paths, &java, &account, &options, &env).await?;
+
+        // Capture the game's stdout/stderr to a log file in the instance dir.
+        // The Tauri app has no console (`windows_subsystem = "windows"`), so
+        // without this an early crash would vanish silently and we'd falsely
+        // report "Launched". The file also lets the user inspect crashes later.
+        let log_path = inst_dir.join("aurora-launch.log");
+        let mut command = launch::build_command(&installed, &paths, &java, &account, &options, &env)?;
+        if let Ok(file) = std::fs::File::create(&log_path) {
+            if let Ok(file2) = file.try_clone() {
+                command.stdout(Stdio::from(file));
+                command.stderr(Stdio::from(file2));
+            }
+        }
+
+        let mut child = command
+            .spawn()
+            .map_err(|e| launcher_core::Error::other(format!("failed to start Java: {e}")))?;
         let pid = child.id();
-        drop(child);
+
+        // Give the JVM a moment to fall over (bad classpath, missing natives,
+        // an incompatible mod). If it exits non-zero almost immediately, the
+        // launch really failed — surface the tail of the log instead of lying.
+        match tokio::time::timeout(Duration::from_millis(4000), child.wait()).await {
+            Ok(Ok(status)) if !status.success() => {
+                let tail = tail_of(&log_path, 24);
+                let code = status.code().map(|c| c.to_string()).unwrap_or_else(|| "signal".into());
+                return Err(launcher_core::Error::other(format!(
+                    "Minecraft exited immediately (code {code}). Last output:\n{tail}"
+                )));
+            }
+            // Still running after the grace window (the normal case) — detach
+            // and let it run. Dropping a tokio Child does not kill it.
+            Err(_) => drop(child),
+            // Exited cleanly/instantly, or wait errored — treat as launched.
+            _ => {}
+        }
         Ok::<_, launcher_core::Error>(pid)
     };
 

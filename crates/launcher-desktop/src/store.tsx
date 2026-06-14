@@ -81,6 +81,7 @@ interface Launcher {
   play: (opts: { loader: string; version: string; server?: string }) => Promise<void>;
   addOffline: (name: string) => Promise<void>;
   microsoftLogin: () => Promise<void>;
+  microsoftLoginCode: () => Promise<void>;
   setActive: (uuid: string) => Promise<void>;
   removeAccount: (uuid: string) => Promise<void>;
 
@@ -169,6 +170,9 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
         setLoginError(p.message);
       }),
       api.listen<{ username: string }>("login-ok", () => setLoginError(null)),
+      api.listen<Record<string, never>>("login-opened", () =>
+        showToast("Check your browser to finish signing in")
+      ),
       api.listen<{ message: string }>("mc-done", (p) => showToast(p.message)),
       api.listen<{ message: string }>("mc-error", (p) => showToast(`Error: ${p.message}`)),
       api.listen<ServerStatus>("server-status", mergeStatus),
@@ -421,21 +425,29 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     [refreshAccounts, showToast]
   );
 
-  const microsoftLogin = useCallback(async () => {
-    setBusy(true);
-    setLoginPrompt(null);
-    setLoginError(null);
-    try {
-      const acct = await api.microsoftLogin();
-      await refreshAccounts();
-      showToast(`Signed in as ${acct.username}`);
-    } catch (e) {
-      showToast(`Login failed: ${e}`);
-    } finally {
-      setBusy(false);
+  const runLogin = useCallback(
+    async (fn: () => Promise<{ username: string }>) => {
+      setBusy(true);
       setLoginPrompt(null);
-    }
-  }, [refreshAccounts, showToast]);
+      setLoginError(null);
+      try {
+        const acct = await fn();
+        await refreshAccounts();
+        showToast(`Signed in as ${acct.username}`);
+      } catch (e) {
+        showToast(`Login failed: ${e}`);
+      } finally {
+        setBusy(false);
+        setLoginPrompt(null);
+      }
+    },
+    [refreshAccounts, showToast]
+  );
+
+  // Default "no-code" flow: opens the browser, captures the redirect.
+  const microsoftLogin = useCallback(() => runLogin(api.microsoftLogin), [runLogin]);
+  // Fallback flow: shows a short code to type at microsoft.com/link.
+  const microsoftLoginCode = useCallback(() => runLogin(api.microsoftLoginCode), [runLogin]);
 
   const setActive = useCallback(
     async (uuid: string) => {
@@ -581,6 +593,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       play,
       addOffline,
       microsoftLogin,
+      microsoftLoginCode,
       setActive,
       removeAccount,
       launchSkyrim,
@@ -641,6 +654,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       play,
       addOffline,
       microsoftLogin,
+      microsoftLoginCode,
       setActive,
       removeAccount,
       launchSkyrim,

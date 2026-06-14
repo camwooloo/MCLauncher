@@ -121,6 +121,12 @@ export const microsoftLogin = (): Promise<Account> =>
     ? call("microsoft_login")
     : Promise.reject(new Error("Microsoft login is only available in the desktop app"));
 
+/** Fallback device-code sign-in (visit a URL + type a short code). */
+export const microsoftLoginCode = (): Promise<Account> =>
+  isTauri
+    ? call("microsoft_login_code")
+    : Promise.reject(new Error("Microsoft login is only available in the desktop app"));
+
 export interface PlayArgs {
   version: string;
   loader: string;

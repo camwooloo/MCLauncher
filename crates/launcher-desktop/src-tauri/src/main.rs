@@ -39,6 +39,7 @@ fn main() {
             commands::set_active_account,
             commands::remove_account,
             commands::microsoft_login,
+            commands::microsoft_login_code,
             commands::minecraft_versions,
             commands::play_minecraft,
             commands::detect_games,

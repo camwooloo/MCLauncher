@@ -124,14 +124,37 @@ pub async fn remove_account(state: State<'_, AppState>, uuid: String) -> Result<
     Ok(())
 }
 
+/// The default, "no-code" sign-in: open the browser, the user signs in and
+/// approves, we capture the redirect. No code to copy.
 #[tauri::command]
 pub async fn microsoft_login(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<Account, String> {
     let auth = Auth::new(crate::secrets::AZURE_CLIENT_ID.to_string());
+    let browser_app = app.clone();
+    let result = auth
+        .login_auth_code(|url| {
+            // Let the UI show "check your browser…" and open the sign-in page.
+            let _ = browser_app.emit("login-opened", serde_json::json!({}));
+            if let Err(e) = open::that(url) {
+                eprintln!("[microsoft_login] couldn't open browser: {e}");
+            }
+        })
+        .await;
+    finish_login(&app, &state, result, "microsoft_login").await
+}
+
+/// Fallback sign-in using the device-code flow (visit a URL, type a short
+/// code). Works even if the Azure app has no redirect URI registered.
+#[tauri::command]
+pub async fn microsoft_login_code(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Account, String> {
+    let auth = Auth::new(crate::secrets::AZURE_CLIENT_ID.to_string());
     let prompt_app = app.clone();
-    let result = match auth
+    let result = auth
         .login_device_code(|dc| {
             let _ = prompt_app.emit(
                 "login-prompt",
@@ -142,12 +165,22 @@ pub async fn microsoft_login(
                 }),
             );
         })
-        .await
-    {
+        .await;
+    finish_login(&app, &state, result, "microsoft_login_code").await
+}
+
+/// Shared tail of both sign-in flows: persist the account or surface the error.
+async fn finish_login(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+    result: Result<launcher_core::auth::AuthResult, launcher_core::Error>,
+    tag: &str,
+) -> Result<Account, String> {
+    let result = match result {
         Ok(r) => r,
         Err(e) => {
             let msg = e.to_string();
-            eprintln!("[microsoft_login] failed: {msg}");
+            eprintln!("[{tag}] failed: {msg}");
             let _ = app.emit("login-error", serde_json::json!({ "message": msg.clone() }));
             return Err(msg);
         }
@@ -162,7 +195,7 @@ pub async fn microsoft_login(
         return Err(msg);
     }
     let _ = app.emit("login-ok", serde_json::json!({ "username": result.account.username }));
-    eprintln!("[microsoft_login] signed in as {}", result.account.username);
+    eprintln!("[{tag}] signed in as {}", result.account.username);
     Ok(result.account)
 }
 

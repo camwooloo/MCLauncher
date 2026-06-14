@@ -1008,6 +1008,37 @@ code {
   flex: 0 0 auto;
 }
 
+/* Player avatar (skin head or initials) used in the account chip/menu/list. */
+.av {
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--on-accent);
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+/* Inline text button that reads as a link. */
+.linklike {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.linklike:hover {
+  filter: brightness(1.15);
+}
+.linklike:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* Toggle switch */
 .switch {
   position: relative;

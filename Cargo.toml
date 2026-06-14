@@ -15,7 +15,7 @@ rust-version = "1.80"
 
 [workspace.dependencies]
 # Async runtime
-tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "fs", "process", "io-util", "sync", "time"] }
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "fs", "process", "io-util", "sync", "time", "net"] }
 futures = "0.3"
 
 # HTTP
@@ -46,6 +46,8 @@ dirs = "5"
 
 # Misc
 url = "2"
+# OS CSPRNG for the OAuth PKCE verifier (loopback "no-code" sign-in).
+getrandom = "0.2"
 
 # Internal
 launcher-core = { path = "crates/launcher-core" }

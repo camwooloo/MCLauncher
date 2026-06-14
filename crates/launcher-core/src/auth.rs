@@ -2,9 +2,15 @@
 //!
 //! Mojang accounts are gone; logging in is a five-step token chain:
 //!
-//! 1. **Microsoft OAuth2** — we use the *device-code* flow: the user visits a
-//!    URL and types a short code, so we need neither a redirect server nor a
-//!    custom URL scheme. Yields an MS access token + refresh token.
+//! 1. **Microsoft OAuth2** — two interactive flows are offered:
+//!    * [`Auth::login_auth_code`] — the "no-code" flow other launchers use: we
+//!      spin up a throwaway `http://localhost:<port>` listener, open the system
+//!      browser to the Microsoft sign-in page, and capture the redirect with
+//!      the authorization code (PKCE-protected). The user just signs in and
+//!      approves — nothing to copy.
+//!    * [`Auth::login_device_code`] — the fallback: the user visits a URL and
+//!      types a short code. Needs no redirect URI registered.
+//!    Either yields an MS access token + refresh token.
 //! 2. **Xbox Live** — exchange the MS token for an XBL token + user hash.
 //! 3. **XSTS** — authorize the XBL token for the Minecraft relying party;
 //!    also surfaces the XUID and common "no Xbox account / child account"
@@ -13,9 +19,12 @@
 //! 5. **Profile** — fetch the player's UUID and name.
 //!
 //! ### Azure setup required
-//! You must register a free Azure AD application (Entra ID) to obtain a
-//! **client id**, configure it as a *public client* allowing the device-code
-//! flow, and have the Minecraft API scope enabled. Pass that id to
+//! Register a free Azure AD application (Entra ID) to obtain a **client id**,
+//! configure it as a *public client*, and enable the Minecraft API scope. The
+//! device-code flow needs only "Allow public client flows". The no-code
+//! ([`login_auth_code`]) flow additionally needs a **redirect URI** of
+//! `http://localhost` registered under *Mobile and desktop applications* (the
+//! loopback port is wildcarded by Microsoft, so any port works). Pass the id to
 //! [`Auth::new`].
 
 use serde::Deserialize;
@@ -26,6 +35,8 @@ use crate::{Error, Result};
 
 const DEVICE_CODE_URL: &str =
     "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
+const AUTHORIZE_URL: &str =
+    "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize";
 const TOKEN_URL: &str = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
 const XBL_URL: &str = "https://user.auth.xboxlive.com/user/authenticate";
 const XSTS_URL: &str = "https://xsts.auth.xboxlive.com/xsts/authorize";
@@ -117,6 +128,68 @@ impl Auth {
         self.complete_chain(ms).await
     }
 
+    /// "No-code" login (authorization-code + PKCE over a loopback redirect).
+    ///
+    /// Opens a local listener on `127.0.0.1:<random port>`, calls `open_browser`
+    /// with the Microsoft sign-in URL (the caller launches the system browser),
+    /// then waits for the browser to redirect back with the authorization code.
+    /// The user never copies anything — they just sign in and approve.
+    ///
+    /// Requires `http://localhost` to be a registered redirect URI on the Azure
+    /// app (*Mobile and desktop applications* platform).
+    pub async fn login_auth_code<F>(&self, open_browser: F) -> Result<AuthResult>
+    where
+        F: FnOnce(&str),
+    {
+        use base64::Engine;
+
+        // --- PKCE: high-entropy verifier + its S256 challenge ---
+        let verifier = random_b64url(32)?;
+        let challenge = {
+            use sha2::{Digest, Sha256};
+            let digest = Sha256::digest(verifier.as_bytes());
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(digest)
+        };
+        // CSRF guard echoed back in the redirect.
+        let state = random_b64url(16)?;
+
+        // --- Loopback listener on an ephemeral port ---
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .map_err(|e| Error::Auth(format!("couldn't start the local sign-in server: {e}")))?;
+        let port = listener
+            .local_addr()
+            .map_err(|e| Error::Auth(e.to_string()))?
+            .port();
+        let redirect_uri = format!("http://localhost:{port}");
+
+        // --- Build the authorize URL and hand it to the browser ---
+        let mut url = url::Url::parse(AUTHORIZE_URL)
+            .map_err(|e| Error::Auth(format!("bad authorize URL: {e}")))?;
+        url.query_pairs_mut()
+            .append_pair("client_id", &self.client_id)
+            .append_pair("response_type", "code")
+            .append_pair("redirect_uri", &redirect_uri)
+            .append_pair("response_mode", "query")
+            .append_pair("scope", SCOPE)
+            .append_pair("code_challenge", &challenge)
+            .append_pair("code_challenge_method", "S256")
+            .append_pair("state", &state)
+            .append_pair("prompt", "select_account");
+        open_browser(url.as_str());
+
+        // --- Wait (with a 5-minute cap) for the redirect ---
+        let code = tokio::time::timeout(
+            std::time::Duration::from_secs(300),
+            accept_redirect(&listener, &state),
+        )
+        .await
+        .map_err(|_| Error::Auth("sign-in timed out — no response from the browser".into()))??;
+
+        let ms = self.exchange_code(&code, &verifier, &redirect_uri).await?;
+        self.complete_chain(ms).await
+    }
+
     // --- Step 1: Microsoft OAuth2 (device code) --------------------------
 
     async fn request_device_code(&self) -> Result<DeviceCode> {
@@ -170,6 +243,36 @@ impl Auth {
                 }
             }
         }
+    }
+
+    /// Exchange a loopback authorization code (+ PKCE verifier) for tokens.
+    async fn exchange_code(
+        &self,
+        code: &str,
+        verifier: &str,
+        redirect_uri: &str,
+    ) -> Result<MsToken> {
+        let resp = crate::http::client()
+            .post(TOKEN_URL)
+            .form(&[
+                ("client_id", self.client_id.as_str()),
+                ("grant_type", "authorization_code"),
+                ("code", code),
+                ("redirect_uri", redirect_uri),
+                ("code_verifier", verifier),
+                ("scope", SCOPE),
+            ])
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            let snippet: String = text.chars().take(300).collect();
+            return Err(Error::Auth(format!(
+                "token exchange failed: {}",
+                snippet.trim()
+            )));
+        }
+        Ok(resp.json::<MsToken>().await?)
     }
 
     async fn refresh(&self, refresh_token: &str) -> Result<MsToken> {
@@ -320,6 +423,112 @@ impl Auth {
         }
         Ok(resp.error_for_status()?.json::<McProfile>().await?)
     }
+}
+
+/// `n` bytes of OS entropy as a URL-safe-no-pad base64 string (PKCE verifier
+/// / CSRF state).
+fn random_b64url(n: usize) -> Result<String> {
+    use base64::Engine;
+    let mut buf = vec![0u8; n];
+    getrandom::getrandom(&mut buf)
+        .map_err(|e| Error::Auth(format!("couldn't gather randomness for sign-in: {e}")))?;
+    Ok(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(buf))
+}
+
+/// Accept connections on the loopback listener until one carries the OAuth
+/// redirect (`/?code=…&state=…` or `/?error=…`). Other requests (favicon, etc.)
+/// get a "waiting…" page and are ignored. Returns the authorization code.
+async fn accept_redirect(listener: &tokio::net::TcpListener, expected_state: &str) -> Result<String> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    loop {
+        let (mut stream, _) = listener
+            .accept()
+            .await
+            .map_err(|e| Error::Auth(format!("loopback accept failed: {e}")))?;
+
+        // The request line ("GET /path?query HTTP/1.1") is all we need.
+        let mut buf = [0u8; 8192];
+        let n = stream.read(&mut buf).await.unwrap_or(0);
+        let req = String::from_utf8_lossy(&buf[..n]);
+        let target = req
+            .lines()
+            .next()
+            .and_then(|line| line.split_whitespace().nth(1))
+            .unwrap_or("");
+        let query = target.split_once('?').map(|(_, q)| q).unwrap_or("");
+
+        let mut code = None;
+        let mut state = None;
+        let mut error = None;
+        let mut error_desc = None;
+        for (k, v) in url::form_urlencoded::parse(query.as_bytes()) {
+            match k.as_ref() {
+                "code" => code = Some(v.into_owned()),
+                "state" => state = Some(v.into_owned()),
+                "error" => error = Some(v.into_owned()),
+                "error_description" => error_desc = Some(v.into_owned()),
+                _ => {}
+            }
+        }
+
+        // Not the redirect (e.g. the browser's favicon probe) — keep waiting.
+        if code.is_none() && error.is_none() {
+            let _ = write_page(&mut stream, "Waiting for sign-in…", "You can return to Aurora Launcher.").await;
+            continue;
+        }
+
+        if let Some(err) = error {
+            let detail = error_desc.unwrap_or(err);
+            let _ = write_page(&mut stream, "Sign-in cancelled", "You can close this tab and try again.").await;
+            let _ = stream.flush().await;
+            return Err(Error::Auth(format!("sign-in was cancelled or failed: {detail}")));
+        }
+
+        if state.as_deref() != Some(expected_state) {
+            let _ = write_page(&mut stream, "Sign-in error", "State mismatch — please try again.").await;
+            let _ = stream.flush().await;
+            return Err(Error::Auth(
+                "sign-in state mismatch (possible CSRF) — please try again".into(),
+            ));
+        }
+
+        let _ = write_page(
+            &mut stream,
+            "Signed in ✓",
+            "All set — you can close this tab and return to Aurora Launcher.",
+        )
+        .await;
+        let _ = stream.flush().await;
+        return code.ok_or_else(|| Error::Auth("no authorization code in redirect".into()));
+    }
+}
+
+/// Write a minimal self-contained HTML page and close the connection.
+async fn write_page(
+    stream: &mut tokio::net::TcpStream,
+    title: &str,
+    note: &str,
+) -> std::io::Result<()> {
+    use tokio::io::AsyncWriteExt;
+    let body = format!(
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>Aurora Launcher</title>\
+<style>html{{height:100%}}body{{margin:0;height:100%;display:flex;align-items:center;\
+justify-content:center;font-family:'Segoe UI',system-ui,sans-serif;\
+background:radial-gradient(120% 120% at 30% 0%,#171034,#081226);color:#eef}}\
+.card{{text-align:center;padding:40px 56px;border-radius:20px;\
+background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);\
+box-shadow:0 20px 60px rgba(0,0,0,0.45)}}h1{{margin:0 0 8px;font-size:26px;\
+background:linear-gradient(90deg,#b794f6,#34d399);-webkit-background-clip:text;\
+background-clip:text;color:transparent}}p{{margin:0;color:#aeb6cc}}</style></head>\
+<body><div class=\"card\"><h1>{title}</h1><p>{note}</p></div></body></html>"
+    );
+    let resp = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        body.as_bytes().len(),
+        body
+    );
+    stream.write_all(resp.as_bytes()).await
 }
 
 /// Add which step failed to an error, unless it's already a friendly Auth message.
