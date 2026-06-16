@@ -464,18 +464,11 @@ function SkyrimHost() {
 }
 
 export function SkyrimCoop() {
-  const { games, launchSkyrim, showToast } = useLauncher();
+  const { games, launchSkyrim } = useLauncher();
   const sky = games?.skyrim;
   if (!sky?.installed) return <NotInstalled title="Skyrim" />;
 
   const ready = sky.has_skyrim_together && sky.has_address_library;
-
-  // Join = copy the address so it's ready to paste, then launch the client.
-  const joinAt = (address: string) => {
-    navigator.clipboard?.writeText(address);
-    launchSkyrim("together");
-    showToast("Address copied — paste it in the in-game Together menu and Connect");
-  };
 
   return (
     <div className="sect">
@@ -494,15 +487,10 @@ export function SkyrimCoop() {
         </button>
       </div>
       <ol className="steps">
-        <li>Add your friend's address below (or get it from <b>Aurora Net</b>), then hit <b>Join</b> — it copies the address and launches the game.</li>
-        <li>In-game, open the <b>Skyrim Together</b> menu (the connect overlay).</li>
-        <li><b>Paste</b> the address into the server field and click <b>Connect</b>.</li>
+        <li>On the <b>Aurora Net</b> screen, paste your friend's <b>friend code</b> to join their network — they'll show up in your Friends list with their address.</li>
+        <li>Hit <b>Launch Together</b>, then open the <b>Skyrim Together</b> menu in-game.</li>
+        <li><b>Paste</b> the host's address (e.g. <code className="md-code">100.x.x.x:10578</code>) into the server field and click <b>Connect</b>.</li>
       </ol>
-      <CoopServers
-        game="skyrim"
-        onJoin={joinAt}
-        hint="Tip: hosting on Aurora Net? Your friend's address is shown on the Aurora Net screen."
-      />
 
       {/* Host */}
       <div className="sect-head" style={{ marginTop: 22 }}>
