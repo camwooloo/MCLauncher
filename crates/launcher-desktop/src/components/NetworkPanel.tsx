@@ -2,16 +2,8 @@ import { useEffect, useState } from "react";
 
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
-import type { ServerConfig, InstanceConfig } from "../lib/types";
-import { Field, Icon, Pill, Select } from "./ui";
-
-/** Derive a modpack reference from an instance created from a pack (its id is
- *  `<source>-<projectId>`). Returns null for hand-made instances. */
-function packFromInstance(inst: InstanceConfig): api.PackRef | null {
-  const m = /^(modrinth|curseforge|ftb|technic)-(.+)$/.exec(inst.id);
-  if (!m) return null;
-  return { source: m[1], projectId: m[2], title: inst.name, icon: inst.icon ?? null };
-}
+import type { InstanceConfig } from "../lib/types";
+import { Field, Icon, Pill } from "./ui";
 
 const FRIEND_COLORS = ["#34d399", "#22d3ee", "#a78bfa", "#f59e0b", "#f472b6", "#60a5fa", "#f87171", "#2dd4bf"];
 function friendColor(s: string): string {
@@ -41,7 +33,6 @@ export function NetworkPanel() {
   const { showToast, playInstance } = useLauncher();
   const [status, setStatus] = useState<api.VpnStatus | null>(null);
   const [hasToken, setHasToken] = useState(false);
-  const [servers, setServers] = useState<ServerConfig[]>([]);
   const [instances, setInstances] = useState<InstanceConfig[]>([]);
   const [peers, setPeers] = useState<api.Peer[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -50,12 +41,7 @@ export function NetworkPanel() {
   const [joined, setJoined] = useState<api.JoinPayload | null>(null);
 
   const [token, setToken] = useState("");
-  const [shareName, setShareName] = useState("");
-  const [sharePort, setSharePort] = useState(25565);
-  const [shareGame, setShareGame] = useState("minecraft");
-  const [sharePackId, setSharePackId] = useState("");
-  const [lockAccess, setLockAccess] = useState(true);
-  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [friendCode, setFriendCode] = useState<string | null>(null);
 
   const refresh = async () => {
     try {
@@ -70,7 +56,6 @@ export function NetworkPanel() {
 
   useEffect(() => {
     void refresh();
-    api.listServers().then(setServers).catch(() => {});
     api.listInstances().then(setInstances).catch(() => {});
   }, []);
 
@@ -84,8 +69,12 @@ export function NetworkPanel() {
     return () => clearInterval(t);
   }, [status?.running]);
 
-  // Instances that came from a modpack can be bundled into a Minecraft invite.
-  const packInstances = instances.filter((i) => packFromInstance(i));
+  // Once connected with a token, load (or mint) the persistent friend code.
+  useEffect(() => {
+    if (status?.running && hasToken && friendCode === null) {
+      api.vpnFriendCode(false).then(setFriendCode).catch(() => {});
+    }
+  }, [status?.running, hasToken, friendCode]);
 
   const me = peers.find((p) => p.me);
   const friends = peers.filter((p) => !p.me);
@@ -185,21 +174,19 @@ export function NetworkPanel() {
       setToken("");
       setHasToken(true);
       showToast("Tailscale token saved");
+      // Mint the friend code right away so it's ready to share.
+      try {
+        setFriendCode(await api.vpnFriendCode(false));
+      } catch {
+        /* needs to be connected; the section will offer it once online */
+      }
     });
 
-  const share = () =>
-    run("share", async () => {
-      const inst = packInstances.find((i) => i.id === sharePackId);
-      const pack = shareGame === "minecraft" && inst ? packFromInstance(inst) : null;
-      const code = await api.vpnShare({
-        name: shareName || "My server",
-        port: sharePort,
-        game: shareGame,
-        configureAccess: lockAccess,
-        pack,
-      });
-      setShareCode(code);
-      copy(code, "Join code");
+  const makeFriendCode = (regenerate: boolean) =>
+    run("friendcode", async () => {
+      const code = await api.vpnFriendCode(regenerate);
+      setFriendCode(code);
+      if (regenerate) showToast("New friend code created");
     });
 
   const installed = status?.installed ?? false;
@@ -349,13 +336,16 @@ export function NetworkPanel() {
         </>
       )}
 
-      {/* Join a friend */}
+      {/* Join a friend — paste their friend code to get onto their network */}
       <div className="sect-head" id="aurora-join" style={{ marginTop: 20 }}>
         <div className="sect-title">Join a friend</div>
       </div>
-      <p className="muted">Paste the join code a friend gave you. You'll connect to their game.</p>
+      <p className="muted">
+        Got a friend code from someone? Paste it to join their network. You'll show up in each other's
+        Friends list — then connect to their address in whichever game's co-op tab.
+      </p>
       <div className="row wrap" style={{ alignItems: "flex-end" }}>
-        <Field label="Join code">
+        <Field label="Friend code">
           <input
             className="input"
             style={{ minWidth: 360 }}
@@ -371,48 +361,54 @@ export function NetworkPanel() {
       {joined && (
         <div className="surface" style={{ padding: "12px 16px", marginTop: 8 }}>
           <div style={{ fontWeight: 700 }}>
-            Connected to {joined.name} <Pill tone="ok">ready</Pill>
+            You're on {joined.name}'s network <Pill tone="ok">connected</Pill>
           </div>
           <p className="muted" style={{ margin: "6px 0 0" }}>
-            {joined.game === "minecraft" ? (
+            {joined.game === "network" || !joined.port ? (
               <>
-                In Minecraft, add a server with address <b>{joined.ip}:{joined.port}</b>.
+                You'll see {joined.name} in your Friends list above. Open the game you both want to play
+                and connect to their address (shown in that game's co-op tab).
               </>
+            ) : joined.game === "minecraft" ? (
+              <>In Minecraft, add a server with address <b>{joined.ip}:{joined.port}</b>.</>
             ) : (
-              <>
-                Use host address <b>{joined.ip}</b> (port {joined.port}) in the game's co-op screen.
-              </>
+              <>Use host address <b>{joined.ip}</b> (port {joined.port}) in the game's co-op screen.</>
             )}
           </p>
-          <div className="row" style={{ marginTop: 8, gap: 8 }}>
-            {joined.game === "minecraft" && joined.pack && (
+          {joined.ip && (
+            <div className="row" style={{ marginTop: 8, gap: 8 }}>
+              {joined.game === "minecraft" && joined.pack && (
+                <button
+                  className="btn-play"
+                  onClick={() => void playInstance(`${joined.pack!.source}-${joined.pack!.projectId}`, `${joined.ip}:${joined.port}`)}
+                >
+                  <Icon.play size={15} /> Launch &amp; join
+                </button>
+              )}
               <button
-                className="btn-play"
-                onClick={() => void playInstance(`${joined.pack!.source}-${joined.pack!.projectId}`, `${joined.ip}:${joined.port}`)}
+                className="btn"
+                onClick={() => copy(joined.port ? `${joined.ip}:${joined.port}` : joined.ip, "Address")}
               >
-                <Icon.play size={15} /> Launch &amp; join
+                <Icon.copy size={15} /> Copy address
               </button>
-            )}
-            <button className="btn" onClick={() => copy(`${joined.ip}:${joined.port}`, "Address")}>
-              <Icon.copy size={15} /> Copy address
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Host a server */}
+      {/* Your friend code — share once, friends join your network */}
       <div className="sect-head" id="aurora-host" style={{ marginTop: 22 }}>
-        <div className="sect-title">Host a game</div>
+        <div className="sect-title">Your friend code</div>
       </div>
       {!hasToken ? (
         <>
           <p className="muted">
-            To create join codes, connect Aurora to your Tailscale account once. Create an access
-            token at{" "}
+            One-time setup so Aurora can make your friend code: connect it to your Tailscale account.
+            Create an <b>API access token</b> at{" "}
             <button className="linklike" onClick={() => void api.openUrl("https://login.tailscale.com/admin/settings/keys")}>
               login.tailscale.com → Settings → Keys
             </button>{" "}
-            (an <b>API access token</b>) and paste it here. Stored only on this PC.
+            and paste it here. Stored only on this PC.
           </p>
           <div className="row wrap" style={{ alignItems: "flex-end" }}>
             <Field label="Tailscale API access token">
@@ -430,110 +426,43 @@ export function NetworkPanel() {
             </button>
           </div>
         </>
+      ) : !running ? (
+        <p className="muted">Connect to Aurora Net above, then your friend code appears here.</p>
       ) : (
         <>
           <p className="muted">
-            Generate a one-time join code for a server and send it to friends. They click Join and
-            connect — and (if locked) can reach <i>only</i> that server, nothing else on your network.
+            Share this one code with your friends. They paste it under <b>Join a friend</b> and they're
+            on your network — for good. The same code works for everyone, so you only need to send it
+            once.
           </p>
-          <p className="muted" style={{ fontSize: 12, marginTop: -4 }}>
-            Hosting here automatically allows Aurora Net through your Windows Firewall (you may see one
-            admin prompt the first time). Friends who join need <b>nothing</b> on their end — only the
-            host's firewall matters. Connection trouble? Hit <b>Fix hosting</b> above.
-          </p>
-          <div className="row wrap" style={{ alignItems: "flex-end" }}>
-            {servers.length > 0 && (
-              <Field label="Pick a server">
-                <Select
-                  minWidth={220}
-                  value={shareName ? `${shareName}|${sharePort}` : "__custom__"}
-                  onChange={(v) => {
-                    if (v === "__custom__") {
-                      setShareName("");
-                      return;
-                    }
-                    const s = servers.find((x) => `${x.name}|${x.port}` === v);
-                    if (s) {
-                      setShareName(s.name);
-                      setSharePort(s.port);
-                      setShareGame("minecraft");
-                    }
-                  }}
-                  options={[
-                    { value: "__custom__", label: "Custom…" },
-                    ...servers.map((s) => ({ value: `${s.name}|${s.port}`, label: `${s.name} (MC :${s.port})` })),
-                  ]}
-                />
-              </Field>
-            )}
-            <Field label="Name">
-              <input className="input" value={shareName} onChange={(e) => setShareName(e.target.value)} placeholder="My server" />
-            </Field>
-            <Field label="Port">
-              <input
-                className="input"
-                style={{ width: 100 }}
-                type="number"
-                value={sharePort}
-                onChange={(e) => setSharePort(Number(e.target.value) || 0)}
-              />
-            </Field>
-            <Field label="Game">
-              <Select
-                minWidth={170}
-                value={shareGame}
-                onChange={setShareGame}
-                options={[
-                  { value: "minecraft", label: "Minecraft" },
-                  { value: "skyrim", label: "Skyrim Together" },
-                  { value: "eldenring", label: "Elden Ring co-op" },
-                  { value: "cyberpunk", label: "Cyberpunk MP" },
-                ]}
-              />
-            </Field>
-            {shareGame === "minecraft" && packInstances.length > 0 && (
-              <Field label="Bundle modpack (one-click join)">
-                <Select
-                  minWidth={220}
-                  value={sharePackId}
-                  onChange={setSharePackId}
-                  options={[
-                    { value: "", label: "None" },
-                    ...packInstances.map((i) => ({ value: i.id, label: i.name })),
-                  ]}
-                />
-              </Field>
-            )}
-          </div>
-          {shareGame === "minecraft" && sharePackId && (
-            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-              Friends who use this code will auto-install <b>{packInstances.find((i) => i.id === sharePackId)?.name}</b> and join — no manual setup.
-            </p>
-          )}
-          <label className="row" style={{ gap: 8, marginTop: 10, alignItems: "center", cursor: "pointer" }}>
-            <input type="checkbox" checked={lockAccess} onChange={(e) => setLockAccess(e.target.checked)} />
-            <span>Lock guests to only this server (sets your Tailscale access rules)</span>
-          </label>
-          <button
-            className="btn-play"
-            style={{ marginTop: 12 }}
-            disabled={busy !== null || !running}
-            onClick={share}
-            title={running ? "" : "Connect to Aurora Net first"}
-          >
-            <Icon.link size={16} /> {busy === "share" ? "Creating…" : "Create join code"}
-          </button>
-          {shareCode && (
-            <div className="surface" style={{ padding: "12px 16px", marginTop: 10 }}>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>Send this to your friends</div>
+          {friendCode ? (
+            <div className="surface" style={{ padding: "12px 16px", marginTop: 4 }}>
               <div className="codebox" style={{ wordBreak: "break-all", userSelect: "all" }}>
-                aurora-net:{shareCode}
+                aurora-net:{friendCode}
               </div>
-              <button className="btn" style={{ marginTop: 8 }} onClick={() => copy(`aurora-net:${shareCode}`, "Join code")}>
-                <Icon.copy size={15} /> Copy join code
-              </button>
+              <div className="row" style={{ marginTop: 8, gap: 8 }}>
+                <button className="btn-play" onClick={() => copy(`aurora-net:${friendCode}`, "Friend code")}>
+                  <Icon.copy size={15} /> Copy friend code
+                </button>
+                <button className="btn ghost" disabled={busy !== null} onClick={() => makeFriendCode(true)}>
+                  <Icon.refresh size={15} /> {busy === "friendcode" ? "Working…" : "New code"}
+                </button>
+              </div>
             </div>
+          ) : (
+            <button
+              className="btn-play"
+              style={{ marginTop: 4 }}
+              disabled={busy !== null}
+              onClick={() => makeFriendCode(false)}
+            >
+              <Icon.link size={16} /> {busy === "friendcode" ? "Creating…" : "Create friend code"}
+            </button>
           )}
+          <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+            Servers you host are allowed through your firewall automatically (one admin prompt the first
+            time). Trouble connecting? Hit <b>Fix hosting</b> at the top.
+          </p>
         </>
       )}
     </div>

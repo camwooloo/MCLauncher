@@ -19,10 +19,13 @@ pub struct Settings {
     pub ui_style: String,
     /// Background mode: "static" | "pulsing".
     pub background: String,
-    /// Tailscale API access token for *hosting* on Aurora Net (minting guest
-    /// keys + access rules). Stored locally only; never committed.
+    /// Tailscale API access token for *hosting* on Aurora Net (minting friend
+    /// keys). Stored locally only; never committed.
     #[serde(default)]
     pub tailscale_api_token: String,
+    /// Cached reusable "friend code" — share once, anyone can join your network.
+    #[serde(default)]
+    pub friend_code: String,
     /// Show "Playing … via Aurora Launcher" in Discord.
     #[serde(default = "default_true")]
     pub discord_rpc: bool,
@@ -61,6 +64,7 @@ impl Default for Settings {
             ui_style: "aurora".to_string(),
             background: "liquid".to_string(),
             tailscale_api_token: String::new(),
+            friend_code: String::new(),
             discord_rpc: true,
             default_view: "home".to_string(),
             launch_at_login: false,

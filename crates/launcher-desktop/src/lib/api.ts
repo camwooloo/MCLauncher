@@ -524,6 +524,10 @@ export const vpnPeers = (): Promise<Peer[]> =>
 export const repairAuroraNet = (): Promise<boolean> =>
   isTauri ? call<boolean>("repair_aurora_net") : Promise.resolve(false);
 
+// Reusable "friend code" — share once, any friend can join your network.
+export const vpnFriendCode = (regenerate = false): Promise<string> =>
+  isTauri ? call<string>("vpn_friend_code", { regenerate }) : Promise.resolve("aurora-net-demo-code");
+
 // ---- Built-in config / code editor ----
 const mockConfigFiles = ["config/sodium-options.json", "config/fabric/indigo.json", "server.properties", "config/example.yaml"];
 export const listConfigFiles = (kind: string, id: string): Promise<string[]> =>

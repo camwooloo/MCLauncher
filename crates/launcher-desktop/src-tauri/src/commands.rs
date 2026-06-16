@@ -427,6 +427,39 @@ pub async fn vpn_share(state: State<'_, AppState>, args: ShareArgs) -> Result<St
     crate::vpn::encode_code(&payload)
 }
 
+/// Get this PC's reusable Aurora Net **friend code**. Share it once and any
+/// friend can join your network (no per-server lock). Cached in settings;
+/// `regenerate` mints a fresh one (invalidating the old after it expires).
+#[tauri::command]
+pub async fn vpn_friend_code(state: State<'_, AppState>, regenerate: bool) -> Result<String, String> {
+    let mut s = Settings::load(&state.paths.settings_file()).await;
+    if !regenerate && !s.friend_code.trim().is_empty() {
+        return Ok(s.friend_code.clone());
+    }
+    let token = s.tailscale_api_token.trim().to_string();
+    if token.is_empty() {
+        return Err("Add your Tailscale access token first to create a friend code.".into());
+    }
+    let st = crate::vpn::status().await;
+    let ip = st
+        .ip
+        .ok_or("Connect to Aurora Net first — you need to be online to make a friend code.")?;
+    let key = crate::vpn::mint_friend_key(&token).await?;
+    let payload = crate::vpn::JoinPayload {
+        v: 1,
+        key,
+        ip,
+        port: 0,
+        name: st.hostname.unwrap_or_else(|| "My network".into()),
+        game: "network".into(),
+        pack: None,
+    };
+    let code = crate::vpn::encode_code(&payload)?;
+    s.friend_code = code.clone();
+    s.save(&state.paths.settings_file()).await?;
+    Ok(code)
+}
+
 /// Manually (re)apply the Aurora Net firewall rule — the "fix connectivity"
 /// button. Runs on a blocking thread since it may show a UAC consent.
 #[tauri::command]

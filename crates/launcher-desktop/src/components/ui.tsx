@@ -439,36 +439,37 @@ export function HostAddress({ port, onCopy }: { port: number; onCopy?: (msg: str
   const [a, setA] = useState<api.HostAddresses | null>(null);
   useEffect(() => {
     api.hostAddresses().then(setA).catch(() => {});
+    const t = setInterval(() => api.hostAddresses().then(setA).catch(() => {}), 5000);
+    return () => clearInterval(t);
   }, []);
   if (!a) return null;
+  const online = !!a.aurora; // Aurora Net connected → friends can reach this
   const copy = (addr: string) => {
     void navigator.clipboard?.writeText(addr);
     onCopy?.("Address copied");
   };
-  const Row = ({ ip, tag, note }: { ip: string; tag?: string; note: string }) => (
-    <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-      <div>
-        <b style={{ fontVariantNumeric: "tabular-nums" }}>{ip}:{port}</b>{" "}
-        {tag && <Pill tone="ok">{tag}</Pill>} <span className="muted" style={{ fontSize: 12 }}>· {note}</span>
-      </div>
-      <button className="btn ghost" onClick={() => copy(`${ip}:${port}`)}>
-        <Icon.copy size={14} /> Copy
-      </button>
-    </div>
-  );
   return (
     <div className="surface" style={{ padding: "12px 16px", marginTop: 10, display: "grid", gap: 8 }}>
-      <div style={{ fontWeight: 700 }}>Friends connect to</div>
-      {a.aurora && <Row ip={a.aurora} tag="Aurora Net" note="works anywhere, no port forwarding" />}
-      {a.lan && <Row ip={a.lan} note="same Wi-Fi / network" />}
-      {!a.aurora && !a.lan && (
-        <p className="muted" style={{ margin: 0 }}>
-          Couldn't detect your IP. Open <b>Aurora Net</b> and connect, then friends can reach you with no setup.
-        </p>
-      )}
-      {!a.aurora && a.lan && (
-        <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-          That's a local address. For friends elsewhere, open <b>Aurora Net</b> (no port forwarding) or forward this port.
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontWeight: 700 }}>Friends connect to</div>
+        <span className="row" style={{ gap: 6, alignItems: "center", fontSize: 12.5 }}>
+          <span className={`net-dot ${online ? "on" : ""}`} />
+          <span className="muted">{online ? "Aurora Net online" : "Aurora Net offline"}</span>
+        </span>
+      </div>
+      {online ? (
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <b style={{ fontVariantNumeric: "tabular-nums" }}>
+            {a.aurora}:{port}
+          </b>
+          <button className="btn ghost" onClick={() => copy(`${a.aurora}:${port}`)}>
+            <Icon.copy size={14} /> Copy
+          </button>
+        </div>
+      ) : (
+        <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>
+          Connect on the <b>Aurora Net</b> screen so friends can reach you (no port forwarding) — your
+          address appears here once you're online.
         </p>
       )}
     </div>

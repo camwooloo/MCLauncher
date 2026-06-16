@@ -303,6 +303,42 @@ pub async fn mint_join_key(api_token: &str) -> Result<String, String> {
         .ok_or_else(|| "Tailscale returned no key".into())
 }
 
+/// Mint a **reusable, persistent** key for a friend code: anyone with the code
+/// can join your network (full access — no per-server lock). Reusable so one
+/// code works for every friend; non-ephemeral so friends stay in your list even
+/// when offline; no tag so they fall under the tailnet's default allow-all.
+pub async fn mint_friend_key(api_token: &str) -> Result<String, String> {
+    let body = serde_json::json!({
+        "capabilities": { "devices": { "create": {
+            "reusable": true,
+            "ephemeral": false,
+            "preauthorized": true,
+        }}},
+        "expirySeconds": 7_776_000, // 90 days (Tailscale max)
+        "description": "Aurora Net friend code",
+    });
+    let resp = launcher_core::http::client()
+        .post(format!("{API_BASE}/tailnet/-/keys"))
+        .bearer_auth(api_token)
+        .json(&body)
+        .send()
+        .await
+        .map_err(e)?;
+    if !resp.status().is_success() {
+        let code = resp.status();
+        let txt = resp.text().await.unwrap_or_default();
+        return Err(format!(
+            "Couldn't create a friend code ({code}). Check your Tailscale access token. {}",
+            txt.chars().take(200).collect::<String>()
+        ));
+    }
+    let v: serde_json::Value = resp.json().await.map_err(e)?;
+    v.get("key")
+        .and_then(|s| s.as_str())
+        .map(String::from)
+        .ok_or_else(|| "Tailscale returned no key".into())
+}
+
 /// Ensure the tailnet's access policy (a) owns the guest tag (so keys can be
 /// tagged) and (b) lets guests reach **only** `host_ip` on the given ports.
 ///

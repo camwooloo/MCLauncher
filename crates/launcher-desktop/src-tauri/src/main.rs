@@ -159,6 +159,7 @@ fn main() {
             commands::vpn_join,
             commands::vpn_share,
             commands::vpn_peers,
+            commands::vpn_friend_code,
             commands::repair_aurora_net,
             instances::list_backups,
             instances::create_backup,
