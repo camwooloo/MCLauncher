@@ -380,6 +380,11 @@ pub fn write_server_config(install_dir: &Path, cfg: &TogetherServerConfig) -> cr
     std::fs::write(&path, lines.join("\r\n") + "\r\n").map_err(|e| crate::Error::io(&path, e))
 }
 
+/// Path to the Together dedicated-server executable (for firewall rules etc.).
+pub fn server_exe_path(install_dir: &Path) -> PathBuf {
+    server_exe(install_dir)
+}
+
 /// Launch the Together dedicated server (the host side); returns its pid.
 pub fn launch_server(install_dir: &Path) -> crate::Result<u32> {
     launch_detached(&server_exe(install_dir), &[], Some(&together_dir(install_dir)), &[])

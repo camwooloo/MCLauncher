@@ -9,6 +9,7 @@
 mod commands;
 mod content;
 mod discord;
+mod firewall;
 mod instances;
 mod inventory;
 mod progress;

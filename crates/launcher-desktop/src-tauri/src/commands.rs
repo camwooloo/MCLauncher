@@ -734,6 +734,12 @@ pub fn save_skyrim_server_config(config: skyrim::TogetherServerConfig) -> Result
 pub fn start_skyrim_server() -> Result<u32, String> {
     let info = skyrim::detect();
     let dir = info.install_dir.ok_or("Skyrim is not installed")?;
+    // Make sure the server is reachable over Aurora Net (Tailscale lands on the
+    // Public firewall profile, which the game's default rule doesn't cover).
+    let _ = crate::firewall::ensure_program_allowed(
+        "Aurora Net — Skyrim Together Server",
+        &skyrim::server_exe_path(&dir),
+    );
     skyrim::launch_server(&dir).map_err(err)
 }
 
@@ -1154,6 +1160,15 @@ pub async fn server_start(
             "Port {} is already in use — another server (or app) is using it. Stop it, or change this server's port with Edit.",
             cfg.port
         ));
+    }
+
+    // Allow this server's port through the firewall on all profiles so friends
+    // can reach it over Aurora Net (Tailscale), not just the LAN. Best-effort,
+    // off the async runtime since it may pop a one-time UAC prompt.
+    {
+        let label = format!("Aurora Net — Minecraft :{}", cfg.port);
+        let port = cfg.port;
+        let _ = tokio::task::spawn_blocking(move || crate::firewall::ensure_port_allowed(&label, port, false)).await;
     }
 
     let paths = state.paths.clone();
