@@ -232,10 +232,19 @@ pub async fn login() -> Result<Option<String>, String> {
 }
 
 /// Join a tailnet using a pre-shared auth key (the guest side of a join code).
+///
+/// Crucially we **log out first**. If the joiner is already signed into their
+/// *own* tailnet (e.g. they connected Aurora Net before being invited), a plain
+/// `up --authkey` does not switch networks — they'd stay on their tailnet and
+/// never see the host. Logging out clears any prior identity so the key joins
+/// the host's tailnet cleanly as a fresh guest. `--reset` drops any leftover
+/// prefs (exit nodes, routes) that could otherwise interfere.
 pub async fn up_with_authkey(authkey: &str) -> Result<(), String> {
     let exe = tailscale_exe().ok_or("Tailscale isn't installed yet")?;
+    // Best-effort: ignore "not logged in" / already-down errors.
+    let _ = Command::new(&exe).arg("logout").output().await;
     let out = Command::new(&exe)
-        .args(["up", "--authkey", authkey, "--accept-routes=false"])
+        .args(["up", "--authkey", authkey, "--reset", "--accept-routes=false"])
         .output()
         .await
         .map_err(e)?;
