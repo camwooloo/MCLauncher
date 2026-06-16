@@ -13,6 +13,28 @@ function packFromInstance(inst: InstanceConfig): api.PackRef | null {
   return { source: m[1], projectId: m[2], title: inst.name, icon: inst.icon ?? null };
 }
 
+const FRIEND_COLORS = ["#34d399", "#22d3ee", "#a78bfa", "#f59e0b", "#f472b6", "#60a5fa", "#f87171", "#2dd4bf"];
+function friendColor(s: string): string {
+  let h = 0;
+  for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return FRIEND_COLORS[h % FRIEND_COLORS.length];
+}
+function friendInitials(s: string): string {
+  return s.replace(/[^a-zA-Z0-9]/g, "").slice(0, 2).toUpperCase() || "?";
+}
+/** Round avatar with initials, tinted from the name. */
+function FriendAvatar({ name }: { name: string }) {
+  const c = friendColor(name);
+  return (
+    <div
+      className="friend-av"
+      style={{ background: `${c}22`, border: `1.5px solid ${c}`, color: c }}
+    >
+      {friendInitials(name)}
+    </div>
+  );
+}
+
 /** Aurora Net — built-in Tailscale VPN so friends can connect with no port
  *  forwarding. Phase 1 (setup/connect), Phase 2 (join), Phase 3 (host/share). */
 export function NetworkPanel() {
@@ -52,8 +74,25 @@ export function NetworkPanel() {
     api.listInstances().then(setInstances).catch(() => {});
   }, []);
 
+  // Live-refresh the friends list while connected, so a friend joining (or
+  // going offline) shows up within a few seconds without a manual refresh.
+  useEffect(() => {
+    if (!status?.running) return;
+    const t = setInterval(() => {
+      api.vpnPeers().then(setPeers).catch(() => {});
+    }, 4000);
+    return () => clearInterval(t);
+  }, [status?.running]);
+
   // Instances that came from a modpack can be bundled into a Minecraft invite.
   const packInstances = instances.filter((i) => packFromInstance(i));
+
+  const me = peers.find((p) => p.me);
+  const friends = peers.filter((p) => !p.me);
+  const friendsOnline = friends.filter((p) => p.online).length;
+
+  const scrollTo = (id: string) =>
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const copy = (text: string, what: string) => {
     void navigator.clipboard?.writeText(text);
@@ -235,36 +274,83 @@ export function NetworkPanel() {
         </div>
       </div>
 
-      {/* Friends on Aurora Net */}
-      {running && peers.length > 0 && (
+      {/* Friends — the proof you're on the same network. Always shown when
+          connected, with a teaching empty state when it's just you. */}
+      {running && (
         <>
-          <div className="sect-head" style={{ marginTop: 20 }}>
-            <div className="sect-title">Friends on Aurora Net</div>
-            <Pill tone="ok">{peers.filter((p) => p.online).length} online</Pill>
+          <div className="sect-head" style={{ marginTop: 22 }}>
+            <div className="sect-title">Friends</div>
+            <Pill tone={friendsOnline > 0 ? "ok" : "default"}>
+              {friends.length === 0 ? "just you" : `${friendsOnline}/${friends.length} online`}
+            </Pill>
           </div>
-          <div className="col" style={{ gap: 2 }}>
-            {peers.map((p) => (
-              <div className="lrow" key={p.ip ?? p.name}>
-                <span className={`net-dot ${p.online ? "on" : ""}`} style={{ marginLeft: 4 }} />
-                <div className="grow" style={{ marginLeft: 10 }}>
-                  <div className="name">
-                    {p.name} {p.me && <Pill>you</Pill>}
-                  </div>
-                  <div className="sub">{p.ip ?? "—"} · {p.online ? "online" : "offline"}</div>
-                </div>
-                {p.ip && !p.me && (
-                  <button className="btn ghost" onClick={() => copy(p.ip!, "Address")}>
-                    <Icon.copy size={14} /> Copy IP
-                  </button>
-                )}
+
+          {friends.length === 0 ? (
+            <div className="surface" style={{ padding: 18 }}>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>It's just you on Aurora Net</div>
+              <p className="muted" style={{ marginTop: 0 }}>
+                To play together, <b>one</b> of you hosts and the others join the same network — then
+                everyone shows up here. Swapping <code className="md-code">100.x</code> addresses won't
+                work on its own; you have to be on the <i>same</i> network.
+              </p>
+              <div className="row wrap" style={{ gap: 10, marginTop: 10 }}>
+                <button className="btn-play" onClick={() => scrollTo("aurora-host")}>
+                  <Icon.host size={15} /> I'm hosting — create an invite
+                </button>
+                <button className="btn" onClick={() => scrollTo("aurora-join")}>
+                  <Icon.coop size={15} /> I'm joining — paste an invite
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <>
+              <div className="surface" style={{ padding: "10px 14px", marginBottom: 8, fontSize: 13 }}>
+                ✓ You're connected with <b>{friends.length}</b> {friends.length === 1 ? "friend" : "friends"} on
+                Aurora Net. Use a friend's address in-game (or hand them yours) to play.
+              </div>
+              <div className="col" style={{ gap: 6 }}>
+                {me && (
+                  <div className="friend-row surface">
+                    <FriendAvatar name={me.name} />
+                    <span className={`net-dot ${me.online ? "on" : ""}`} />
+                    <div className="grow">
+                      <div className="name">
+                        {me.name} <Pill>you</Pill>
+                      </div>
+                      <div className="sub">{me.ip ?? "—"} · this PC</div>
+                    </div>
+                    {me.ip && (
+                      <button className="btn ghost" onClick={() => copy(me.ip!, "Your address")}>
+                        <Icon.copy size={14} /> Copy
+                      </button>
+                    )}
+                  </div>
+                )}
+                {friends.map((p) => (
+                  <div className="friend-row surface" key={p.ip ?? p.name}>
+                    <FriendAvatar name={p.name} />
+                    <span className={`net-dot ${p.online ? "on" : ""}`} />
+                    <div className="grow">
+                      <div className="name">{p.name}</div>
+                      <div className="sub">
+                        {p.ip ?? "—"} · {p.online ? "online" : "offline"}
+                      </div>
+                    </div>
+                    {p.ip && (
+                      <button className="btn ghost" disabled={!p.online} onClick={() => copy(p.ip!, "Address")}>
+                        <Icon.copy size={14} /> Copy IP
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
 
       {/* Join a friend */}
-      <div className="sect-head" style={{ marginTop: 20 }}>
+      <div className="sect-head" id="aurora-join" style={{ marginTop: 20 }}>
         <div className="sect-title">Join a friend</div>
       </div>
       <p className="muted">Paste the join code a friend gave you. You'll connect to their game.</p>
@@ -315,7 +401,7 @@ export function NetworkPanel() {
       )}
 
       {/* Host a server */}
-      <div className="sect-head" style={{ marginTop: 22 }}>
+      <div className="sect-head" id="aurora-host" style={{ marginTop: 22 }}>
         <div className="sect-title">Host a game</div>
       </div>
       {!hasToken ? (

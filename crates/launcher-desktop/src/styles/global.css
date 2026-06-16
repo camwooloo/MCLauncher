@@ -2310,3 +2310,32 @@ input[type="range"]::-webkit-slider-thumb:active {
 
 [data-anim="off"] .onb-aurora,
 [data-anim="off"] .onb-pulse { animation: none; }
+
+/* ---- Aurora Net friends list ----------------------------------------- */
+.friend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+}
+.friend-av {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.friend-row .name {
+  font-weight: 600;
+  font-size: 14.5px;
+}
+.friend-row .sub {
+  color: var(--text-mute);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
