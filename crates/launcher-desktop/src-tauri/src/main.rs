@@ -127,6 +127,7 @@ fn main() {
             commands::set_elden_ring_password,
             commands::install_game_tool,
             commands::install_skyrim_together,
+            commands::install_skyrim_mod,
             commands::open_together_page,
             commands::install_address_library,
             commands::open_address_library_page,

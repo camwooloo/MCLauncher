@@ -528,6 +528,12 @@ export const repairAuroraNet = (): Promise<boolean> =>
 export const vpnFriendCode = (regenerate = false): Promise<string> =>
   isTauri ? call<string>("vpn_friend_code", { regenerate }) : Promise.resolve("aurora-net-demo-code");
 
+// Guided Skyrim mod install: merges a downloaded Data-layout zip into the game.
+export const installSkyrimMod = (keywords: string[], name: string, path?: string): Promise<string> =>
+  isTauri
+    ? call<string>("install_skyrim_mod", { keywords, name, path: path ?? null })
+    : Promise.reject(new Error("Installing is only available in the desktop app"));
+
 // ---- Built-in config / code editor ----
 const mockConfigFiles = ["config/sodium-options.json", "config/fabric/indigo.json", "server.properties", "config/example.yaml"];
 export const listConfigFiles = (kind: string, id: string): Promise<string[]> =>

@@ -514,10 +514,52 @@ export function SkyrimCoop() {
   );
 }
 
+/** Curated mods that play nicely with Skyrim Together Reborn. Nexus blocks
+ *  automated downloads, so these are guided: open the page, grab the main file,
+ *  then Aurora drops it into Data. `keywords` match the downloaded zip's name. */
+const STR_MODS: { id: string; name: string; blurb: string; url: string; keywords: string[] }[] = [
+  {
+    id: "skyui",
+    name: "SkyUI",
+    blurb: "The essential UI overhaul — searchable menus and mod config (MCM). Needs SKSE.",
+    url: "https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files",
+    keywords: ["skyui"],
+  },
+  {
+    id: "aqwm",
+    name: "A Quality World Map",
+    blurb: "A crisp, readable world map with roads. Pure textures — totally co-op safe.",
+    url: "https://www.nexusmods.com/skyrimspecialedition/mods/5804?tab=files",
+    keywords: ["quality", "world", "map"],
+  },
+  {
+    id: "ussep",
+    name: "Unofficial Skyrim SE Patch",
+    blurb: "Thousands of vanilla bug fixes. Co-op tip: everyone in the session should run it.",
+    url: "https://www.nexusmods.com/skyrimspecialedition/mods/266?tab=files",
+    keywords: ["unofficial"],
+  },
+];
+
 export function SkyrimMods() {
-  const { games, installTool, busy } = useLauncher();
+  const { games, installTool, refreshGames, showToast, busy } = useLauncher();
+  const [installing, setInstalling] = useState<string | null>(null);
   const sky = games?.skyrim;
   if (!sky?.installed) return <NotInstalled title="Skyrim" />;
+
+  const installMod = async (m: (typeof STR_MODS)[number]) => {
+    setInstalling(m.id);
+    try {
+      const msg = await api.installSkyrimMod(m.keywords, m.name);
+      showToast(msg);
+      refreshGames();
+    } catch (e) {
+      showToast(`${e}`);
+    } finally {
+      setInstalling(null);
+    }
+  };
+
   return (
     <div className="sect">
       <div className="sect-head">
@@ -535,15 +577,44 @@ export function SkyrimMods() {
       <div className="row wrap" style={{ marginTop: 8 }}>
         {!sky.has_skse && (
           <button className="btn" disabled={busy} onClick={() => installTool("skse")}>
-            <Icon.upgrade size={15} /> Install SKSE64
+            <Icon.upgrade size={15} /> Install SKSE64 <Pill tone="ok">1-click</Pill>
           </button>
         )}
       </div>
       {(!sky.has_skyrim_together || !sky.has_address_library) && <TogetherSetup />}
-      <p className="muted" style={{ marginTop: 10 }}>
-        SKSE is the foundation most Skyrim mods need — Aurora installs it straight from the official
-        release. For big load orders (graphics overhauls etc.) use a mod manager (MO2 / Vortex) on
-        top; Aurora launches through the right loader either way.
+
+      {/* Curated Skyrim Together–ready mods */}
+      <div className="sect-head" style={{ marginTop: 22 }}>
+        <div className="sect-title">Skyrim Together–ready mods</div>
+      </div>
+      <p className="muted" style={{ marginTop: -4 }}>
+        Hand-picked mods that work well in co-op. Nexus doesn't allow automatic downloads, so for each:
+        hit <b>Open page</b>, download the <b>main file</b>, then <b>Install downloaded</b> — Aurora drops
+        it into your game. Make sure everyone in the session runs the same mods.
+      </p>
+      <div className="col" style={{ gap: 2 }}>
+        {STR_MODS.map((m) => (
+          <div className="lrow" key={m.id}>
+            <div className="avatar">
+              <Icon.mods size={18} />
+            </div>
+            <div className="grow">
+              <div className="name">{m.name}</div>
+              <div className="sub">{m.blurb}</div>
+            </div>
+            <button className="btn ghost" onClick={() => void api.openUrl(m.url)}>
+              <Icon.link size={14} /> Open page
+            </button>
+            <button className="btn" disabled={installing !== null} onClick={() => void installMod(m)}>
+              <Icon.upgrade size={14} /> {installing === m.id ? "Installing…" : "Install downloaded"}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <p className="muted" style={{ marginTop: 12 }}>
+        For big graphics/overhaul load orders, use a mod manager (MO2 / Vortex) on top — Aurora launches
+        through the right loader either way.
       </p>
     </div>
   );

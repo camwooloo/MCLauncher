@@ -938,6 +938,35 @@ pub fn open_together_page() -> Result<(), String> {
     open::that(skyrim::TOGETHER_NEXUS_URL).map_err(err)
 }
 
+/// Guided install of a simple Skyrim mod from a zip the user downloaded from
+/// Nexus: explicit `path`, or the newest Downloads zip matching `keywords`.
+/// Merges its Data-layout content into the game's Data folder.
+#[tauri::command]
+pub async fn install_skyrim_mod(
+    path: Option<String>,
+    keywords: Vec<String>,
+    name: String,
+) -> Result<String, String> {
+    let info = skyrim::detect();
+    let install_dir = info.install_dir.ok_or_else(|| "Skyrim is not installed".to_string())?;
+    let zip = match path.filter(|p| !p.trim().is_empty()) {
+        Some(p) => std::path::PathBuf::from(p),
+        None => skyrim::find_downloaded_mod_zip(&keywords).ok_or_else(|| {
+            format!(
+                "No matching zip found in your Downloads. Open the {name} page, download the main file, then press this again."
+            )
+        })?,
+    };
+    if !zip.exists() {
+        return Err(format!("File not found: {}", zip.display()));
+    }
+    tokio::task::spawn_blocking(move || skyrim::install_data_mod_from_zip(&install_dir, &zip))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(err)?;
+    Ok(format!("{name} installed"))
+}
+
 /// Guided Address Library install (required by Skyrim Together at runtime).
 #[tauri::command]
 pub async fn install_address_library(path: Option<String>) -> Result<String, String> {

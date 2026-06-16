@@ -208,6 +208,115 @@ pub fn find_downloaded_together_zip() -> Option<PathBuf> {
     crate::games::install::find_downloaded_zip(|n| n.contains("skyrim") && n.contains("together"))
 }
 
+/// Newest Downloads zip whose name contains *all* `keywords` (lowercase) —
+/// backs the guided "install the mod I downloaded" buttons.
+pub fn find_downloaded_mod_zip(keywords: &[String]) -> Option<PathBuf> {
+    crate::games::install::find_downloaded_zip(|n| keywords.iter().all(|k| n.contains(&k.to_lowercase())))
+}
+
+/// Folder names that make up a Skyrim mod's `Data` layout.
+const DATA_DIRS: &[&str] = &[
+    "meshes", "textures", "scripts", "interface", "sound", "music", "seq", "source", "skse",
+    "strings", "grass", "shadersfx", "lodsettings", "dialogueviews", "video", "scripts source",
+    "actors", "materials", "skyproc patchers",
+];
+fn is_plugin_file(name: &str) -> bool {
+    let n = name.to_lowercase();
+    n.ends_with(".esp") || n.ends_with(".esm") || n.ends_with(".esl") || n.ends_with(".bsa")
+}
+fn is_data_entry(p: &Path) -> bool {
+    let name = p.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+    if p.is_dir() {
+        DATA_DIRS.contains(&name.as_str())
+    } else {
+        is_plugin_file(&name)
+    }
+}
+
+/// Install a simple (loose-files / plugin) Skyrim mod from a downloaded zip by
+/// merging its `Data`-layout content into `<install>/Data`.
+///
+/// Handles both common shapes: a zip with a `Data/` folder, or one whose root
+/// already holds `meshes/`, `*.esp`, etc. Only recognised mod content is moved
+/// (so `fomod/`, docs and readmes are skipped). FOMOD-only installers and
+/// collections aren't supported — those still need a mod manager.
+pub fn install_data_mod_from_zip(install_dir: &Path, zip: &Path) -> crate::Result<()> {
+    use crate::games::install::{extract_archive_into, merge_move};
+
+    let staging = install_dir.join(".aurora-mod-extract");
+    let _ = std::fs::remove_dir_all(&staging);
+    extract_archive_into(zip, &staging)?;
+
+    // Locate the level holding the mod's content: prefer an explicit `Data`
+    // folder, else the shallowest dir that contains recognised entries.
+    fn find_root(start: &Path) -> Option<(PathBuf, bool)> {
+        let mut queue = vec![start.to_path_buf()];
+        while let Some(dir) = queue.pop() {
+            let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+            let entries: Vec<PathBuf> = rd.flatten().map(|e| e.path()).collect();
+            for p in &entries {
+                if p.is_dir() && p.file_name().map(|n| n.eq_ignore_ascii_case("Data")).unwrap_or(false) {
+                    return Some((p.clone(), true)); // explicit Data/ → merge wholesale
+                }
+            }
+            if entries.iter().any(|p| is_data_entry(p)) {
+                return Some((dir, false)); // loose content → merge selectively
+            }
+            for p in entries {
+                if p.is_dir() {
+                    queue.push(p);
+                }
+            }
+        }
+        None
+    }
+
+    let data = install_dir.join("Data");
+    std::fs::create_dir_all(&data).ok();
+
+    let result = match find_root(&staging) {
+        Some((root, true)) => {
+            merge_move(&root, &data)?;
+            Ok(())
+        }
+        Some((root, false)) => {
+            let mut moved = false;
+            if let Ok(rd) = std::fs::read_dir(&root) {
+                for entry in rd.flatten() {
+                    let p = entry.path();
+                    if !is_data_entry(&p) {
+                        continue;
+                    }
+                    let to = data.join(entry.file_name());
+                    if p.is_dir() {
+                        merge_move(&p, &to)?;
+                    } else {
+                        if to.exists() {
+                            let _ = std::fs::remove_file(&to);
+                        }
+                        if std::fs::rename(&p, &to).is_err() {
+                            std::fs::copy(&p, &to).map_err(|e| crate::Error::io(&to, e))?;
+                        }
+                    }
+                    moved = true;
+                }
+            }
+            if moved {
+                Ok(())
+            } else {
+                Err(crate::Error::other(
+                    "Couldn't find Skyrim mod files in that zip — make sure it's the main mod file, not a FOMOD-only or collection archive.",
+                ))
+            }
+        }
+        None => Err(crate::Error::other(
+            "That zip doesn't look like a Skyrim mod (no Data files found).",
+        )),
+    };
+    let _ = std::fs::remove_dir_all(&staging);
+    result
+}
+
 /// Newest Address Library zip in Downloads (Nexus names it "All in one (…)").
 pub fn find_downloaded_addrlib_zip() -> Option<PathBuf> {
     crate::games::install::find_downloaded_zip(|n| {
