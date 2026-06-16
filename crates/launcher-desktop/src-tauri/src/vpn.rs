@@ -36,6 +36,17 @@ fn e<E: std::fmt::Display>(x: E) -> String {
     x.to_string()
 }
 
+/// Build a `tailscale` command that never flashes a console window. Aurora is a
+/// windowless GUI app, so spawning the console-mode `tailscale.exe` (which we do
+/// every few seconds to poll status/peers) would otherwise pop a black terminal
+/// each time. `CREATE_NO_WINDOW` suppresses it.
+fn ts(exe: &std::path::Path) -> Command {
+    let mut c = Command::new(exe);
+    #[cfg(windows)]
+    c.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    c
+}
+
 /// Locate the Tailscale CLI (`tailscale.exe`) if it's installed.
 pub fn tailscale_exe() -> Option<PathBuf> {
     for c in [
@@ -74,7 +85,7 @@ pub async fn status() -> VpnStatus {
         installed: true,
         ..Default::default()
     };
-    let Ok(out) = Command::new(&exe).args(["status", "--json"]).output().await else {
+    let Ok(out) = ts(&exe).args(["status", "--json"]).output().await else {
         return st;
     };
     if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
@@ -122,7 +133,7 @@ pub async fn peers() -> Vec<Peer> {
     let Some(exe) = tailscale_exe() else {
         return vec![];
     };
-    let Ok(out) = Command::new(&exe).args(["status", "--json"]).output().await else {
+    let Ok(out) = ts(&exe).args(["status", "--json"]).output().await else {
         return vec![];
     };
     let Ok(v) = serde_json::from_slice::<serde_json::Value>(&out.stdout) else {
@@ -176,7 +187,7 @@ pub async fn install() -> Result<(), String> {
 /// so authentication can complete when the user approves in the browser.
 pub async fn login() -> Result<Option<String>, String> {
     let exe = tailscale_exe().ok_or("Tailscale isn't installed yet")?;
-    let mut child = Command::new(&exe)
+    let mut child = ts(&exe)
         .args(["up", "--accept-routes=false", "--reset"])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -242,8 +253,8 @@ pub async fn login() -> Result<Option<String>, String> {
 pub async fn up_with_authkey(authkey: &str) -> Result<(), String> {
     let exe = tailscale_exe().ok_or("Tailscale isn't installed yet")?;
     // Best-effort: ignore "not logged in" / already-down errors.
-    let _ = Command::new(&exe).arg("logout").output().await;
-    let out = Command::new(&exe)
+    let _ = ts(&exe).arg("logout").output().await;
+    let out = ts(&exe)
         .args(["up", "--authkey", authkey, "--reset", "--accept-routes=false"])
         .output()
         .await
@@ -261,7 +272,7 @@ pub async fn up_with_authkey(authkey: &str) -> Result<(), String> {
 /// Disconnect from the tailnet (stays installed and logged in).
 pub async fn down() -> Result<(), String> {
     let exe = tailscale_exe().ok_or("Tailscale isn't installed")?;
-    Command::new(&exe).arg("down").status().await.map_err(e)?;
+    ts(&exe).arg("down").status().await.map_err(e)?;
     Ok(())
 }
 

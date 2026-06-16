@@ -92,11 +92,14 @@ pub fn set_launch_at_login(enabled: bool) -> Result<(), String> {
     const NAME: &str = "AuroraLauncher";
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
+        const NO_WINDOW: u32 = 0x0800_0000; // CREATE_NO_WINDOW
         if enabled {
             let exe = std::env::current_exe().map_err(err)?;
             let exe = exe.to_string_lossy().to_string();
             let out = std::process::Command::new("reg")
                 .args(["add", KEY, "/v", NAME, "/t", "REG_SZ", "/d", &format!("\"{exe}\""), "/f"])
+                .creation_flags(NO_WINDOW)
                 .output()
                 .map_err(err)?;
             if !out.status.success() {
@@ -106,6 +109,7 @@ pub fn set_launch_at_login(enabled: bool) -> Result<(), String> {
             // Ignore "value not found" so toggling off is always safe.
             let _ = std::process::Command::new("reg")
                 .args(["delete", KEY, "/v", NAME, "/f"])
+                .creation_flags(NO_WINDOW)
                 .output();
         }
         Ok(())
@@ -1421,8 +1425,10 @@ pub async fn server_stop(
 
 #[cfg(windows)]
 fn kill_pid(pid: u32) {
+    use std::os::windows::process::CommandExt;
     let _ = std::process::Command::new("taskkill")
         .args(["/F", "/T", "/PID", &pid.to_string()])
+        .creation_flags(0x0800_0000) // CREATE_NO_WINDOW — no console flash on stop
         .output();
 }
 #[cfg(not(windows))]
