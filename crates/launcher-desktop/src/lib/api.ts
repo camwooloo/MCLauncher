@@ -519,6 +519,11 @@ const mockPeers: Peer[] = [
 export const vpnPeers = (): Promise<Peer[]> =>
   isTauri ? call<Peer[]>("vpn_peers") : Promise.resolve(mockPeers);
 
+// One-time Windows Firewall allow-rule so friends can reach servers you host
+// over Aurora Net. Returns true if it applied (false = already set up).
+export const repairAuroraNet = (): Promise<boolean> =>
+  isTauri ? call<boolean>("repair_aurora_net") : Promise.resolve(false);
+
 // ---- Built-in config / code editor ----
 const mockConfigFiles = ["config/sodium-options.json", "config/fabric/indigo.json", "server.properties", "config/example.yaml"];
 export const listConfigFiles = (kind: string, id: string): Promise<string[]> =>

@@ -106,6 +106,12 @@ export function NetworkPanel() {
       await refresh();
     });
 
+  const repairFirewall = () =>
+    run("repair", async () => {
+      const applied = await api.repairAuroraNet();
+      showToast(applied ? "Aurora Net is allowed through the firewall" : "Firewall was already set up");
+    });
+
   const join = () =>
     run("join", async () => {
       const payload = await api.vpnJoin(joinCode);
@@ -211,6 +217,14 @@ export function NetworkPanel() {
               <>
                 <button className="btn" onClick={() => copy(status.ip!, "Your address")}>
                   <Icon.copy size={15} /> Copy address
+                </button>
+                <button
+                  className="btn"
+                  disabled={busy !== null}
+                  onClick={repairFirewall}
+                  title="Allow servers you host through the Windows Firewall on Aurora Net (one-time)"
+                >
+                  <Icon.host size={15} /> {busy === "repair" ? "Fixing…" : "Fix hosting"}
                 </button>
                 <button className="btn ghost" disabled={busy !== null} onClick={disconnect}>
                   Disconnect
@@ -335,6 +349,11 @@ export function NetworkPanel() {
           <p className="muted">
             Generate a one-time join code for a server and send it to friends. They click Join and
             connect — and (if locked) can reach <i>only</i> that server, nothing else on your network.
+          </p>
+          <p className="muted" style={{ fontSize: 12, marginTop: -4 }}>
+            Hosting here automatically allows Aurora Net through your Windows Firewall (you may see one
+            admin prompt the first time). Friends who join need <b>nothing</b> on their end — only the
+            host's firewall matters. Connection trouble? Hit <b>Fix hosting</b> above.
           </p>
           <div className="row wrap" style={{ alignItems: "flex-end" }}>
             {servers.length > 0 && (

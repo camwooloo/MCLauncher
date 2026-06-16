@@ -427,6 +427,15 @@ pub async fn vpn_share(state: State<'_, AppState>, args: ShareArgs) -> Result<St
     crate::vpn::encode_code(&payload)
 }
 
+/// Manually (re)apply the Aurora Net firewall rule — the "fix connectivity"
+/// button. Runs on a blocking thread since it may show a UAC consent.
+#[tauri::command]
+pub async fn repair_aurora_net() -> Result<bool, String> {
+    tokio::task::spawn_blocking(|| crate::firewall::ensure_aurora_net(true))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 // --- Accounts ------------------------------------------------------------
 
 #[tauri::command]
@@ -734,12 +743,10 @@ pub fn save_skyrim_server_config(config: skyrim::TogetherServerConfig) -> Result
 pub fn start_skyrim_server() -> Result<u32, String> {
     let info = skyrim::detect();
     let dir = info.install_dir.ok_or("Skyrim is not installed")?;
-    // Make sure the server is reachable over Aurora Net (Tailscale lands on the
-    // Public firewall profile, which the game's default rule doesn't cover).
-    let _ = crate::firewall::ensure_program_allowed(
-        "Aurora Net — Skyrim Together Server",
-        &skyrim::server_exe_path(&dir),
-    );
+    // Make sure servers hosted here are reachable over Aurora Net (Tailscale
+    // lands on the Public firewall profile, which game rules don't cover).
+    // One-time; no-op if already set up.
+    let _ = crate::firewall::ensure_aurora_net(false);
     skyrim::launch_server(&dir).map_err(err)
 }
 
@@ -1162,14 +1169,10 @@ pub async fn server_start(
         ));
     }
 
-    // Allow this server's port through the firewall on all profiles so friends
-    // can reach it over Aurora Net (Tailscale), not just the LAN. Best-effort,
-    // off the async runtime since it may pop a one-time UAC prompt.
-    {
-        let label = format!("Aurora Net — Minecraft :{}", cfg.port);
-        let port = cfg.port;
-        let _ = tokio::task::spawn_blocking(move || crate::firewall::ensure_port_allowed(&label, port, false)).await;
-    }
+    // Make sure friends can reach this server over Aurora Net (Tailscale), not
+    // just the LAN. One-time; no-op if already set up. Off the async runtime
+    // since the first run may pop a UAC consent.
+    let _ = tokio::task::spawn_blocking(|| crate::firewall::ensure_aurora_net(false)).await;
 
     let paths = state.paths.clone();
     let reporter = launcher_core::progress::noop();
