@@ -12,6 +12,7 @@ mod discord;
 mod firewall;
 mod instances;
 mod inventory;
+mod nexus;
 mod progress;
 mod secrets;
 mod settings;
@@ -128,6 +129,9 @@ fn main() {
             commands::install_game_tool,
             commands::install_skyrim_together,
             commands::install_skyrim_mod,
+            commands::nexus_config,
+            commands::nexus_set_key,
+            commands::skyrim_catalog,
             commands::open_together_page,
             commands::install_address_library,
             commands::open_address_library_page,

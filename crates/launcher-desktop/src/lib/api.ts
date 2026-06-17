@@ -534,6 +534,39 @@ export const installSkyrimMod = (keywords: string[], name: string, path?: string
     ? call<string>("install_skyrim_mod", { keywords, name, path: path ?? null })
     : Promise.reject(new Error("Installing is only available in the desktop app"));
 
+// ---- Skyrim mod catalog (curated + live Nexus metadata) ----
+export interface CatalogMod {
+  nexusId: number;
+  name: string;
+  category: string;
+  summary: string;
+  strCompatible: boolean;
+  installable: boolean;
+  keywords: string[];
+  note: string;
+  nexusUrl: string;
+  imageUrl?: string | null;
+  downloads?: number | null;
+  endorsements?: number | null;
+  author?: string | null;
+}
+
+const mockCatalog: CatalogMod[] = [
+  { nexusId: 34179, name: "Skyland AIO", category: "Graphics", summary: "All-in-one 2K landscape, architecture and clutter texture overhaul.", strCompatible: true, installable: false, keywords: ["skyland"], note: "Big texture pack — use a mod manager.", nexusUrl: "#", imageUrl: null, downloads: 4200000, endorsements: 120000 },
+  { nexusId: 12125, name: "Obsidian Weathers and Seasons", category: "Weather & Lighting", summary: "Cinematic weather with moody storms, auroras and fog.", strCompatible: true, installable: true, keywords: ["obsidian"], note: "", nexusUrl: "#", imageUrl: null, downloads: 1800000, endorsements: 45000 },
+  { nexusId: 12604, name: "SkyUI", category: "Interface", summary: "Searchable inventory menus and the MCM mod-config menu. Needs SKSE.", strCompatible: true, installable: true, keywords: ["skyui"], note: "", nexusUrl: "#", imageUrl: null, downloads: 9000000, endorsements: 300000 },
+  { nexusId: 1137, name: "Ordinator - Perks of Skyrim", category: "Gameplay", summary: "Reworks every perk tree with 400+ new perks.", strCompatible: false, installable: true, keywords: ["ordinator"], note: "Can desync in co-op.", nexusUrl: "#", imageUrl: null, downloads: 3500000, endorsements: 110000 },
+];
+
+export const nexusConfig = (): Promise<{ hasKey: boolean }> =>
+  isTauri ? call("nexus_config") : Promise.resolve({ hasKey: false });
+
+export const nexusSetKey = (key: string): Promise<void> =>
+  isTauri ? call<void>("nexus_set_key", { key }) : Promise.resolve();
+
+export const skyrimCatalog = (): Promise<CatalogMod[]> =>
+  isTauri ? call("skyrim_catalog") : Promise.resolve(mockCatalog);
+
 // ---- Built-in config / code editor ----
 const mockConfigFiles = ["config/sodium-options.json", "config/fabric/indigo.json", "server.properties", "config/example.yaml"];
 export const listConfigFiles = (kind: string, id: string): Promise<string[]> =>

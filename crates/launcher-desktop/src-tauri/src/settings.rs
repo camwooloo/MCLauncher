@@ -26,6 +26,10 @@ pub struct Settings {
     /// Cached reusable "friend code" — share once, anyone can join your network.
     #[serde(default)]
     pub friend_code: String,
+    /// Free Nexus Mods personal API key — read-only, used to show real mod
+    /// images/descriptions in the Skyrim mod browser. Stored locally only.
+    #[serde(default)]
+    pub nexus_api_key: String,
     /// Show "Playing … via Aurora Launcher" in Discord.
     #[serde(default = "default_true")]
     pub discord_rpc: bool,
@@ -65,6 +69,7 @@ impl Default for Settings {
             background: "liquid".to_string(),
             tailscale_api_token: String::new(),
             friend_code: String::new(),
+            nexus_api_key: String::new(),
             discord_rpc: true,
             default_view: "home".to_string(),
             launch_at_login: false,

@@ -1024,6 +1024,134 @@ pub async fn install_skyrim_mod(
     Ok(format!("{name} installed"))
 }
 
+// --- Skyrim mod catalog (curated list, enriched with live Nexus metadata) ---
+
+/// One curated Skyrim mod. Static fields are authored here; live fields (image,
+/// real summary, downloads) come from Nexus when a key is set.
+struct CatalogEntry {
+    nexus_id: u32,
+    name: &'static str,
+    category: &'static str,
+    blurb: &'static str,
+    /// Safe to use in a Skyrim Together co-op session.
+    str_compatible: bool,
+    /// Our zip-merge installer can place it (simple loose-files / plugin mod).
+    installable: bool,
+    /// Lowercase substrings that identify the downloaded zip.
+    keywords: &'static [&'static str],
+    /// Extra co-op caveat shown on the card (may be empty).
+    note: &'static str,
+}
+
+const SKYRIM_CATALOG: &[CatalogEntry] = &[
+    CatalogEntry { nexus_id: 34179, name: "Skyland AIO", category: "Graphics", blurb: "All-in-one 2K landscape, architecture and clutter texture overhaul — the easiest big visual upgrade.", str_compatible: true, installable: false, keywords: &["skyland"], note: "Big texture pack — install with a mod manager." },
+    CatalogEntry { nexus_id: 11052, name: "Majestic Mountains", category: "Graphics", blurb: "Reworked mountain meshes and textures with a unified style and far better LOD.", str_compatible: true, installable: false, keywords: &["majestic", "mountains"], note: "" },
+    CatalogEntry { nexus_id: 659, name: "Static Mesh Improvement Mod (SMIM)", category: "Graphics", blurb: "Replaces hundreds of flat, low-poly models (bridges, furniture, clutter) with detailed 3D ones.", str_compatible: true, installable: false, keywords: &["mesh", "improvement"], note: "FOMOD installer — use a mod manager." },
+    CatalogEntry { nexus_id: 2182, name: "Realistic Water Two", category: "Graphics", blurb: "Gorgeous water for rivers, lakes and oceans, with flow, foam and better reflections.", str_compatible: true, installable: false, keywords: &["realistic", "water"], note: "FOMOD installer — use a mod manager." },
+    CatalogEntry { nexus_id: 37085, name: "Embers XD", category: "Graphics", blurb: "Total overhaul of fire, embers and smoke — campfires and braziers look incredible.", str_compatible: true, installable: false, keywords: &["embers"], note: "FOMOD installer — use a mod manager." },
+    CatalogEntry { nexus_id: 24791, name: "Cathedral Weathers and Seasons", category: "Weather & Lighting", blurb: "A vivid, performance-friendly weather and seasons overhaul — dramatic skies and storms.", str_compatible: true, installable: false, keywords: &["cathedral", "weathers"], note: "FOMOD installer — use a mod manager." },
+    CatalogEntry { nexus_id: 12125, name: "Obsidian Weathers and Seasons", category: "Weather & Lighting", blurb: "Cinematic weather with moody storms, auroras and fog. A favourite base for ENB.", str_compatible: true, installable: true, keywords: &["obsidian", "weathers"], note: "" },
+    CatalogEntry { nexus_id: 43158, name: "Lux", category: "Weather & Lighting", blurb: "Complete interior lighting overhaul — proper darkness, light shafts and atmosphere.", str_compatible: true, installable: false, keywords: &["lux"], note: "FOMOD + patches — use a mod manager." },
+    CatalogEntry { nexus_id: 4796, name: "Rudy ENB SE", category: "Weather & Lighting", blurb: "A stunning ENB preset (for Obsidian/Lux/ELFX) — the 'crazy graphics' look. Needs the ENB binary too.", str_compatible: true, installable: false, keywords: &["rudy"], note: "Also install the ENB binary from enbdev.com (drops into the game root)." },
+    CatalogEntry { nexus_id: 12604, name: "SkyUI", category: "Interface", blurb: "The essential UI overhaul — searchable inventory menus and the MCM mod-config menu. Needs SKSE.", str_compatible: true, installable: true, keywords: &["skyui"], note: "" },
+    CatalogEntry { nexus_id: 5804, name: "A Quality World Map", category: "Interface", blurb: "A crisp, readable world map with visible roads. Pure visuals — totally co-op safe.", str_compatible: true, installable: false, keywords: &["quality", "world", "map"], note: "Has install options — a mod manager is easiest." },
+    CatalogEntry { nexus_id: 266, name: "Unofficial Skyrim SE Patch (USSEP)", category: "Essentials", blurb: "Thousands of vanilla bug fixes — the modding community's default foundation.", str_compatible: true, installable: true, keywords: &["unofficial"], note: "Everyone in the session should run the same version." },
+    CatalogEntry { nexus_id: 17230, name: "SSE Engine Fixes", category: "Essentials", blurb: "Fixes engine-level bugs and crashes; raises limits. Recommended for any modded setup.", str_compatible: true, installable: false, keywords: &["engine", "fixes"], note: "Part 2 (a .dll) goes in the game root — see the page." },
+    CatalogEntry { nexus_id: 32444, name: "Address Library for SKSE Plugins", category: "Essentials", blurb: "A dependency many SKSE mods (and Skyrim Together) need. Install the 'All in one'.", str_compatible: true, installable: true, keywords: &["address", "library"], note: "" },
+    CatalogEntry { nexus_id: 1137, name: "Ordinator - Perks of Skyrim", category: "Gameplay", blurb: "Reworks every perk tree with 400+ new perks for wildly different builds.", str_compatible: false, installable: true, keywords: &["ordinator"], note: "Changes perks — can desync in co-op. Only if everyone runs the exact same setup." },
+    CatalogEntry { nexus_id: 3479, name: "Immersive Armors", category: "Gameplay", blurb: "Adds 50+ lore-friendly armor sets across the world.", str_compatible: false, installable: false, keywords: &["immersive", "armors"], note: "Adds items/leveled lists — may desync in co-op unless everyone matches." },
+];
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogMod {
+    nexus_id: u32,
+    name: String,
+    category: String,
+    summary: String,
+    str_compatible: bool,
+    installable: bool,
+    keywords: Vec<String>,
+    note: String,
+    nexus_url: String,
+    image_url: Option<String>,
+    downloads: Option<u64>,
+    endorsements: Option<u64>,
+    author: Option<String>,
+}
+
+/// Whether a Nexus API key is configured (for showing the setup prompt).
+#[tauri::command]
+pub async fn nexus_config(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let s = Settings::load(&state.paths.settings_file()).await;
+    Ok(serde_json::json!({ "hasKey": !s.nexus_api_key.trim().is_empty() }))
+}
+
+/// Validate + save a free Nexus personal API key. Returns Ok only if valid.
+#[tauri::command]
+pub async fn nexus_set_key(state: State<'_, AppState>, key: String) -> Result<(), String> {
+    let key = key.trim().to_string();
+    if key.is_empty() {
+        // Allow clearing.
+        let mut s = Settings::load(&state.paths.settings_file()).await;
+        s.nexus_api_key = String::new();
+        return s.save(&state.paths.settings_file()).await;
+    }
+    if !crate::nexus::validate_key(&key).await {
+        return Err("That Nexus API key didn't validate. Copy your Personal API Key from nexusmods.com → Account → API.".into());
+    }
+    let mut s = Settings::load(&state.paths.settings_file()).await;
+    s.nexus_api_key = key;
+    s.save(&state.paths.settings_file()).await
+}
+
+/// The curated Skyrim mod catalog, enriched with live Nexus metadata when a key
+/// is set (real cover image, summary, downloads, endorsements).
+#[tauri::command]
+pub async fn skyrim_catalog(state: State<'_, AppState>) -> Result<Vec<CatalogMod>, String> {
+    let key = Settings::load(&state.paths.settings_file()).await.nexus_api_key.trim().to_string();
+
+    // Fetch all mods' metadata concurrently when we have a key.
+    let mut infos: std::collections::HashMap<usize, crate::nexus::NexusInfo> = std::collections::HashMap::new();
+    if !key.is_empty() {
+        let mut set = tokio::task::JoinSet::new();
+        for (idx, m) in SKYRIM_CATALOG.iter().enumerate() {
+            let key = key.clone();
+            let id = m.nexus_id;
+            set.spawn(async move { (idx, crate::nexus::fetch_mod(&key, id).await) });
+        }
+        while let Some(res) = set.join_next().await {
+            if let Ok((idx, Some(info))) = res {
+                infos.insert(idx, info);
+            }
+        }
+    }
+
+    let out = SKYRIM_CATALOG
+        .iter()
+        .enumerate()
+        .map(|(idx, m)| {
+            let info = infos.remove(&idx).unwrap_or_default();
+            CatalogMod {
+                nexus_id: m.nexus_id,
+                name: info.name.unwrap_or_else(|| m.name.to_string()),
+                category: m.category.to_string(),
+                summary: info.summary.filter(|s| !s.is_empty()).unwrap_or_else(|| m.blurb.to_string()),
+                str_compatible: m.str_compatible,
+                installable: m.installable,
+                keywords: m.keywords.iter().map(|s| s.to_string()).collect(),
+                note: m.note.to_string(),
+                nexus_url: format!("https://www.nexusmods.com/skyrimspecialedition/mods/{}?tab=files", m.nexus_id),
+                image_url: info.image_url,
+                downloads: info.downloads,
+                endorsements: info.endorsements,
+                author: info.author,
+            }
+        })
+        .collect();
+    Ok(out)
+}
+
 /// Guided Address Library install (required by Skyrim Together at runtime).
 #[tauri::command]
 pub async fn install_address_library(path: Option<String>) -> Result<String, String> {

@@ -517,44 +517,65 @@ export function SkyrimCoop() {
   );
 }
 
-/** Curated mods that play nicely with Skyrim Together Reborn. Nexus blocks
- *  automated downloads, so these are guided: open the page, grab the main file,
- *  then Aurora drops it into Data. `keywords` match the downloaded zip's name. */
-const STR_MODS: { id: string; name: string; blurb: string; url: string; keywords: string[] }[] = [
-  {
-    id: "skyui",
-    name: "SkyUI",
-    blurb: "The essential UI overhaul — searchable menus and mod config (MCM). Needs SKSE.",
-    url: "https://www.nexusmods.com/skyrimspecialedition/mods/12604?tab=files",
-    keywords: ["skyui"],
-  },
-  {
-    id: "aqwm",
-    name: "A Quality World Map",
-    blurb: "A crisp, readable world map with roads. Pure textures — totally co-op safe.",
-    url: "https://www.nexusmods.com/skyrimspecialedition/mods/5804?tab=files",
-    keywords: ["quality", "world", "map"],
-  },
-  {
-    id: "ussep",
-    name: "Unofficial Skyrim SE Patch",
-    blurb: "Thousands of vanilla bug fixes. Co-op tip: everyone in the session should run it.",
-    url: "https://www.nexusmods.com/skyrimspecialedition/mods/266?tab=files",
-    keywords: ["unofficial"],
-  },
-];
+const MOD_CATEGORIES = ["All", "Graphics", "Weather & Lighting", "Interface", "Essentials", "Gameplay"];
+const CAT_COLOR: Record<string, string> = {
+  Graphics: "#22d3ee",
+  "Weather & Lighting": "#a78bfa",
+  Interface: "#34d399",
+  Essentials: "#f59e0b",
+  Gameplay: "#f472b6",
+};
+const PER_PAGE = 6;
+const fmtN = (n?: number | null) =>
+  !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
 
-export function SkyrimMods() {
-  const { games, installTool, refreshGames, showToast, busy } = useLauncher();
-  const [installing, setInstalling] = useState<string | null>(null);
-  const sky = games?.skyrim;
-  if (!sky?.installed) return <NotInstalled title="Skyrim" />;
+/** Browsable, filterable Skyrim mod catalog with real Nexus screenshots. */
+function SkyrimModBrowser() {
+  const { showToast, refreshGames } = useLauncher();
+  const [mods, setMods] = useState<api.CatalogMod[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasKey, setHasKey] = useState(false);
+  const [keyOpen, setKeyOpen] = useState(false);
+  const [key, setKey] = useState("");
+  const [savingKey, setSavingKey] = useState(false);
+  const [installing, setInstalling] = useState<number | null>(null);
 
-  const installMod = async (m: (typeof STR_MODS)[number]) => {
-    setInstalling(m.id);
+  const [q, setQ] = useState("");
+  const [cat, setCat] = useState("All");
+  const [strOnly, setStrOnly] = useState(false);
+  const [sort, setSort] = useState("popular");
+  const [page, setPage] = useState(0);
+
+  const load = () => {
+    setLoading(true);
+    api.skyrimCatalog().then(setMods).catch(() => {}).finally(() => setLoading(false));
+  };
+  useEffect(() => {
+    api.nexusConfig().then((c) => setHasKey(c.hasKey)).catch(() => {});
+    load();
+  }, []);
+  useEffect(() => setPage(0), [q, cat, strOnly, sort]);
+
+  const saveKey = async () => {
+    setSavingKey(true);
     try {
-      const msg = await api.installSkyrimMod(m.keywords, m.name);
-      showToast(msg);
+      await api.nexusSetKey(key.trim());
+      setHasKey(true);
+      setKeyOpen(false);
+      setKey("");
+      showToast("Nexus key saved — loading screenshots…");
+      load();
+    } catch (e) {
+      showToast(`${e}`);
+    } finally {
+      setSavingKey(false);
+    }
+  };
+
+  const installMod = async (m: api.CatalogMod) => {
+    setInstalling(m.nexusId);
+    try {
+      showToast(await api.installSkyrimMod(m.keywords, m.name));
       refreshGames();
     } catch (e) {
       showToast(`${e}`);
@@ -562,6 +583,154 @@ export function SkyrimMods() {
       setInstalling(null);
     }
   };
+
+  const filtered = mods.filter(
+    (m) =>
+      (cat === "All" || m.category === cat) &&
+      (!strOnly || m.strCompatible) &&
+      (q.trim() === "" || `${m.name} ${m.summary}`.toLowerCase().includes(q.trim().toLowerCase()))
+  );
+  const sorted = [...filtered].sort((a, b) =>
+    sort === "name"
+      ? a.name.localeCompare(b.name)
+      : sort === "endorsed"
+      ? (b.endorsements ?? 0) - (a.endorsements ?? 0)
+      : (b.downloads ?? 0) - (a.downloads ?? 0)
+  );
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
+  const cur = Math.min(page, pageCount - 1);
+  const shown = sorted.slice(cur * PER_PAGE, cur * PER_PAGE + PER_PAGE);
+
+  return (
+    <>
+      <div className="sect-head" style={{ marginTop: 22 }}>
+        <div className="sect-title">Mod browser</div>
+        {hasKey ? (
+          <Pill tone="ok">Nexus connected</Pill>
+        ) : (
+          <button className="btn ghost" onClick={() => setKeyOpen((o) => !o)}>
+            <Icon.link size={14} /> Connect Nexus for screenshots
+          </button>
+        )}
+      </div>
+
+      {!hasKey && keyOpen && (
+        <div className="surface" style={{ padding: 14, borderRadius: 14 }}>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Paste your <b>free</b> Nexus personal API key to load real screenshots &amp; descriptions (no
+            Premium needed; it's only used to read mod info). Get one at{" "}
+            <button className="linklike" onClick={() => void api.openUrl("https://www.nexusmods.com/users/myaccount?tab=api")}>
+              nexusmods.com → Account → API
+            </button>
+            .
+          </p>
+          <div className="row wrap" style={{ alignItems: "flex-end" }}>
+            <Field label="Nexus personal API key">
+              <input className="input" style={{ minWidth: 340 }} type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder="paste key…" />
+            </Field>
+            <button className="btn" disabled={savingKey || !key.trim()} onClick={saveKey}>
+              <Icon.check size={15} /> {savingKey ? "Checking…" : "Save key"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Controls */}
+      <div className="row wrap" style={{ gap: 10, alignItems: "flex-end", marginTop: 4 }}>
+        <Field label="Search">
+          <input className="input" style={{ minWidth: 200 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="ENB, water, UI…" />
+        </Field>
+        <Field label="Sort by">
+          <Select
+            value={sort}
+            onChange={setSort}
+            minWidth={150}
+            options={[
+              { value: "popular", label: "Most downloaded" },
+              { value: "endorsed", label: "Most endorsed" },
+              { value: "name", label: "Name (A–Z)" },
+            ]}
+          />
+        </Field>
+        <label className="row" style={{ gap: 7, alignItems: "center", cursor: "pointer", paddingBottom: 8 }}>
+          <input type="checkbox" checked={strOnly} onChange={(e) => setStrOnly(e.target.checked)} />
+          <span>Co-op safe only</span>
+        </label>
+      </div>
+      <div className="row wrap" style={{ gap: 6, marginTop: 4 }}>
+        {MOD_CATEGORIES.map((c) => (
+          <button key={c} className={`pill ${cat === c ? "on" : ""}`} style={{ cursor: "pointer", opacity: cat === c ? 1 : 0.65 }} onClick={() => setCat(c)}>
+            {c}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <p className="muted">Loading mods…</p>
+      ) : (
+        <>
+          <div className="tiles" style={{ marginTop: 12 }}>
+            {shown.map((m) => (
+              <div className="tile" key={m.nexusId}>
+                {m.imageUrl ? (
+                  <img className="thumb" src={m.imageUrl} alt="" loading="lazy" />
+                ) : (
+                  <div className="thumb" style={{ display: "grid", placeItems: "center", background: `linear-gradient(135deg, ${CAT_COLOR[m.category] ?? "#888"}, transparent)` }}>
+                    <span style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 800, opacity: 0.55 }}>{m.name.slice(0, 1)}</span>
+                  </div>
+                )}
+                <div className="body">
+                  <div className="row" style={{ justifyContent: "space-between", gap: 6, marginBottom: 4 }}>
+                    <span className="pill" style={{ fontSize: 11 }}>{m.category}</span>
+                    <Pill tone={m.strCompatible ? "ok" : "warn"}>{m.strCompatible ? "Co-op safe" : "Co-op risk"}</Pill>
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name}</div>
+                  <div className="muted" style={{ fontSize: 12, margin: "4px 0", maxHeight: 52, overflow: "hidden" }}>{m.summary}</div>
+                  {m.note && <div className="muted" style={{ fontSize: 11, fontStyle: "italic", marginBottom: 4 }}>{m.note}</div>}
+                  <div className="sub" style={{ color: "var(--text-mute)", fontSize: 11.5, marginBottom: 8 }}>
+                    ↓ {fmtN(m.downloads)} · ★ {fmtN(m.endorsements)}
+                  </div>
+                  <div className="row" style={{ gap: 6 }}>
+                    <button className="btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => void api.openUrl(m.nexusUrl)}>
+                      <Icon.link size={13} /> Open page
+                    </button>
+                    {m.installable && (
+                      <button className="btn" style={{ padding: "7px 12px", fontSize: 12.5 }} disabled={installing !== null} onClick={() => void installMod(m)}>
+                        <Icon.upgrade size={13} /> {installing === m.nexusId ? "Installing…" : "Install downloaded"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {sorted.length === 0 && <p className="muted">No mods match those filters.</p>}
+          {pageCount > 1 && (
+            <div className="row" style={{ justifyContent: "center", gap: 12, marginTop: 14, alignItems: "center" }}>
+              <button className="btn ghost" disabled={cur === 0} onClick={() => setPage(cur - 1)}>
+                ← Prev
+              </button>
+              <span className="muted" style={{ fontSize: 12.5 }}>Page {cur + 1} of {pageCount}</span>
+              <button className="btn ghost" disabled={cur >= pageCount - 1} onClick={() => setPage(cur + 1)}>
+                Next →
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      <p className="muted" style={{ marginTop: 12, fontSize: 12 }}>
+        Nexus doesn't allow automatic downloads, so installs are guided: <b>Open page</b> → download the
+        main file → <b>Install downloaded</b>. Big FOMOD/texture mods are page-only — use a mod manager
+        (MO2 / Vortex). Everyone in a co-op session should run the same mods.
+      </p>
+    </>
+  );
+}
+
+export function SkyrimMods() {
+  const { games, installTool, busy } = useLauncher();
+  const sky = games?.skyrim;
+  if (!sky?.installed) return <NotInstalled title="Skyrim" />;
 
   return (
     <div className="sect">
@@ -586,39 +755,7 @@ export function SkyrimMods() {
       </div>
       {(!sky.has_skyrim_together || !sky.has_address_library) && <TogetherSetup />}
 
-      {/* Curated Skyrim Together–ready mods */}
-      <div className="sect-head" style={{ marginTop: 22 }}>
-        <div className="sect-title">Skyrim Together–ready mods</div>
-      </div>
-      <p className="muted" style={{ marginTop: -4 }}>
-        Hand-picked mods that work well in co-op. Nexus doesn't allow automatic downloads, so for each:
-        hit <b>Open page</b>, download the <b>main file</b>, then <b>Install downloaded</b> — Aurora drops
-        it into your game. Make sure everyone in the session runs the same mods.
-      </p>
-      <div className="col" style={{ gap: 2 }}>
-        {STR_MODS.map((m) => (
-          <div className="lrow" key={m.id}>
-            <div className="avatar">
-              <Icon.mods size={18} />
-            </div>
-            <div className="grow">
-              <div className="name">{m.name}</div>
-              <div className="sub">{m.blurb}</div>
-            </div>
-            <button className="btn ghost" onClick={() => void api.openUrl(m.url)}>
-              <Icon.link size={14} /> Open page
-            </button>
-            <button className="btn" disabled={installing !== null} onClick={() => void installMod(m)}>
-              <Icon.upgrade size={14} /> {installing === m.id ? "Installing…" : "Install downloaded"}
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <p className="muted" style={{ marginTop: 12 }}>
-        For big graphics/overhaul load orders, use a mod manager (MO2 / Vortex) on top — Aurora launches
-        through the right loader either way.
-      </p>
+      <SkyrimModBrowser />
     </div>
   );
 }
