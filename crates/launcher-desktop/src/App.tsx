@@ -74,17 +74,28 @@ function TabBar({
 function ServerPill() {
   const { serverStatuses, openConsole } = useLauncher();
   const [open, setOpen] = useState(false);
+  const closeTimer = useRef<number | null>(null);
   const list = Object.values(serverStatuses);
   if (list.length === 0) return null;
   const totalPlayers = list.reduce((a, s) => a + s.players, 0);
 
+  // Keep the menu open while moving between the pill and the dropdown — a short
+  // grace period bridges the gap between them so it doesn't close mid-move.
+  const show = () => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    setOpen(true);
+  };
+  const hide = () => {
+    closeTimer.current = window.setTimeout(() => setOpen(false), 240);
+  };
+
   return (
-    <div style={{ position: "relative" }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <div style={{ position: "relative" }} onMouseEnter={show} onMouseLeave={hide}>
       <button className="server-ind" onClick={() => list[0] && openConsole(list[0].id)}>
         <span className="live" /> {totalPlayers} online · {list.length} server{list.length > 1 ? "s" : ""}
       </button>
       {open && (
-        <div className="acct-menu surface" style={{ width: 290, top: 44 }}>
+        <div className="acct-menu surface" style={{ width: 290, top: 40 }} onMouseEnter={show} onMouseLeave={hide}>
           {list.map((s) => (
             <button key={s.id} className="menu-item" onClick={() => openConsole(s.id)}>
               <span className="av" style={{ width: 28, height: 28 }}>
