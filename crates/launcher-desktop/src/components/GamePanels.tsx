@@ -372,11 +372,15 @@ export function SkyrimPlay() {
   );
 }
 
+/** Stable id of the Skyrim Together server in the shared server machinery. */
+const STR_SERVER_ID = "skyrim:together";
+
 /** Host a Skyrim Together session: configure + launch the dedicated server. */
 function SkyrimHost() {
-  const { showToast } = useLauncher();
+  const { showToast, serverStatuses, openConsole, stopServer } = useLauncher();
   const [cfg, setCfg] = useState<api.TogetherServerConfig | null>(null);
   const [busy, setBusy] = useState(false);
+  const running = !!serverStatuses[STR_SERVER_ID]?.running;
 
   useEffect(() => {
     api.skyrimServerConfig().then(setCfg).catch(() => {});
@@ -390,7 +394,7 @@ function SkyrimHost() {
     try {
       await api.saveSkyrimServerConfig(cfg);
       await api.startSkyrimServer();
-      showToast("Together server started — share your Aurora Net address + port with friends");
+      openConsole(STR_SERVER_ID); // embedded dashboard, same as Minecraft
     } catch (e) {
       showToast(`${e}`);
     } finally {
@@ -452,9 +456,20 @@ function SkyrimHost() {
             ))}
           </div>
           <div className="row" style={{ marginTop: 14, gap: 10, alignItems: "center" }}>
-            <button className="btn-play" disabled={busy} onClick={start}>
-              <Icon.host size={16} /> {busy ? "Starting…" : "Save & start server"}
-            </button>
+            {running ? (
+              <>
+                <button className="btn" onClick={() => openConsole(STR_SERVER_ID)}>
+                  <Icon.terminal size={15} /> Dashboard
+                </button>
+                <button className="btn danger" onClick={() => stopServer(STR_SERVER_ID)}>
+                  <Icon.stop size={13} /> Stop
+                </button>
+              </>
+            ) : (
+              <button className="btn-play" disabled={busy} onClick={start}>
+                <Icon.host size={16} /> {busy ? "Starting…" : "Save & start server"}
+              </button>
+            )}
           </div>
           <HostAddress port={cfg.port} onCopy={showToast} />
         </>

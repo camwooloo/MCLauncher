@@ -31,6 +31,9 @@ pub struct ServerProc {
     pub running: Arc<AtomicBool>,
     /// Rolling console history so reopening the dashboard replays past output.
     pub log: Arc<std::sync::Mutex<Vec<crate::commands::ServerLogLine>>>,
+    /// Whether the process stops gracefully via a `stop` stdin command
+    /// (Minecraft). Native servers like Skyrim Together are force-killed instead.
+    pub graceful_stop: bool,
 }
 
 /// Process-wide launcher state.

@@ -93,7 +93,7 @@ function ServerPill() {
               <span style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 13.5 }}>{s.name}</div>
                 <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>
-                  Minecraft · {s.players}/{s.maxPlayers} · :{s.port}
+                  {s.version} · {s.players}/{s.maxPlayers} · :{s.port}
                 </div>
               </span>
               <Icon.terminal size={15} />

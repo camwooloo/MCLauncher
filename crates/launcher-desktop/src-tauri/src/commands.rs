@@ -775,16 +775,69 @@ pub fn save_skyrim_server_config(config: skyrim::TogetherServerConfig) -> Result
     skyrim::write_server_config(&dir, &config).map_err(err)
 }
 
-/// Start the Together dedicated server (after saving the config). Returns pid.
+/// Stable id for the single Skyrim Together dedicated server in the shared
+/// running-server machinery (dashboard, top-right pill, stop).
+const STR_SERVER_ID: &str = "skyrim:together";
+
+/// Start the Together dedicated server with its console captured in-app (no
+/// separate terminal window) — it then behaves exactly like a hosted Minecraft
+/// server: embedded dashboard, live status, top-right running indicator.
 #[tauri::command]
-pub fn start_skyrim_server() -> Result<u32, String> {
+pub async fn start_skyrim_server(app: AppHandle, state: State<'_, AppState>) -> Result<u32, String> {
+    use std::process::Stdio;
+
+    {
+        let map = state.servers.lock().await;
+        if map.get(STR_SERVER_ID).is_some_and(|p| p.running.load(Ordering::Relaxed)) {
+            return Err("The Skyrim Together server is already running".into());
+        }
+    }
+
     let info = skyrim::detect();
     let dir = info.install_dir.ok_or("Skyrim is not installed")?;
-    // Make sure servers hosted here are reachable over Aurora Net (Tailscale
-    // lands on the Public firewall profile, which game rules don't cover).
+    let exe = skyrim::server_exe_path(&dir);
+    if !exe.exists() {
+        return Err("The Skyrim Together dedicated server isn't installed — reinstall Skyrim Together to host.".into());
+    }
+    let cfg = skyrim::read_server_config(&dir);
+    let cwd = exe.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| dir.clone());
+
+    // Reachable over Aurora Net (Tailscale lands on the Public firewall profile).
     // One-time; no-op if already set up.
-    let _ = crate::firewall::ensure_aurora_net(false);
-    skyrim::launch_server(&dir).map_err(err)
+    let _ = tokio::task::spawn_blocking(|| crate::firewall::ensure_aurora_net(false)).await;
+
+    let log_buf: Arc<std::sync::Mutex<Vec<ServerLogLine>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
+    push_log(&log_buf, "Starting Skyrim Together server…", false);
+    let _ = app.emit(
+        "server-log",
+        serde_json::json!({ "id": STR_SERVER_ID, "line": "Starting Skyrim Together server…", "err": false }),
+    );
+
+    let mut cmd = tokio::process::Command::new(&exe);
+    cmd.current_dir(&cwd)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(windows)]
+    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW — console shown in-app
+    let child = cmd.spawn().map_err(|e| e.to_string())?;
+    let pid = child.id().unwrap_or(0);
+
+    let name = if cfg.server_name.trim().is_empty() {
+        "Skyrim Together".to_string()
+    } else {
+        cfg.server_name.clone()
+    };
+    let meta = ServerMeta {
+        id: STR_SERVER_ID.to_string(),
+        name,
+        version: "Skyrim Together".to_string(),
+        port: cfg.port,
+        max_players: cfg.max_players,
+    };
+    // Native server: doesn't take a `stop` stdin command, so force-kill on stop.
+    track_server_child(&app, state.inner(), child, meta, log_buf, false).await;
+    Ok(pid)
 }
 
 #[tauri::command]
@@ -1204,6 +1257,84 @@ pub async fn servers_status(state: State<'_, AppState>) -> Result<Vec<ServerStat
     Ok(out)
 }
 
+/// Wire a freshly-spawned server child (stdio piped) into the shared running-
+/// server machinery: stream its console to the dashboard + rolling buffer,
+/// sample RAM, track it in state, and emit live status. Used by both Minecraft
+/// and the Skyrim Together dedicated server so they behave identically in-app.
+async fn track_server_child(
+    app: &AppHandle,
+    state: &AppState,
+    mut child: tokio::process::Child,
+    meta: ServerMeta,
+    log_buf: Arc<std::sync::Mutex<Vec<ServerLogLine>>>,
+    graceful_stop: bool,
+) {
+    let pid = child.id().unwrap_or(0);
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
+    let stdin = child.stdin.take().unwrap();
+
+    let players = Arc::new(Mutex::new(HashSet::<String>::new()));
+    let memory_mb = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let running = Arc::new(AtomicBool::new(true));
+
+    spawn_log_pump(app.clone(), stdout, meta.clone(), players.clone(), memory_mb.clone(), log_buf.clone(), false);
+    spawn_log_pump(app.clone(), stderr, meta.clone(), players.clone(), memory_mb.clone(), log_buf.clone(), true);
+    spawn_ram_sampler(app.clone(), meta.clone(), pid, players.clone(), memory_mb.clone(), running.clone());
+
+    // Wait-task owns the child so we can report its exit code. It exits when the
+    // process ends naturally or when the kill one-shot fires.
+    let (kill_tx, kill_rx) = tokio::sync::oneshot::channel::<()>();
+    {
+        let app = app.clone();
+        let meta = meta.clone();
+        let running = running.clone();
+        let log_buf = log_buf.clone();
+        tokio::spawn(async move {
+            let status = tokio::select! {
+                s = child.wait() => s.ok(),
+                _ = kill_rx => {
+                    let _ = child.start_kill();
+                    child.wait().await.ok()
+                }
+            };
+            running.store(false, Ordering::Relaxed);
+            let code = status.and_then(|s| s.code());
+            let (line, is_err) = match code {
+                Some(0) | None => ("Server stopped.".to_string(), false),
+                Some(c) => (
+                    format!("Server process exited (code {c}). See the log above for the cause."),
+                    true,
+                ),
+            };
+            push_log(&log_buf, &line, is_err);
+            let _ = app.emit("server-log", serde_json::json!({ "id": meta.id, "line": line, "err": is_err }));
+            emit_status(&app, &meta, 0, 0, false);
+        });
+    }
+
+    state.servers.lock().await.insert(
+        meta.id.clone(),
+        crate::state::ServerProc {
+            id: meta.id.clone(),
+            name: meta.name.clone(),
+            version: meta.version.clone(),
+            port: meta.port,
+            max_players: meta.max_players,
+            pid,
+            stdin,
+            kill: Some(kill_tx),
+            players,
+            memory_mb,
+            running,
+            log: log_buf,
+            graceful_stop,
+        },
+    );
+
+    emit_status(app, &meta, 0, 0, true);
+}
+
 #[tauri::command]
 pub async fn server_start(
     app: AppHandle,
@@ -1309,16 +1440,7 @@ pub async fn server_start(
     #[cfg(windows)]
     cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW — the dashboard shows the console
 
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
-    let pid = child.id().unwrap_or(0);
-    let stdout = child.stdout.take().unwrap();
-    let stderr = child.stderr.take().unwrap();
-    let stdin = child.stdin.take().unwrap();
-
-    let players = Arc::new(Mutex::new(HashSet::<String>::new()));
-    let memory_mb = Arc::new(std::sync::atomic::AtomicU64::new(0));
-    let running = Arc::new(AtomicBool::new(true));
-
+    let child = cmd.spawn().map_err(|e| e.to_string())?;
     let meta = ServerMeta {
         id: id.clone(),
         name: cfg.name.clone(),
@@ -1326,61 +1448,7 @@ pub async fn server_start(
         port: cfg.port,
         max_players: cfg.max_players,
     };
-
-    spawn_log_pump(app.clone(), stdout, meta.clone(), players.clone(), memory_mb.clone(), log_buf.clone(), false);
-    spawn_log_pump(app.clone(), stderr, meta.clone(), players.clone(), memory_mb.clone(), log_buf.clone(), true);
-    spawn_ram_sampler(app.clone(), meta.clone(), pid, players.clone(), memory_mb.clone(), running.clone());
-
-    // Wait-task owns the child so we can report its exit code. It exits when the
-    // process ends naturally or when the kill one-shot fires.
-    let (kill_tx, kill_rx) = tokio::sync::oneshot::channel::<()>();
-    {
-        let app = app.clone();
-        let meta = meta.clone();
-        let running = running.clone();
-        let log_buf = log_buf.clone();
-        tokio::spawn(async move {
-            let status = tokio::select! {
-                s = child.wait() => s.ok(),
-                _ = kill_rx => {
-                    let _ = child.start_kill();
-                    child.wait().await.ok()
-                }
-            };
-            running.store(false, Ordering::Relaxed);
-            let code = status.and_then(|s| s.code());
-            let (line, is_err) = match code {
-                Some(0) | None => ("Server stopped.".to_string(), false),
-                Some(c) => (
-                    format!("Server process exited (code {c}). See the log above for the cause."),
-                    true,
-                ),
-            };
-            push_log(&log_buf, &line, is_err);
-            let _ = app.emit("server-log", serde_json::json!({ "id": meta.id, "line": line, "err": is_err }));
-            emit_status(&app, &meta, 0, 0, false);
-        });
-    }
-
-    state.servers.lock().await.insert(
-        id.clone(),
-        crate::state::ServerProc {
-            id: id.clone(),
-            name: cfg.name.clone(),
-            version: cfg.version.clone(),
-            port: cfg.port,
-            max_players: cfg.max_players,
-            pid,
-            stdin,
-            kill: Some(kill_tx),
-            players,
-            memory_mb,
-            running,
-            log: log_buf,
-        },
-    );
-
-    emit_status(&app, &meta, 0, 0, true);
+    track_server_child(&app, state.inner(), child, meta, log_buf, true).await;
     Ok(())
 }
 
@@ -1452,15 +1520,21 @@ async fn stop_server_inner(app: &AppHandle, state: &AppState, id: &str) {
     let proc = state.servers.lock().await.remove(id);
     if let Some(mut proc) = proc {
         proc.running.store(false, Ordering::Relaxed);
-        // Ask the server to save & stop gracefully…
-        let _ = proc.stdin.write_all(b"stop\n").await;
-        let _ = proc.stdin.flush().await;
-        // …and force-kill via the wait-task if it lingers past 10s.
-        if let Some(kill) = proc.kill.take() {
-            tokio::spawn(async move {
-                tokio::time::sleep(Duration::from_secs(10)).await;
+        if proc.graceful_stop {
+            // Minecraft: ask it to save & stop, then force-kill if it lingers.
+            let _ = proc.stdin.write_all(b"stop\n").await;
+            let _ = proc.stdin.flush().await;
+            if let Some(kill) = proc.kill.take() {
+                tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                    let _ = kill.send(());
+                });
+            }
+        } else {
+            // Native servers (Skyrim Together) don't stop via stdin — kill now.
+            if let Some(kill) = proc.kill.take() {
                 let _ = kill.send(());
-            });
+            }
         }
     }
     let _ = app.emit(
