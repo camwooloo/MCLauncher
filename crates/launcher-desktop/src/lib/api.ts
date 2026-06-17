@@ -567,6 +567,40 @@ export const nexusSetKey = (key: string): Promise<void> =>
 export const skyrimCatalog = (): Promise<CatalogMod[]> =>
   isTauri ? call("skyrim_catalog") : Promise.resolve(mockCatalog);
 
+export interface ModDetail {
+  name: string;
+  summary: string;
+  description: string;
+  images: string[];
+  downloads: number;
+  endorsements: number;
+  version?: string | null;
+  author?: string | null;
+  updated?: string | null;
+  adult: boolean;
+}
+
+const mockDetail: ModDetail = {
+  name: "Sample Mod",
+  summary: "A short summary of what this mod does.",
+  description:
+    "This is the full description.\n\nIt spans multiple paragraphs and explains features, requirements and installation notes in plain text.",
+  images: [
+    "https://picsum.photos/seed/skyrim1/900/506",
+    "https://picsum.photos/seed/skyrim2/900/506",
+    "https://picsum.photos/seed/skyrim3/900/506",
+  ],
+  downloads: 4200000,
+  endorsements: 120000,
+  version: "3.0.1",
+  author: "ModAuthor",
+  updated: "2024-09-01",
+  adult: false,
+};
+
+export const skyrimModDetail = (nexusId: number): Promise<ModDetail> =>
+  isTauri ? call("skyrim_mod_detail", { nexusId }) : Promise.resolve(mockDetail);
+
 // ---- Built-in config / code editor ----
 const mockConfigFiles = ["config/sodium-options.json", "config/fabric/indigo.json", "server.properties", "config/example.yaml"];
 export const listConfigFiles = (kind: string, id: string): Promise<string[]> =>

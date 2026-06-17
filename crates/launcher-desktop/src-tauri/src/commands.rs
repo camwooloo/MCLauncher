@@ -1105,6 +1105,18 @@ pub async fn nexus_set_key(state: State<'_, AppState>, key: String) -> Result<()
     s.save(&state.paths.settings_file()).await
 }
 
+/// Full detail (description + screenshot gallery) for one catalog mod.
+#[tauri::command]
+pub async fn skyrim_mod_detail(state: State<'_, AppState>, nexus_id: u32) -> Result<crate::nexus::NexusDetail, String> {
+    let key = Settings::load(&state.paths.settings_file()).await.nexus_api_key.trim().to_string();
+    if key.is_empty() {
+        return Err("Connect a free Nexus API key to view mod details and screenshots.".into());
+    }
+    crate::nexus::fetch_detail(&key, nexus_id)
+        .await
+        .ok_or_else(|| "Couldn't load that mod from Nexus.".to_string())
+}
+
 /// The curated Skyrim mod catalog, enriched with live Nexus metadata when a key
 /// is set (real cover image, summary, downloads, endorsements).
 #[tauri::command]

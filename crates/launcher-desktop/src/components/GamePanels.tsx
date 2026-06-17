@@ -529,6 +529,118 @@ const PER_PAGE = 6;
 const fmtN = (n?: number | null) =>
   !n ? "0" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : String(n);
 
+/** Full-detail modal for one mod: flickable screenshot gallery + description. */
+function ModDetailModal({ mod, onClose }: { mod: api.CatalogMod; onClose: () => void }) {
+  const { showToast, refreshGames } = useLauncher();
+  const [d, setD] = useState<api.ModDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [i, setI] = useState(0);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    api.skyrimModDetail(mod.nexusId).then(setD).catch(() => setD(null)).finally(() => setLoading(false));
+  }, [mod.nexusId]);
+
+  const imgs = d?.images?.length ? d.images : mod.imageUrl ? [mod.imageUrl] : [];
+  const idx = imgs.length ? ((i % imgs.length) + imgs.length) % imgs.length : 0;
+  const go = (delta: number) => setI((p) => p + delta);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") go(-1);
+      else if (e.key === "ArrowRight") go(1);
+      else if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose]);
+
+  const install = async () => {
+    setBusy(true);
+    try {
+      showToast(await api.installSkyrimMod(mod.keywords, mod.name));
+      refreshGames();
+    } catch (e) {
+      showToast(`${e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="dash-overlay" onClick={onClose}>
+      <div className="dash" style={{ maxWidth: 860 }} onClick={(e) => e.stopPropagation()}>
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div className="eyebrow">{mod.category}</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 22 }}>{d?.name || mod.name}</div>
+          </div>
+          <button className="btn ghost" onClick={onClose}>
+            <Icon.close size={16} /> Close
+          </button>
+        </div>
+
+        {/* Gallery */}
+        <div className="gallery">
+          {imgs.length ? (
+            <>
+              <img className="gallery-img" src={imgs[idx]} alt="" />
+              {imgs.length > 1 && (
+                <>
+                  <button className="gallery-nav left" onClick={() => go(-1)} aria-label="Previous">‹</button>
+                  <button className="gallery-nav right" onClick={() => go(1)} aria-label="Next">›</button>
+                  <div className="gallery-count">{idx + 1} / {imgs.length}</div>
+                </>
+              )}
+            </>
+          ) : (
+            <div className="gallery-img" style={{ display: "grid", placeItems: "center", background: `linear-gradient(135deg, ${CAT_COLOR[mod.category] ?? "#888"}, transparent)` }}>
+              <span style={{ opacity: 0.6 }}>{loading ? "Loading…" : "No screenshots"}</span>
+            </div>
+          )}
+        </div>
+        {imgs.length > 1 && (
+          <div className="gallery-strip">
+            {imgs.map((src, n) => (
+              <button key={n} className={`gallery-thumb ${n === idx ? "on" : ""}`} onClick={() => setI(n)}>
+                <img src={src} alt="" loading="lazy" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Meta */}
+        <div className="row wrap" style={{ gap: 8, alignItems: "center", marginTop: 4 }}>
+          <Pill tone={mod.strCompatible ? "ok" : "warn"}>{mod.strCompatible ? "Co-op safe" : "Co-op risk"}</Pill>
+          <span className="muted" style={{ fontSize: 12.5 }}>↓ {fmtN(d?.downloads ?? mod.downloads)} · ★ {fmtN(d?.endorsements ?? mod.endorsements)}</span>
+          {d?.version && <span className="muted" style={{ fontSize: 12.5 }}>· v{d.version}</span>}
+          {d?.author && <span className="muted" style={{ fontSize: 12.5 }}>· by {d.author}</span>}
+          {d?.updated && <span className="muted" style={{ fontSize: 12.5 }}>· updated {d.updated}</span>}
+        </div>
+
+        {mod.note && <p className="muted" style={{ fontStyle: "italic", margin: "4px 0 0" }}>{mod.note}</p>}
+
+        <div className="patch-notes" style={{ maxHeight: "26vh", whiteSpace: "pre-wrap" }}>
+          {loading ? "Loading details…" : d?.description || d?.summary || mod.summary}
+        </div>
+
+        <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+          <button className="btn ghost" onClick={() => void api.openUrl(mod.nexusUrl)}>
+            <Icon.link size={15} /> Open page
+          </button>
+          {mod.installable && (
+            <button className="btn-play" disabled={busy} onClick={install}>
+              <Icon.upgrade size={15} /> {busy ? "Installing…" : "Install downloaded"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Browsable, filterable Skyrim mod catalog with real Nexus screenshots. */
 function SkyrimModBrowser() {
   const { showToast, refreshGames } = useLauncher();
@@ -545,6 +657,7 @@ function SkyrimModBrowser() {
   const [strOnly, setStrOnly] = useState(false);
   const [sort, setSort] = useState("popular");
   const [page, setPage] = useState(0);
+  const [detail, setDetail] = useState<api.CatalogMod | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -673,9 +786,9 @@ function SkyrimModBrowser() {
             {shown.map((m) => (
               <div className="tile" key={m.nexusId}>
                 {m.imageUrl ? (
-                  <img className="thumb" src={m.imageUrl} alt="" loading="lazy" />
+                  <img className="thumb" src={m.imageUrl} alt="" loading="lazy" style={{ cursor: "pointer" }} onClick={() => setDetail(m)} />
                 ) : (
-                  <div className="thumb" style={{ display: "grid", placeItems: "center", background: `linear-gradient(135deg, ${CAT_COLOR[m.category] ?? "#888"}, transparent)` }}>
+                  <div className="thumb" style={{ display: "grid", placeItems: "center", cursor: "pointer", background: `linear-gradient(135deg, ${CAT_COLOR[m.category] ?? "#888"}, transparent)` }} onClick={() => setDetail(m)}>
                     <span style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 800, opacity: 0.55 }}>{m.name.slice(0, 1)}</span>
                   </div>
                 )}
@@ -684,19 +797,19 @@ function SkyrimModBrowser() {
                     <span className="pill" style={{ fontSize: 11 }}>{m.category}</span>
                     <Pill tone={m.strCompatible ? "ok" : "warn"}>{m.strCompatible ? "Co-op safe" : "Co-op risk"}</Pill>
                   </div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14, cursor: "pointer" }} onClick={() => setDetail(m)}>{m.name}</div>
                   <div className="muted" style={{ fontSize: 12, margin: "4px 0", maxHeight: 52, overflow: "hidden" }}>{m.summary}</div>
                   {m.note && <div className="muted" style={{ fontSize: 11, fontStyle: "italic", marginBottom: 4 }}>{m.note}</div>}
                   <div className="sub" style={{ color: "var(--text-mute)", fontSize: 11.5, marginBottom: 8 }}>
                     ↓ {fmtN(m.downloads)} · ★ {fmtN(m.endorsements)}
                   </div>
                   <div className="row" style={{ gap: 6 }}>
-                    <button className="btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => void api.openUrl(m.nexusUrl)}>
-                      <Icon.link size={13} /> Open page
+                    <button className="btn" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setDetail(m)}>
+                      <Icon.mods size={13} /> Details
                     </button>
                     {m.installable && (
-                      <button className="btn" style={{ padding: "7px 12px", fontSize: 12.5 }} disabled={installing !== null} onClick={() => void installMod(m)}>
-                        <Icon.upgrade size={13} /> {installing === m.nexusId ? "Installing…" : "Install downloaded"}
+                      <button className="btn ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} disabled={installing !== null} onClick={() => void installMod(m)}>
+                        <Icon.upgrade size={13} /> {installing === m.nexusId ? "Installing…" : "Install"}
                       </button>
                     )}
                   </div>
@@ -723,6 +836,8 @@ function SkyrimModBrowser() {
         main file → <b>Install downloaded</b>. Big FOMOD/texture mods are page-only — use a mod manager
         (MO2 / Vortex). Everyone in a co-op session should run the same mods.
       </p>
+
+      {detail && <ModDetailModal mod={detail} onClose={() => setDetail(null)} />}
     </>
   );
 }

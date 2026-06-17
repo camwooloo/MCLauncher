@@ -132,6 +132,7 @@ fn main() {
             commands::nexus_config,
             commands::nexus_set_key,
             commands::skyrim_catalog,
+            commands::skyrim_mod_detail,
             commands::open_together_page,
             commands::install_address_library,
             commands::open_address_library_page,
