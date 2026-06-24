@@ -20,7 +20,7 @@ import {
   SkyrimMods,
   EldenRingPlay,
   EldenRingCoop,
-  EldenRingMods,
+  EldenRingCheats,
   CyberpunkPlay,
   CyberpunkCoop,
   CyberpunkMods,
@@ -33,7 +33,7 @@ type Section = GameKey | "home" | "accounts" | "settings" | "network";
 const GAME_TABS: Record<GameKey, string[]> = {
   minecraft: ["Play", "Servers", "Skins"],
   skyrim: ["Play", "Co-op", "Mods"],
-  eldenring: ["Play", "Co-op", "Mods"],
+  eldenring: ["Play", "Co-op", "Cheats"],
   cyberpunk: ["Play", "Co-op", "Mods"],
 };
 
@@ -389,7 +389,7 @@ function Panel({
       return <SkyrimPlay />;
     case "eldenring":
       if (tab === "Co-op") return <EldenRingCoop />;
-      if (tab === "Mods") return <EldenRingMods />;
+      if (tab === "Cheats") return <EldenRingCheats />;
       return <EldenRingPlay />;
     case "cyberpunk":
       if (tab === "Co-op") return <CyberpunkCoop />;

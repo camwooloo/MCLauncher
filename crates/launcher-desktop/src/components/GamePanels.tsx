@@ -1065,61 +1065,123 @@ export function EldenRingCoop() {
           </button>
         </div>
       </div>
-    </div>
-  );
-}
 
-export function EldenRingMods() {
-  const { games, launchEldenRing, installTool, busy } = useLauncher();
-  const er = games?.eldenRing;
-  if (!er?.installed) return <NotInstalled title="Elden Ring" />;
-
-  return (
-    <div className="sect">
-      <div className="sect-head">
-        <div className="sect-title">Mod Engine 2</div>
-        {er.mods_dir && (
+      {/* Modded co-op — Mod Engine 2, folded into the Co-op tab. */}
+      <div className="sect-head" style={{ marginTop: 22 }}>
+        <div className="sect-title">Modded co-op · Mod Engine 2</div>
+        {er.has_mod_engine && er.mods_dir && (
           <button className="btn ghost" onClick={() => api.openPath(er.mods_dir!)}>
             <Icon.folder size={15} /> Open mods folder
           </button>
         )}
       </div>
-      <div className="row wrap">
-        <Pill tone={er.has_mod_engine ? "ok" : "warn"}>
-          Mod Engine 2 {er.has_mod_engine ? "installed" : "missing"}
-        </Pill>
+      <p className="muted" style={{ marginTop: -4 }}>
+        Want mods <i>and</i> co-op? Mod Engine 2 loads mods without touching your game files and runs
+        with anti-cheat off — drop mods in the folder, then launch. Everyone should run the same mods.
+      </p>
+      {er.has_mod_engine ? (
+        <div className="row wrap" style={{ alignItems: "center" }}>
+          <Pill tone="ok">Mod Engine 2 ready</Pill>
+          <button
+            className="btn-play"
+            style={{ padding: "11px 22px", fontSize: 14 }}
+            onClick={() => launchEldenRing("modded")}
+          >
+            <Icon.play size={16} /> Launch Modded
+          </button>
+        </div>
+      ) : (
+        <div className="row wrap" style={{ alignItems: "center" }}>
+          <Pill tone="warn">Mod Engine 2 not installed</Pill>
+          <button className="btn" disabled={busy} onClick={() => installTool("modengine2")}>
+            <Icon.upgrade size={15} /> Install Mod Engine 2 (1-click)
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Cheats for a cinematic/offline experience. Master toggle (default off);
+ *  the cheat list greys out until it's on. */
+const ER_CHEATS: { id: string; name: string; note: string }[] = [
+  { id: "god", name: "God mode", note: "Take no damage — wander and film freely." },
+  { id: "stamina", name: "Infinite stamina", note: "Sprint, dodge and attack without draining." },
+  { id: "fp", name: "Infinite FP", note: "Cast spells and skills with no cost." },
+  { id: "oneshot", name: "One-shot kills", note: "Drop anything instantly for clips." },
+  { id: "runes", name: "Infinite runes", note: "Level up however you like." },
+  { id: "keepRunes", name: "Keep runes on death", note: "Never lose progress." },
+  { id: "speed", name: "Super speed", note: "Zip across the map — great for travel shots." },
+  { id: "freecam", name: "Free camera", note: "Detach the camera for cinematic angles." },
+];
+
+export function EldenRingCheats() {
+  const { games } = useLauncher();
+  const er = games?.eldenRing;
+  const [on, setOn] = useState<boolean>(() => localStorage.getItem("aurora:er-cheats") === "1");
+  const [sel, setSel] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("aurora:er-cheat-sel") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  if (!er?.installed) return <NotInstalled title="Elden Ring" />;
+
+  const setMaster = (v: boolean) => {
+    setOn(v);
+    localStorage.setItem("aurora:er-cheats", v ? "1" : "0");
+  };
+  const toggle = (id: string) =>
+    setSel((s) => {
+      const next = { ...s, [id]: !s[id] };
+      localStorage.setItem("aurora:er-cheat-sel", JSON.stringify(next));
+      return next;
+    });
+
+  return (
+    <div className="sect">
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div className="sect-title">Cheats</div>
+          <div className="muted" style={{ fontSize: 13 }}>Cinematic toolkit — for offline / co-op only (anti-cheat off).</div>
+        </div>
+        <div className="seg">
+          <button className={on ? "on" : ""} onClick={() => setMaster(true)}>On</button>
+          <button className={!on ? "on" : ""} onClick={() => setMaster(false)}>Off</button>
+        </div>
       </div>
 
-      {er.has_mod_engine ? (
-        <>
-          <div className="row wrap" style={{ marginTop: 8 }}>
-            <button
-              className="btn-play"
-              style={{ padding: "11px 22px", fontSize: 14 }}
-              onClick={() => launchEldenRing("modded")}
-            >
-              <Icon.play size={16} /> Launch Modded
-            </button>
-          </div>
-          <p className="muted" style={{ marginTop: 10 }}>
-            Drop mods (graphics overhauls, reshades, gameplay packs — usually from Nexus Mods) into
-            the <code>mod</code> folder above, then Launch Modded. Mod Engine injects them without
-            touching your game files, and runs with EAC off — offline/co-op only.
-          </p>
-        </>
-      ) : (
-        <>
-          <div className="row wrap" style={{ marginTop: 8 }}>
-            <button className="btn" disabled={busy} onClick={() => installTool("modengine2")}>
-              <Icon.upgrade size={15} /> Install Mod Engine 2
-            </button>
-          </div>
-          <p className="muted" style={{ marginTop: 10 }}>
-            Mod Engine 2 is the standard Elden Ring mod loader — one click installs it from the
-            official release, then you get a mods folder and a Launch Modded button.
-          </p>
-        </>
-      )}
+      <div
+        className="surface"
+        style={{ padding: "10px 14px", marginTop: 10, fontSize: 12.5, border: "1px solid rgba(255,180,80,0.35)", background: "rgba(255,180,80,0.07)" }}
+      >
+        ⚠ Cheats activate through a trainer and only work with anti-cheat off (Seamless Co-op / Modded) —
+        <b> never</b> on official online play. Aurora remembers your picks; use the trainer below to apply them.
+      </div>
+
+      <div className="col" style={{ gap: 2, marginTop: 12, opacity: on ? 1 : 0.4, pointerEvents: on ? "auto" : "none" }}>
+        {ER_CHEATS.map((c) => (
+          <label className="lrow" key={c.id} style={{ cursor: on ? "pointer" : "default" }}>
+            <input type="checkbox" disabled={!on} checked={!!sel[c.id]} onChange={() => toggle(c.id)} style={{ width: 18, height: 18 }} />
+            <div className="grow" style={{ marginLeft: 12 }}>
+              <div className="name">{c.name}</div>
+              <div className="sub">{c.note}</div>
+            </div>
+          </label>
+        ))}
+      </div>
+
+      <div className="row wrap" style={{ marginTop: 14 }}>
+        <button className="btn" onClick={() => void api.openUrl("https://www.nexusmods.com/eldenring/mods/3093")}>
+          <Icon.link size={15} /> Get the cheat trainer
+        </button>
+      </div>
+      <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+        Elden Ring cheats are runtime memory edits, so they run through a trainer (like the popular Nexus
+        cheat table) rather than patched files. Launch via the Co-op tab (anti-cheat off), run the
+        trainer, and switch on the cheats you toggled here.
+      </p>
     </div>
   );
 }
