@@ -12,6 +12,7 @@ mod discord;
 mod firewall;
 mod instances;
 mod inventory;
+mod netshare;
 mod nexus;
 mod progress;
 mod secrets;
@@ -82,6 +83,9 @@ fn main() {
                 tray = tray.icon(icon.clone());
             }
             tray.build(app)?;
+
+            // LAN presence + remote control (auto-trust same network).
+            netshare::start(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -170,6 +174,8 @@ fn main() {
             commands::vpn_peers,
             commands::vpn_friend_code,
             commands::repair_aurora_net,
+            commands::net_peers,
+            commands::net_identity,
             instances::list_backups,
             instances::create_backup,
             instances::restore_backup,

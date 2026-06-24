@@ -116,6 +116,53 @@ function ServerPill() {
   );
 }
 
+/* Title-bar pill: other Aurora PCs on the LAN; pick one to control it. */
+function RemotePill() {
+  const { netPeers, remoteTarget, connecting, connectRemote, disconnectRemote } = useLauncher();
+  const [open, setOpen] = useState(false);
+  const closeTimer = useRef<number | null>(null);
+  if (netPeers.length === 0 && !remoteTarget) return null;
+  const show = () => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    setOpen(true);
+  };
+  const hide = () => {
+    closeTimer.current = window.setTimeout(() => setOpen(false), 240);
+  };
+  const label = remoteTarget ? `Controlling ${remoteTarget.name}` : `${netPeers.length} PC${netPeers.length > 1 ? "s" : ""}`;
+  return (
+    <div style={{ position: "relative" }} onMouseEnter={show} onMouseLeave={hide}>
+      <button className={`server-ind ${remoteTarget ? "remote-on" : ""}`} onClick={() => setOpen((o) => !o)}>
+        <Icon.coop size={14} /> {label}
+      </button>
+      {open && (
+        <div className="acct-menu surface" style={{ width: 280, top: 40 }} onMouseEnter={show} onMouseLeave={hide}>
+          <button className={`menu-item ${!remoteTarget ? "on" : ""}`} onClick={() => { void disconnectRemote(); setOpen(false); }}>
+            <span className="av" style={{ width: 28, height: 28 }}><Icon.host size={15} /></span>
+            <span style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 13.5 }}>This PC</div>
+              <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>{remoteTarget ? "Return here" : "You're here"}</div>
+            </span>
+            {!remoteTarget && <Icon.check size={15} />}
+          </button>
+          {netPeers.map((p) => (
+            <button key={p.id} className={`menu-item ${remoteTarget?.id === p.id ? "on" : ""}`} onClick={() => { void connectRemote(p); setOpen(false); }}>
+              <span className="av" style={{ width: 28, height: 28 }}><Icon.coop size={15} /></span>
+              <span style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 13.5 }}>{p.name}</div>
+                <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>
+                  {p.ip}{connecting?.id === p.id ? " · connecting…" : ""}
+                </div>
+              </span>
+              {remoteTarget?.id === p.id && <Icon.check size={15} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* Title-bar pill: appears when a newer release exists; opens patch notes + 1-click update. */
 function UpdatePill() {
   const { showToast } = useLauncher();
@@ -181,7 +228,7 @@ function UpdatePill() {
 }
 
 function Shell() {
-  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, configTarget, closeConfigEditor, playInstance, settings, settingsLoaded } =
+  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, configTarget, closeConfigEditor, playInstance, settings, settingsLoaded, connecting, remoteTarget, disconnectRemote } =
     useLauncher();
   const [activeGame, setActiveGame] = useState<GameKey>("minecraft");
   const [section, setSection] = useState<Section>("home");
@@ -268,6 +315,7 @@ function Shell() {
         <div className="spacer" data-tauri-drag-region />
         <UpdatePill />
         <ServerPill />
+        <RemotePill />
         <button className="win-btn" onClick={() => windowAction("minimize")}>
           <Icon.min size={16} />
         </button>
@@ -341,6 +389,20 @@ function Shell() {
       <CrashModal />
       <UpgradeModal />
       <Onboarding />
+
+      {/* Remote control: "warp" transition + a persistent banner while controlling. */}
+      {connecting && (
+        <div className="remote-warp">
+          <div className="remote-warp-ring" />
+          <div className="remote-warp-name">Connecting to {connecting.name}…</div>
+        </div>
+      )}
+      {remoteTarget && !connecting && (
+        <button className="remote-banner" onClick={() => void disconnectRemote()}>
+          <span className="net-dot on" /> Controlling <b>{remoteTarget.name}</b> — click to return to this PC
+        </button>
+      )}
+
       {toast && <div className="toast">{toast}</div>}
     </div>
   );

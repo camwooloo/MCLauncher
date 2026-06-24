@@ -2311,6 +2311,74 @@ input[type="range"]::-webkit-slider-thumb:active {
 [data-anim="off"] .onb-aurora,
 [data-anim="off"] .onb-pulse { animation: none; }
 
+/* ---- Remote control (LAN) -------------------------------------------- */
+.server-ind.remote-on {
+  background: linear-gradient(120deg, rgba(var(--accent-rgb), 0.28), rgba(var(--bg-aurora-2), 0.28));
+  border-color: rgba(var(--accent-rgb), 0.55);
+}
+
+/* Themed "warp" overlay shown while switching to another PC. */
+.remote-warp {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(120% 120% at 50% 50%, rgba(var(--accent-rgb), 0.18), rgba(3, 4, 10, 0.92));
+  backdrop-filter: blur(26px) saturate(140%);
+  -webkit-backdrop-filter: blur(26px) saturate(140%);
+  animation: onb-fade 0.25s var(--ease);
+}
+.remote-warp-ring {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 3px solid rgba(var(--accent-rgb), 0.25);
+  border-top-color: var(--accent);
+  box-shadow: 0 0 60px rgba(var(--accent-rgb), 0.5), inset 0 0 40px rgba(var(--accent-rgb), 0.25);
+  animation: remote-spin 0.7s cubic-bezier(0.5, 0, 0.3, 1) infinite, remote-pulse 1.2s ease-in-out infinite;
+}
+@keyframes remote-spin { to { transform: rotate(360deg); } }
+@keyframes remote-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+.remote-warp-name {
+  position: absolute;
+  margin-top: 200px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  text-shadow: 0 0 24px rgba(var(--accent-rgb), 0.6);
+  animation: onb-pop 0.5s var(--spring) both;
+}
+[data-anim="off"] .remote-warp-ring { animation: remote-spin 0.7s linear infinite; }
+
+/* Persistent banner while controlling a remote PC. */
+.remote-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 1500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  border: 1px solid rgba(var(--accent-rgb), 0.5);
+  background: var(--bg-1);
+  background-image: linear-gradient(120deg, rgba(var(--accent-rgb), 0.18), transparent 60%);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.15s var(--spring);
+}
+.remote-banner:hover { transform: translateX(-50%) translateY(-2px); }
+
 /* ---- Skyrim mod detail gallery --------------------------------------- */
 .gallery {
   position: relative;

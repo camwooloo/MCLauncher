@@ -12,10 +12,62 @@ import type {
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+// --- Remote control (LAN) ----
+// When connected to another Aurora PC, the commands in REMOTE_CMDS are sent to
+// that PC's control server instead of run locally — so its servers/games show
+// here. Launcher-chrome commands (settings, accounts, window) always stay local.
+let remoteHost: { ip: string; port: number } | null = null;
+export function setRemoteHost(h: { ip: string; port: number } | null) {
+  remoteHost = h;
+}
+const REMOTE_CMDS = new Set([
+  "servers_status",
+  "list_servers",
+  "server_start",
+  "server_stop",
+  "server_command",
+  "server_log_history",
+  "list_instances",
+  "host_addresses",
+  "detect_games",
+  "paths_info",
+]);
+
+async function callRemote<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const res = await fetch(`http://${remoteHost!.ip}:${remoteHost!.port}/aurora/invoke`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cmd, args: args ?? {} }),
+  });
+  if (!res.ok) throw new Error(`Remote PC error (${res.status})`);
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error || "Remote command failed");
+  return j.data as T;
+}
+
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (remoteHost && REMOTE_CMDS.has(cmd)) return callRemote<T>(cmd, args);
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<T>(cmd, args);
 }
+
+// Ping a peer's control server to confirm it's reachable before connecting.
+export async function netPing(ip: string, port: number): Promise<{ id: string; name: string; version: string }> {
+  if (!isTauri) return { id: "mock", name: "Living Room PC", version: "dev" };
+  const res = await fetch(`http://${ip}:${port}/aurora/ping`);
+  if (!res.ok) throw new Error("PC not reachable");
+  return res.json();
+}
+
+export interface NetPeer {
+  id: string;
+  name: string;
+  ip: string;
+  port: number;
+}
+export const netPeers = (): Promise<NetPeer[]> => (isTauri ? call("net_peers") : Promise.resolve([]));
+export const netIdentity = (): Promise<{ id: string; name: string }> =>
+  isTauri ? call("net_identity") : Promise.resolve({ id: "this-pc", name: "This PC" });
 
 export async function listen<T>(event: string, cb: (payload: T) => void): Promise<() => void> {
   if (!isTauri) return () => {};

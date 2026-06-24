@@ -41,6 +41,8 @@ pub struct AppState {
     pub paths: Paths,
     /// Running servers keyed by config id.
     pub servers: Mutex<HashMap<String, ServerProc>>,
+    /// LAN presence (discovered Aurora PCs + our identity).
+    pub net: crate::netshare::NetState,
 }
 
 impl AppState {
@@ -50,6 +52,7 @@ impl AppState {
         Self {
             paths,
             servers: Mutex::new(HashMap::new()),
+            net: crate::netshare::NetState::new(),
         }
     }
 }

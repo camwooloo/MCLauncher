@@ -70,6 +70,18 @@ pub fn paths_info(state: State<'_, AppState>) -> PathsInfo {
     }
 }
 
+// --- LAN presence (remote control) --------------------------------------
+
+#[tauri::command]
+pub async fn net_peers(app: AppHandle) -> Result<Vec<crate::netshare::Peer>, String> {
+    Ok(crate::netshare::current_peers(&app).await)
+}
+
+#[tauri::command]
+pub fn net_identity(state: State<'_, AppState>) -> serde_json::Value {
+    serde_json::json!({ "id": state.net.id, "name": state.net.name })
+}
+
 // --- Settings ------------------------------------------------------------
 
 #[tauri::command]

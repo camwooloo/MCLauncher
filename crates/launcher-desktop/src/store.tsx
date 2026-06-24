@@ -48,6 +48,12 @@ interface Launcher {
   upgradeTarget: ContentTarget | null;
   systemRamMb: number;
 
+  netPeers: api.NetPeer[];
+  remoteTarget: api.NetPeer | null;
+  connecting: api.NetPeer | null;
+  connectRemote: (p: api.NetPeer) => Promise<void>;
+  disconnectRemote: () => Promise<void>;
+
   activeAccount: () => StoredAccount | undefined;
   showToast: (msg: string) => void;
   patchSettings: (s: Partial<Settings>) => void;
@@ -134,6 +140,9 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   const [upgradeTarget, setUpgradeTarget] = useState<ContentTarget | null>(null);
   const [systemRamMb, setSystemRamMb] = useState(16384);
   const [games, setGames] = useState<GamesStatus | null>(null);
+  const [peers, setPeers] = useState<api.NetPeer[]>([]);
+  const [remoteTarget, setRemoteTarget] = useState<api.NetPeer | null>(null);
+  const [connecting, setConnecting] = useState<api.NetPeer | null>(null);
   const [paths, setPaths] = useState<PathsInfo | null>(null);
 
   const [busy, setBusy] = useState(false);
@@ -195,7 +204,9 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       api.listen<{ message: string }>("mc-done", (p) => showToast(p.message)),
       api.listen<{ message: string }>("mc-error", (p) => showToast(`Error: ${p.message}`)),
       api.listen<ServerStatus>("server-status", mergeStatus),
+      api.listen<api.NetPeer[]>("net-peers", setPeers),
     ];
+    api.netPeers().then(setPeers).catch(() => {});
     return () => {
       unlisteners.forEach((u) => u.then((fn) => fn()).catch(() => {}));
     };
@@ -598,6 +609,38 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshGames, showToast]);
 
+  // Reload the data that's proxied to a remote PC (or back to local).
+  const refreshRemoteData = useCallback(async () => {
+    await Promise.allSettled([
+      api.listServers().then(setServers),
+      api.listInstances().then(setInstances),
+      api.detectGames().then(setGames),
+      api.serversStatus().then((l) => setServerStatuses(Object.fromEntries(l.map((s) => [s.id, s])))),
+    ]);
+  }, []);
+  const connectRemote = useCallback(
+    async (p: api.NetPeer) => {
+      setConnecting(p);
+      try {
+        await api.netPing(p.ip, p.port);
+      } catch {
+        showToast(`Couldn't reach ${p.name} — is it on and on the same network?`);
+        setConnecting(null);
+        return;
+      }
+      api.setRemoteHost({ ip: p.ip, port: p.port });
+      setRemoteTarget(p);
+      await refreshRemoteData();
+      setTimeout(() => setConnecting(null), 1100); // let the transition animation play
+    },
+    [refreshRemoteData, showToast]
+  );
+  const disconnectRemote = useCallback(async () => {
+    api.setRemoteHost(null);
+    setRemoteTarget(null);
+    await refreshRemoteData();
+  }, [refreshRemoteData]);
+
   const value = useMemo<Launcher>(
     () => ({
       versions,
@@ -621,6 +664,11 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       configTarget,
       upgradeTarget,
       systemRamMb,
+      netPeers: peers,
+      remoteTarget,
+      connecting,
+      connectRemote,
+      disconnectRemote,
       activeAccount,
       showToast,
       patchSettings,
@@ -692,6 +740,11 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       configTarget,
       upgradeTarget,
       systemRamMb,
+      peers,
+      remoteTarget,
+      connecting,
+      connectRemote,
+      disconnectRemote,
       activeAccount,
       showToast,
       patchSettings,
