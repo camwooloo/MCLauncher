@@ -196,9 +196,21 @@ function Toggle({
 }
 
 export function SettingsPanel() {
-  const { settings, persistSettings, paths, systemRamMb } = useLauncher();
+  const { settings, persistSettings, paths, systemRamMb, showToast } = useLauncher();
   const ramMax = Math.max(2048, Math.floor(systemRamMb / 512) * 512);
   const mcRam = Math.min(settings.maxMemoryMb || 4096, ramMax);
+  const [netBusy, setNetBusy] = useState(false);
+  const allowRemote = async () => {
+    setNetBusy(true);
+    try {
+      const applied = await api.repairAuroraNet();
+      showToast(applied ? "This PC is now reachable on your network" : "Network access already set up");
+    } catch (e) {
+      showToast(`${e}`);
+    } finally {
+      setNetBusy(false);
+    }
+  };
 
   return (
     <div>
@@ -374,6 +386,25 @@ export function SettingsPanel() {
               Off
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Network — LAN remote control */}
+      <div className="sect">
+        <div className="sect-head">
+          <div className="sect-title">Network</div>
+        </div>
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontWeight: 600 }}>Remote control on this network</div>
+            <div className="muted">
+              Let other PCs running Aurora on your network find and control this one (manage its servers
+              from your main PC). Run this once on <b>each</b> PC — it allows Aurora through the firewall.
+            </div>
+          </div>
+          <button className="btn" disabled={netBusy} onClick={allowRemote}>
+            <Icon.coop size={15} /> {netBusy ? "Allowing…" : "Allow on network"}
+          </button>
         </div>
       </div>
 

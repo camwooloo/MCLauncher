@@ -22,6 +22,9 @@
 /// The display name of our single Aurora Net firewall rule.
 #[cfg(windows)]
 const RULE_NAME: &str = "Aurora Net (co-op)";
+/// LAN remote-control rule (discovery + control server ports).
+#[cfg(windows)]
+const LAN_RULE_NAME: &str = "Aurora LAN (remote control)";
 /// Tailscale's CGNAT range — every tailnet peer IP lives here.
 #[cfg(windows)]
 const TS_RANGE: &str = "100.64.0.0/10";
@@ -81,7 +84,9 @@ fn run_elevated(script: &str) -> Result<(), String> {
 pub fn ensure_aurora_net(force: bool) -> Result<bool, String> {
     #[cfg(windows)]
     {
-        if !force && rule_exists(RULE_NAME) {
+        // Covers both co-op-over-Aurora-Net and LAN remote control. Prompt only
+        // if something's missing (or forced).
+        if !force && rule_exists(RULE_NAME) && rule_exists(LAN_RULE_NAME) {
             return Ok(false);
         }
         let script = format!(
@@ -89,10 +94,16 @@ pub fn ensure_aurora_net(force: bool) -> Result<bool, String> {
              Remove-NetFirewallRule -DisplayName '{name}'\r\n\
              New-NetFirewallRule -DisplayName '{name}' -Direction Inbound -Action Allow \
              -Profile Any -RemoteAddress {range} | Out-Null\r\n\
+             Remove-NetFirewallRule -DisplayName '{lan}'\r\n\
+             New-NetFirewallRule -DisplayName '{lan}' -Direction Inbound -Action Allow \
+             -Profile Any -Protocol TCP -LocalPort 48998 | Out-Null\r\n\
+             New-NetFirewallRule -DisplayName '{lan} (discovery)' -Direction Inbound -Action Allow \
+             -Profile Any -Protocol UDP -LocalPort 48999 | Out-Null\r\n\
              Get-NetConnectionProfile | Where-Object {{ $_.InterfaceAlias -like '*Tailscale*' }} | \
              Set-NetConnectionProfile -NetworkCategory Private\r\n",
             name = psq(RULE_NAME),
             range = TS_RANGE,
+            lan = psq(LAN_RULE_NAME),
         );
         run_elevated(&script)?;
         Ok(true)
