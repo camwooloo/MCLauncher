@@ -1220,6 +1220,41 @@ pub fn open_seamless_page() -> Result<(), String> {
     open::that(eldenring::SEAMLESS_NEXUS_URL).map_err(err)
 }
 
+/// Open the Elden Ring Ultrawide Fix Nexus page (Nexus-only download).
+#[tauri::command]
+pub fn open_eldenring_ultrawide_page() -> Result<(), String> {
+    open::that(eldenring::ULTRAWIDE_NEXUS_URL).map_err(err)
+}
+
+/// Guided install of the Ultrawide Fix from a downloaded zip → enabled.
+#[tauri::command]
+pub async fn install_eldenring_ultrawide(path: Option<String>) -> Result<String, String> {
+    let info = eldenring::detect();
+    let game_dir = info
+        .game_dir
+        .filter(|g| g.exists())
+        .ok_or_else(|| "Elden Ring is not installed".to_string())?;
+    let zip = match path.filter(|p| !p.trim().is_empty()) {
+        Some(p) => std::path::PathBuf::from(p),
+        None => eldenring::find_downloaded_ultrawide_zip().ok_or_else(|| {
+            "No ultrawide zip found in Downloads. Open the Ultrawide Fix page, download the main file, then press this again.".to_string()
+        })?,
+    };
+    tokio::task::spawn_blocking(move || eldenring::install_ultrawide_from_zip(&game_dir, &zip))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(err)?;
+    Ok("Ultrawide enabled — launch via Seamless Co-op or Modded (anti-cheat off).".to_string())
+}
+
+/// Enable/disable the ultrawide fix (renames its loader DLL).
+#[tauri::command]
+pub fn set_eldenring_ultrawide(enabled: bool) -> Result<(), String> {
+    let info = eldenring::detect();
+    let game_dir = info.game_dir.ok_or_else(|| "Elden Ring is not installed".to_string())?;
+    eldenring::set_ultrawide(&game_dir, enabled).map_err(err)
+}
+
 /// Open a folder that detection reported (e.g. the Mod Engine 2 mods dir),
 /// creating it first so the click always works.
 #[tauri::command]

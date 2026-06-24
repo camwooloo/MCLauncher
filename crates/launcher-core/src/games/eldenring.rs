@@ -41,6 +41,10 @@ pub struct EldenRingInfo {
     pub has_mod_engine: bool,
     /// Folder where Mod Engine 2 loads mods from (`ModEngine2/mod`).
     pub mods_dir: Option<PathBuf>,
+    /// Ultrawide fix (Elden Mod Loader `dinput8.dll`) is present, enabled or not.
+    pub ultrawide_installed: bool,
+    /// Ultrawide fix present *and* active (loader not renamed off).
+    pub ultrawide_enabled: bool,
 }
 
 /// Which way to launch.
@@ -78,6 +82,11 @@ pub fn detect() -> EldenRingInfo {
         .unwrap_or(false);
     let mods_dir = me2.filter(|_| has_mod_engine).map(|d| d.join("mod"));
 
+    // The ultrawide fix ships the Elden Mod Loader (`dinput8.dll`). We disable
+    // it by renaming to `.off`, so "installed" means either name exists.
+    let uw_on = game_dir.as_ref().map(|g| g.join("dinput8.dll").exists()).unwrap_or(false);
+    let uw_off = game_dir.as_ref().map(|g| g.join("dinput8.dll.off").exists()).unwrap_or(false);
+
     EldenRingInfo {
         installed: install_dir.is_some(),
         has_seamless_coop: seamless_launcher_path.is_some(),
@@ -85,9 +94,57 @@ pub fn detect() -> EldenRingInfo {
         coop_password,
         has_mod_engine,
         mods_dir,
+        ultrawide_installed: uw_on || uw_off,
+        ultrawide_enabled: uw_on,
         game_dir,
         install_dir,
     }
+}
+
+/// Nexus page for the Elden Ring Ultrawide Fix (its files are Nexus-only).
+pub const ULTRAWIDE_NEXUS_URL: &str = "https://www.nexusmods.com/eldenring/mods/7870?tab=files";
+
+/// Newest ultrawide-fix zip in Downloads.
+pub fn find_downloaded_ultrawide_zip() -> Option<PathBuf> {
+    crate::games::install::find_downloaded_zip(|n| {
+        n.contains("ultrawide") || n.contains("ultra-wide") || (n.contains("elden") && n.contains("wide"))
+    })
+}
+
+/// Install the Ultrawide Fix from a downloaded zip: locate the Elden Mod Loader
+/// (`dinput8.dll`) and merge its folder into `Game/` (next to the executable).
+pub fn install_ultrawide_from_zip(game_dir: &Path, zip: &Path) -> crate::Result<()> {
+    use crate::games::install::{extract_archive_into, find_file, merge_move};
+
+    let staging = game_dir.join(".aurora-uw-extract");
+    let _ = std::fs::remove_dir_all(&staging);
+    extract_archive_into(zip, &staging)?;
+    let dll = find_file(&staging, "dinput8.dll").ok_or_else(|| {
+        let _ = std::fs::remove_dir_all(&staging);
+        crate::Error::other(
+            "That zip doesn't look like the Ultrawide Fix (no dinput8.dll/mod loader) — download the main file from the Nexus page",
+        )
+    })?;
+    let src = dll.parent().unwrap_or(&staging).to_path_buf();
+    merge_move(&src, game_dir)?;
+    let _ = std::fs::remove_dir_all(&staging);
+    Ok(())
+}
+
+/// Enable/disable the ultrawide fix by renaming its loader DLL (`dinput8.dll`
+/// ⇄ `dinput8.dll.off`) — non-destructive, instant toggle.
+pub fn set_ultrawide(game_dir: &Path, enabled: bool) -> crate::Result<()> {
+    let on = game_dir.join("dinput8.dll");
+    let off = game_dir.join("dinput8.dll.off");
+    if enabled {
+        if off.exists() && !on.exists() {
+            std::fs::rename(&off, &on).map_err(|e| crate::Error::io(&on, e))?;
+        }
+    } else if on.exists() {
+        let _ = std::fs::remove_file(&off);
+        std::fs::rename(&on, &off).map_err(|e| crate::Error::io(&off, e))?;
+    }
+    Ok(())
 }
 
 /// One-click install of the latest Seamless Co-op release into `Game/`

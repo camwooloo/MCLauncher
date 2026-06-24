@@ -878,8 +878,25 @@ export function SkyrimMods() {
 /* --------------------------- Elden Ring -------------------------------- */
 
 export function EldenRingPlay() {
-  const { games, launchEldenRing, refreshGames, installTool, busy } = useLauncher();
+  const { games, launchEldenRing, refreshGames, installTool, showToast, busy } = useLauncher();
   const er = games?.eldenRing;
+
+  const setUltrawide = async (on: boolean) => {
+    try {
+      await api.setEldenringUltrawide(on);
+      await refreshGames();
+    } catch (e) {
+      showToast(`${e}`);
+    }
+  };
+  const installUltrawide = async () => {
+    try {
+      showToast(await api.installEldenringUltrawide());
+      await refreshGames();
+    } catch (e) {
+      showToast(`${e}`);
+    }
+  };
 
   return (
     <div className="hero">
@@ -935,6 +952,43 @@ export function EldenRingPlay() {
           Seamless Co-op and Mod Engine launch with anti-cheat disabled — never use them on official
           servers. Official play goes through Steam so EAC and online services start normally.
         </p>
+      </div>
+
+      {/* Ultrawide — a native-feeling toggle (Elden Ring has no built-in 21:9/32:9). */}
+      <div className="sect" style={{ marginTop: 24 }}>
+        <div className="sect-head">
+          <div className="sect-title">Ultrawide display</div>
+          {er?.ultrawide_installed && (
+            <Pill tone={er.ultrawide_enabled ? "ok" : "default"}>{er.ultrawide_enabled ? "On" : "Off"}</Pill>
+          )}
+        </div>
+        {er?.ultrawide_installed ? (
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontWeight: 600 }}>21:9 / 32:9 ultrawide</div>
+              <div className="muted">Removes the black bars and widens the FOV. Co-op/offline only (anti-cheat off).</div>
+            </div>
+            <div className="seg">
+              <button className={er.ultrawide_enabled ? "on" : ""} onClick={() => setUltrawide(true)}>On</button>
+              <button className={!er.ultrawide_enabled ? "on" : ""} onClick={() => setUltrawide(false)}>Off</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="muted" style={{ marginTop: -4 }}>
+              Elden Ring has no native ultrawide. Enable true 21:9 / 32:9 (no black bars, wider FOV) with
+              a one-time setup — then it's a simple toggle. Use it with Seamless Co-op or Modded (anti-cheat off).
+            </p>
+            <div className="row wrap">
+              <button className="btn" disabled={!er?.installed} onClick={() => void api.openEldenringUltrawidePage()}>
+                <Icon.link size={15} /> 1 · Open Ultrawide Fix page
+              </button>
+              <button className="btn-play" disabled={!er?.installed || busy} onClick={installUltrawide}>
+                <Icon.check size={15} /> 2 · I downloaded it — enable
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

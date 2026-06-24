@@ -163,6 +163,8 @@ export const detectGames = (): Promise<GamesStatus> =>
           coop_password: "aurora",
           has_mod_engine: false,
           mods_dir: null,
+          ultrawide_installed: false,
+          ultrawide_enabled: false,
         },
         cyberpunk: {
           installed: true,
@@ -215,6 +217,15 @@ export const installSeamlessUpdate = (path?: string): Promise<string> =>
 
 export const openSeamlessPage = () =>
   isTauri ? call<void>("open_seamless_page") : Promise.resolve();
+
+export const openEldenringUltrawidePage = () =>
+  isTauri ? call<void>("open_eldenring_ultrawide_page") : Promise.resolve();
+
+export const installEldenringUltrawide = (path?: string): Promise<string> =>
+  isTauri ? call("install_eldenring_ultrawide", { path: path ?? null }) : Promise.reject(new Error("Desktop only"));
+
+export const setEldenringUltrawide = (enabled: boolean) =>
+  isTauri ? call<void>("set_eldenring_ultrawide", { enabled }) : Promise.resolve();
 
 export const openPath = (path: string) =>
   isTauri ? call<void>("open_path", { path }) : Promise.resolve();

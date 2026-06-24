@@ -103,6 +103,8 @@ export interface EldenRingInfo {
   coop_password: string | null;
   has_mod_engine: boolean;
   mods_dir: string | null;
+  ultrawide_installed: boolean;
+  ultrawide_enabled: boolean;
 }
 
 export interface CyberpunkInfo {
