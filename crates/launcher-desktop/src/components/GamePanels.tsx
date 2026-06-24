@@ -1116,7 +1116,7 @@ const ER_CHEATS: { id: string; name: string; note: string }[] = [
 ];
 
 export function EldenRingCheats() {
-  const { games } = useLauncher();
+  const { games, showToast } = useLauncher();
   const er = games?.eldenRing;
   const [on, setOn] = useState<boolean>(() => localStorage.getItem("aurora:er-cheats") === "1");
   const [sel, setSel] = useState<Record<string, boolean>>(() => {
@@ -1126,18 +1126,33 @@ export function EldenRingCheats() {
       return {};
     }
   });
+  const [running, setRunning] = useState(false);
+  useEffect(() => {
+    const tick = () => api.erCheatStatus().then((s) => setRunning(s.running)).catch(() => {});
+    tick();
+    const t = setInterval(tick, 4000);
+    return () => clearInterval(t);
+  }, []);
   if (!er?.installed) return <NotInstalled title="Elden Ring" />;
 
   const setMaster = (v: boolean) => {
     setOn(v);
     localStorage.setItem("aurora:er-cheats", v ? "1" : "0");
+    if (!v) {
+      // Turning the master off reverts any applied cheats in the running game.
+      Object.keys(sel).filter((k) => sel[k]).forEach((id) => api.erCheatSet(id, false).catch(() => {}));
+    }
   };
-  const toggle = (id: string) =>
-    setSel((s) => {
-      const next = { ...s, [id]: !s[id] };
-      localStorage.setItem("aurora:er-cheat-sel", JSON.stringify(next));
-      return next;
-    });
+  const toggle = async (id: string) => {
+    const next = { ...sel, [id]: !sel[id] };
+    setSel(next);
+    localStorage.setItem("aurora:er-cheat-sel", JSON.stringify(next));
+    try {
+      await api.erCheatSet(id, next[id]); // apply/undo live in the running game
+    } catch (e) {
+      showToast(`${e}`);
+    }
+  };
 
   return (
     <div className="sect">
@@ -1156,8 +1171,11 @@ export function EldenRingCheats() {
         className="surface"
         style={{ padding: "10px 14px", marginTop: 10, fontSize: 12.5, border: "1px solid rgba(255,180,80,0.35)", background: "rgba(255,180,80,0.07)" }}
       >
-        ⚠ Cheats activate through a trainer and only work with anti-cheat off (Seamless Co-op / Modded) —
-        <b> never</b> on official online play. Aurora remembers your picks; use the trainer below to apply them.
+        ⚠ Built-in trainer — applies live to the running game. <b>Offline / co-op only</b> (anti-cheat off,
+        i.e. Seamless Co-op or Modded); never on official online play.{" "}
+        <span style={{ color: running ? "var(--accent)" : "var(--text-mute)" }}>
+          Elden Ring is {running ? "running — toggles apply now." : "not running — launch it from Co-op first, then toggle."}
+        </span>
       </div>
 
       <div className="col" style={{ gap: 2, marginTop: 12, opacity: on ? 1 : 0.4, pointerEvents: on ? "auto" : "none" }}>
@@ -1172,15 +1190,11 @@ export function EldenRingCheats() {
         ))}
       </div>
 
-      <div className="row wrap" style={{ marginTop: 14 }}>
-        <button className="btn" onClick={() => void api.openUrl("https://www.nexusmods.com/eldenring/mods/3093")}>
-          <Icon.link size={15} /> Get the cheat trainer
-        </button>
-      </div>
-      <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>
-        Elden Ring cheats are runtime memory edits, so they run through a trainer (like the popular Nexus
-        cheat table) rather than patched files. Launch via the Co-op tab (anti-cheat off), run the
-        trainer, and switch on the cheats you toggled here.
+      <p className="muted" style={{ marginTop: 12, fontSize: 12 }}>
+        These cheats are built into Aurora — no separate trainer. They edit the running game's memory and
+        only take effect with anti-cheat off (launch from the <b>Co-op</b> tab). This is an early build:
+        a cheat that can't find its spot in your game version will simply do nothing (never crash) while
+        we fine-tune it.
       </p>
     </div>
   );

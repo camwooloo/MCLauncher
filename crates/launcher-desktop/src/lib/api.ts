@@ -279,6 +279,14 @@ export const installEldenringUltrawide = (path?: string): Promise<string> =>
 export const setEldenringUltrawide = (enabled: boolean) =>
   isTauri ? call<void>("set_eldenring_ultrawide", { enabled }) : Promise.resolve();
 
+// Built-in Elden Ring trainer (live memory cheats; offline/co-op only).
+export const erCheatStatus = (): Promise<{ running: boolean; applied: string[] }> =>
+  isTauri ? call("er_cheat_status") : Promise.resolve({ running: false, applied: [] });
+export const erCheatSet = (id: string, enabled: boolean): Promise<void> =>
+  isTauri ? call<void>("er_cheat_set", { id, enabled }) : Promise.resolve();
+export const erAobTest = (aob: string): Promise<{ found: boolean; offset?: string }> =>
+  isTauri ? call("er_aob_test", { aob }) : Promise.resolve({ found: false });
+
 export const openPath = (path: string) =>
   isTauri ? call<void>("open_path", { path }) : Promise.resolve();
 

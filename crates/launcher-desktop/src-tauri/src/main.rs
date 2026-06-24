@@ -19,6 +19,7 @@ mod secrets;
 mod settings;
 mod state;
 mod stats;
+mod trainer;
 mod vpn;
 
 use state::AppState;
@@ -176,6 +177,9 @@ fn main() {
             commands::repair_aurora_net,
             commands::net_peers,
             commands::net_identity,
+            trainer::er_cheat_status,
+            trainer::er_cheat_set,
+            trainer::er_aob_test,
             instances::list_backups,
             instances::create_backup,
             instances::restore_backup,
