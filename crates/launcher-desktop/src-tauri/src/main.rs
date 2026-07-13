@@ -20,6 +20,7 @@ mod settings;
 mod state;
 mod stats;
 mod trainer;
+mod tunnel;
 mod vpn;
 
 use state::AppState;
@@ -177,6 +178,10 @@ fn main() {
             commands::repair_aurora_net,
             commands::net_peers,
             commands::net_identity,
+            commands::public_ip,
+            tunnel::tunnel_start,
+            tunnel::tunnel_stop,
+            tunnel::tunnel_status,
             trainer::er_cheat_status,
             trainer::er_cheat_set,
             trainer::er_aob_test,

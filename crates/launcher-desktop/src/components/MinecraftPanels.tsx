@@ -792,7 +792,7 @@ export function MinecraftServers() {
                 ]}
               />
             </div>
-            {running && <HostAddress port={s.port} onCopy={showToast} />}
+            {running && <HostAddress port={s.port} tunnelKey={s.id} onCopy={showToast} />}
             </div>
           );
         })}

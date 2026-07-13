@@ -435,41 +435,135 @@ export function Markdown({ source }: { source: string }) {
 /** Shows the address(es) friends use to reach a server hosted on this PC —
  *  the Aurora Net IP (preferred, no port forwarding) and/or the LAN IP. Never
  *  shows localhost, which only works for the host themselves. */
-export function HostAddress({ port, onCopy }: { port: number; onCopy?: (msg: string) => void }) {
+/** One "how friends connect" method row. */
+function AddrRow({ tag, note, addr, onCopy, accent }: { tag: string; note: string; addr: string; onCopy: () => void; accent?: boolean }) {
+  return (
+    <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+      <div style={{ minWidth: 0 }}>
+        <div className="row" style={{ gap: 6, alignItems: "center" }}>
+          <Pill tone={accent ? "ok" : "default"}>{tag}</Pill>
+          <b style={{ fontVariantNumeric: "tabular-nums" }}>{addr}</b>
+        </div>
+        <div className="muted" style={{ fontSize: 11.5 }}>{note}</div>
+      </div>
+      <button className="btn ghost" onClick={onCopy}>
+        <Icon.copy size={14} /> Copy
+      </button>
+    </div>
+  );
+}
+
+/** How friends connect to a hosted server — three methods:
+ *  a public bore tunnel (any launcher, no port-forward), Aurora Net (private
+ *  VPN), and direct/port-forward. `tunnelKey` scopes the tunnel; `internetTunnel`
+ *  is false for UDP games (Skyrim Together) where bore (TCP) can't help. */
+export function HostAddress({
+  port,
+  onCopy,
+  tunnelKey,
+  internetTunnel = true,
+}: {
+  port: number;
+  onCopy?: (msg: string) => void;
+  tunnelKey?: string;
+  internetTunnel?: boolean;
+}) {
+  const key = tunnelKey ?? `port-${port}`;
   const [a, setA] = useState<api.HostAddresses | null>(null);
-  useEffect(() => {
+  const [pub, setPub] = useState<string | null>(null);
+  const [tunnel, setTunnel] = useState<api.TunnelInfo | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = () => {
     api.hostAddresses().then(setA).catch(() => {});
-    const t = setInterval(() => api.hostAddresses().then(setA).catch(() => {}), 5000);
+    api.tunnelStatus().then((m) => setTunnel(m[key] ?? null)).catch(() => {});
+  };
+  useEffect(() => {
+    refresh();
+    api.publicIp().then(setPub).catch(() => {});
+    const t = setInterval(refresh, 5000);
     return () => clearInterval(t);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
   if (!a) return null;
-  const online = !!a.aurora; // Aurora Net connected → friends can reach this
   const copy = (addr: string) => {
     void navigator.clipboard?.writeText(addr);
     onCopy?.("Address copied");
   };
+  const share = async () => {
+    setBusy(true);
+    try {
+      setTunnel(await api.tunnelStart(key, port));
+      onCopy?.("Sharing to the internet — anyone can join with the address");
+    } catch (e) {
+      onCopy?.(`${e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const unshare = async () => {
+    setBusy(true);
+    try {
+      await api.tunnelStop(key);
+      setTunnel(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div className="surface" style={{ padding: "12px 16px", marginTop: 10, display: "grid", gap: 8 }}>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontWeight: 700 }}>Friends connect to</div>
-        <span className="row" style={{ gap: 6, alignItems: "center", fontSize: 12.5 }}>
-          <span className={`net-dot ${online ? "on" : ""}`} />
-          <span className="muted">{online ? "Aurora Net online" : "Aurora Net offline"}</span>
-        </span>
-      </div>
-      {online ? (
-        <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          <b style={{ fontVariantNumeric: "tabular-nums" }}>
-            {a.aurora}:{port}
-          </b>
-          <button className="btn ghost" onClick={() => copy(`${a.aurora}:${port}`)}>
-            <Icon.copy size={14} /> Copy
-          </button>
-        </div>
-      ) : (
-        <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>
-          Connect on the <b>Aurora Net</b> screen so friends can reach you (no port forwarding) — your
-          address appears here once you're online.
+    <div className="surface" style={{ padding: "12px 16px", marginTop: 10, display: "grid", gap: 10 }}>
+      <div style={{ fontWeight: 700 }}>Friends connect to</div>
+
+      {/* 1 · Internet tunnel (bore) — any launcher, no port forwarding. */}
+      {internetTunnel &&
+        (tunnel ? (
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <div>
+              <div className="row" style={{ gap: 6, alignItems: "center" }}>
+                <Pill tone="ok">Internet</Pill>
+                <b style={{ fontVariantNumeric: "tabular-nums" }}>{tunnel.host}:{tunnel.port}</b>
+              </div>
+              <div className="muted" style={{ fontSize: 11.5 }}>Works from any launcher — no VPN, no port forwarding.</div>
+            </div>
+            <div className="row" style={{ gap: 6 }}>
+              <button className="btn ghost" onClick={() => copy(`${tunnel.host}:${tunnel.port}`)}>
+                <Icon.copy size={14} /> Copy
+              </button>
+              <button className="btn danger ghost" disabled={busy} onClick={unshare}>
+                <Icon.stop size={13} /> Stop
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <div>
+              <div style={{ fontWeight: 600 }}>Share to the internet</div>
+              <div className="muted" style={{ fontSize: 11.5 }}>One click — anyone on any launcher can join, no port forwarding.</div>
+            </div>
+            <button className="btn-play" style={{ padding: "8px 16px", fontSize: 13 }} disabled={busy} onClick={share}>
+              <Icon.host size={14} /> {busy ? "Starting…" : "Share"}
+            </button>
+          </div>
+        ))}
+
+      {/* 2 · Aurora Net (private VPN). */}
+      {a.aurora && (
+        <AddrRow tag="Aurora Net" note="Private, encrypted — friends need Aurora Net too." addr={`${a.aurora}:${port}`} accent onCopy={() => copy(`${a.aurora}:${port}`)} />
+      )}
+
+      {/* 3 · Direct / port-forward. */}
+      {a.lan && (
+        <AddrRow tag="Same Wi-Fi" note="Same network only — no setup." addr={`${a.lan}:${port}`} onCopy={() => copy(`${a.lan}:${port}`)} />
+      )}
+      {pub && (
+        <AddrRow tag="Port forward" note={`Forward port ${port} on your router, then friends use this.`} addr={`${pub}:${port}`} onCopy={() => copy(`${pub}:${port}`)} />
+      )}
+
+      {internetTunnel && (
+        <p className="muted" style={{ margin: 0, fontSize: 11 }}>
+          Tip: an internet-shared server is reachable by anyone with the address — keep the whitelist on.
         </p>
       )}
     </div>

@@ -108,7 +108,7 @@ export function ServerDashboard({ id, onClose }: { id: string; onClose: () => vo
           <Stat label="Version" value={status?.version || "—"} />
         </div>
 
-        {running && status?.port && <HostAddress port={status.port} onCopy={showToast} />}
+        {running && status?.port && <HostAddress port={status.port} tunnelKey={id} onCopy={showToast} />}
 
         <div className="console">
           {lines.length === 0 && <div style={{ opacity: 0.5 }}>Waiting for server output…</div>}

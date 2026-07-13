@@ -43,6 +43,8 @@ pub struct AppState {
     pub servers: Mutex<HashMap<String, ServerProc>>,
     /// LAN presence (discovered Aurora PCs + our identity).
     pub net: crate::netshare::NetState,
+    /// Active "share to the internet" tunnels (bore), keyed by server id.
+    pub tunnels: crate::tunnel::Tunnels,
 }
 
 impl AppState {
@@ -53,6 +55,7 @@ impl AppState {
             paths,
             servers: Mutex::new(HashMap::new()),
             net: crate::netshare::NetState::new(),
+            tunnels: crate::tunnel::Tunnels::new(),
         }
     }
 }

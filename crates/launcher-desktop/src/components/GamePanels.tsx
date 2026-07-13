@@ -471,7 +471,7 @@ function SkyrimHost() {
               </button>
             )}
           </div>
-          <HostAddress port={cfg.port} onCopy={showToast} />
+          <HostAddress port={cfg.port} tunnelKey="skyrim:together" internetTunnel={false} onCopy={showToast} />
         </>
       )}
     </div>

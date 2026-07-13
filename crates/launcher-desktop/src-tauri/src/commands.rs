@@ -82,6 +82,20 @@ pub fn net_identity(state: State<'_, AppState>) -> serde_json::Value {
     serde_json::json!({ "id": state.net.id, "name": state.net.name })
 }
 
+/// This PC's public IPv4 (for the manual port-forward option).
+#[tauri::command]
+pub async fn public_ip() -> Result<String, String> {
+    let text = launcher_core::http::client()
+        .get("https://api.ipify.org")
+        .send()
+        .await
+        .map_err(err)?
+        .text()
+        .await
+        .map_err(err)?;
+    Ok(text.trim().to_string())
+}
+
 // --- Settings ------------------------------------------------------------
 
 #[tauri::command]

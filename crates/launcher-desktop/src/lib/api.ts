@@ -457,6 +457,18 @@ export interface HostAddresses {
 export const hostAddresses = (): Promise<HostAddresses> =>
   isTauri ? call<HostAddresses>("host_addresses") : Promise.resolve({ lan: "192.168.1.42", aurora: "100.101.102.103" });
 
+export const publicIp = (): Promise<string> =>
+  isTauri ? call<string>("public_ip") : Promise.resolve("203.0.113.7");
+
+// bore internet tunnels — host-only, no port forwarding, any launcher can join.
+export interface TunnelInfo { host: string; port: number }
+export const tunnelStart = (key: string, localPort: number): Promise<TunnelInfo> =>
+  isTauri ? call("tunnel_start", { key, localPort }) : Promise.resolve({ host: "bore.pub", port: 51820 });
+export const tunnelStop = (key: string): Promise<void> =>
+  isTauri ? call<void>("tunnel_stop", { key }) : Promise.resolve();
+export const tunnelStatus = (): Promise<Record<string, TunnelInfo>> =>
+  isTauri ? call("tunnel_status") : Promise.resolve({});
+
 // ---- Skyrim Together hosting ----
 export interface TogetherServerConfig {
   available: boolean;

@@ -29,6 +29,7 @@ discord-rich-presence.workspace = true
 open = "5"
 sysinfo = "0.32"
 fastnbt = "2"
+bore-cli = "0.5"
 
 # Elden Ring trainer (live memory patching) — Windows only.
 [target.'cfg(windows)'.dependencies]
