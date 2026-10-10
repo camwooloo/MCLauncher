@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useLauncher, loadServers, saveServers } from "../store";
 import * as api from "../lib/api";
 import type { GameKey, ServerEntry } from "../lib/types";
-import { Field, Pill, Icon, Select, HostAddress } from "./ui";
+import { Field, Pill, Icon, Select, HostAddress, Switch } from "./ui";
 
 /* ------------------------------ Home ----------------------------------- */
 
@@ -928,10 +928,7 @@ export function EldenRingPlay() {
               <div style={{ fontWeight: 600 }}>21:9 / 32:9 ultrawide</div>
               <div className="muted">Removes the black bars and widens the FOV. Co-op/offline only (anti-cheat off).</div>
             </div>
-            <div className="seg">
-              <button className={er.ultrawide_enabled ? "on" : ""} onClick={() => setUltrawide(true)}>On</button>
-              <button className={!er.ultrawide_enabled ? "on" : ""} onClick={() => setUltrawide(false)}>Off</button>
-            </div>
+            <Switch value={er.ultrawide_enabled} onChange={(v) => void setUltrawide(v)} label="Ultrawide" />
           </div>
         ) : (
           <>
@@ -1121,10 +1118,7 @@ export function EldenRingCheats() {
           <div className="sect-title">Cheats</div>
           <div className="muted" style={{ fontSize: 13 }}>Cinematic toolkit — for offline / co-op only (anti-cheat off).</div>
         </div>
-        <div className="seg">
-          <button className={on ? "on" : ""} onClick={() => setMaster(true)}>On</button>
-          <button className={!on ? "on" : ""} onClick={() => setMaster(false)}>Off</button>
-        </div>
+        <Switch value={on} onChange={(v) => void setMaster(v)} label="Cheats" />
       </div>
 
       <div

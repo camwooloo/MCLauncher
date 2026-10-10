@@ -13,28 +13,30 @@
   --pill-hover: color-mix(in srgb, var(--accent) 24%, #ffffff);
   --pill-ink: #0b0f0d;
 
-  --deck-bg: rgba(22, 23, 27, 0.72);
-  --deck-rail: rgba(10, 11, 13, 0.55);
+  /* Light tints: the heavy blur on the deck does the frosting, so the
+     animated background stays visible through it. */
+  --deck-bg: rgba(22, 23, 27, 0.34);
+  --deck-rail: rgba(10, 11, 13, 0.22);
   --deck-edge: rgba(255, 255, 255, 0.07);
   --card: rgba(6, 7, 9, 0.58);
   --card-2: rgba(255, 255, 255, 0.045);
   --card-edge: rgba(255, 255, 255, 0.06);
   --label: rgba(236, 238, 242, 0.62);
-  --art-fade: rgba(14, 15, 18, 0.96);
+  --art-fade: rgba(14, 15, 18, 0.42);
 }
 [data-theme="light"] {
   --pill: #10131a;
   --pill-hover: #1d2230;
   --pill-ink: #f4f6fb;
 
-  --deck-bg: rgba(255, 255, 255, 0.62);
-  --deck-rail: rgba(255, 255, 255, 0.5);
+  --deck-bg: rgba(255, 255, 255, 0.4);
+  --deck-rail: rgba(255, 255, 255, 0.28);
   --deck-edge: rgba(15, 20, 40, 0.08);
   --card: rgba(255, 255, 255, 0.72);
   --card-2: rgba(15, 20, 40, 0.04);
   --card-edge: rgba(15, 20, 40, 0.07);
   --label: rgba(16, 19, 31, 0.55);
-  --art-fade: rgba(238, 241, 248, 0.96);
+  --art-fade: rgba(238, 241, 248, 0.45);
 }
 
 /* ---- Frame ------------------------------------------------------------- */
@@ -52,8 +54,8 @@
   background: var(--deck-bg);
   border: 1px solid var(--deck-edge);
   box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(50px) saturate(140%);
-  -webkit-backdrop-filter: blur(50px) saturate(140%);
+  backdrop-filter: blur(60px) saturate(160%);
+  -webkit-backdrop-filter: blur(60px) saturate(160%);
 }
 
 /* Flush frame (default): the deck *is* the window — no inset card, rails run
@@ -81,7 +83,7 @@
   padding-top: 58px;
   /* Barely-there tint: the art and backdrop run straight through, so the
      rails and the window buttons sit on the same surface. */
-  background: rgba(0, 0, 0, 0.14);
+  background: rgba(0, 0, 0, 0.1);
   border-color: rgba(255, 255, 255, 0.035);
 }
 [data-theme="light"]:not([data-frame="floating"]) .fn-rail,
@@ -338,7 +340,7 @@
   z-index: 0;
   pointer-events: none;
   filter: blur(60px) saturate(120%);
-  opacity: 0.9;
+  opacity: 0.6;
   transition: background 0.6s var(--ease);
   background:
     radial-gradient(40% 45% at 72% 18%, rgba(var(--accent-rgb), 0.38), transparent 70%),
@@ -671,6 +673,153 @@
 .stage .acct-chip {
   background: var(--card);
   border-color: var(--card-edge);
+}
+
+/* ---- Controls: dropdowns, switches, segmented ----------------------- */
+.app .select-btn {
+  gap: 12px;
+  padding: 10px 10px 10px 20px;
+  border-radius: 99px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.app .select-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.app .select-chev {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+[data-theme="light"] .app .select-btn {
+  background: rgba(255, 255, 255, 0.6);
+}
+[data-theme="light"] .app .select-chev {
+  background: rgba(15, 20, 40, 0.06);
+}
+.app .select-menu {
+  top: calc(100% + 8px) !important;
+  padding: 6px;
+  gap: 2px;
+  border-radius: 20px;
+  background: #141519;
+  background-image: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.85);
+  animation: menu-in 0.16s var(--ease);
+}
+[data-theme="light"] .app .select-menu {
+  background: #fff;
+  border-color: rgba(15, 20, 40, 0.08);
+  box-shadow: 0 24px 50px -20px rgba(15, 20, 40, 0.35);
+}
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+.app .select-menu .row-menu-item {
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.app .select-menu .row-menu-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+[data-theme="light"] .app .select-menu .row-menu-item:hover {
+  background: rgba(15, 20, 40, 0.05);
+}
+.app .select-menu .row-menu-item.sel {
+  font-weight: 700;
+  color: var(--pill-ink);
+  background: var(--pill);
+}
+.app .select-menu .row-menu-item.sel svg {
+  flex: none;
+}
+
+/* Switch: a pale pill when on, like the Play buttons. */
+.app .switch {
+  width: 52px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--card-edge);
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.app .switch::after {
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: transform 0.26s var(--spring), background 0.2s;
+}
+.app .switch.on {
+  border-color: transparent;
+  background: var(--pill);
+}
+.app .switch.on::after {
+  transform: translateX(22px);
+  background: var(--pill-ink);
+}
+.app .switch:active::after {
+  width: 26px;
+}
+.app .switch.on:active::after {
+  transform: translateX(18px);
+}
+[data-theme="light"] .app .switch:not(.on) {
+  background: rgba(15, 20, 40, 0.1);
+}
+[data-theme="light"] .app .switch:not(.on)::after {
+  background: #fff;
+}
+
+/* Segmented control: a pill track; the chosen option is a pale pill. */
+.app .seg {
+  padding: 4px;
+  gap: 2px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-edge);
+}
+.app .seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border-radius: 99px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.app .seg button:not(.on):hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+.app .seg button.on {
+  color: var(--pill-ink);
+  background: var(--pill);
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] .app .seg {
+  background: rgba(15, 20, 40, 0.05);
 }
 
 /* ---- Game home (each game's Play page) -------------------------------- */
@@ -1173,4 +1322,13 @@
   .game-dot.active::before {
     right: -17px;
   }
+}
+
+/* An open dropdown lifts its row above the rows below it (they can form their
+   own stacking contexts), so switches don't show through the menu. */
+.app .row:has(.select-menu),
+.app .sect:has(.select-menu),
+.app .field:has(.select-menu) {
+  position: relative;
+  z-index: 40;
 }

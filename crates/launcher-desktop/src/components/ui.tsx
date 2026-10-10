@@ -595,6 +595,20 @@ export interface SelectOption {
 }
 
 /** A styled dropdown that matches the launcher (custom popover, not native). */
+/** An on/off switch. */
+export function Switch({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={value}
+      aria-label={label}
+      className={`switch ${value ? "on" : ""}`}
+      onClick={() => onChange(!value)}
+    />
+  );
+}
+
 export function Select({
   value,
   onChange,
@@ -641,7 +655,8 @@ export function Select({
                   setOpen(false);
                 }}
               >
-                {o.label}
+                <span className="select-opt">{o.label}</span>
+                {o.value === value && <Icon.check size={14} />}
               </button>
             ))}
           </div>

@@ -216,7 +216,8 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute("data-theme", settings.theme || "dark");
-    root.setAttribute("data-style", settings.uiStyle || "aurora");
+    // The Style picker is gone; older saved styles fall back to the default look.
+    root.setAttribute("data-style", "aurora");
     root.setAttribute("data-bg", settings.background || "pulsing");
     root.setAttribute("data-anim", settings.background === "static" ? "off" : "on");
     root.setAttribute("data-frame", settings.windowFrame || "flush");
