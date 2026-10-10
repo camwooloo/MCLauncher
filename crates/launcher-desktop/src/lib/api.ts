@@ -13,7 +13,7 @@ import type {
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 // --- Remote control (LAN) ----
-// When connected to another Aurora PC, the commands in REMOTE_CMDS are sent to
+// When connected to another Kawma PC, the commands in REMOTE_CMDS are sent to
 // that PC's control server instead of run locally — so its servers/games show
 // here. Launcher-chrome commands (settings, accounts, window) always stay local.
 let remoteHost: { ip: string; port: number } | null = null;
@@ -140,7 +140,7 @@ export const minecraftVersions = (): Promise<string[]> =>
 const mockStore: AccountStore = {
   accounts: [
     {
-      username: "AuroraDev",
+      username: "KawmaDev",
       uuid: "9a1f0c5e7b2d4a3c8e6f1b09d4a25c11",
       access_token: "mock",
       xuid: "",
@@ -193,6 +193,10 @@ export const playMinecraft = (args: PlayArgs): Promise<string> =>
   isTauri
     ? call("play_minecraft", { args })
     : Promise.reject(new Error("Launching is only available in the desktop app"));
+
+/** Each Steam game's real icon (data URLs keyed by game), from Steam's local cache. */
+export const gameIcons = (): Promise<Record<string, string>> =>
+  isTauri ? call<Record<string, string>>("game_icons") : Promise.resolve({});
 
 export const detectGames = (): Promise<GamesStatus> =>
   isTauri
@@ -440,11 +444,19 @@ export interface PlayRecord {
   lastPlayed: number; // unix seconds
   totalSeconds: number;
   launches: number;
+  /** Seconds played per day, keyed by days since the unix epoch (UTC). */
+  days?: Record<string, number>;
 }
+/** Mock per-day playtime: `secs[i]` was played `i` days ago. */
+const mockDays = (...secs: number[]): Record<string, number> => {
+  const today = Math.floor(Date.now() / 86_400_000);
+  return Object.fromEntries(secs.map((s, i) => [String(today - i), s]).filter(([, s]) => s));
+};
 const mockStats: PlayRecord[] = [
-  { key: "instance:modrinth-1KVo5zza", name: "Fabulously Optimized", kind: "instance", icon: "https://cdn.modrinth.com/data/1KVo5zza/d8152911f8fd5d7e9a8c499fe89045af81fe816e_96.webp", lastPlayed: Math.floor(Date.now() / 1000) - 3600, totalSeconds: 3 * 3600 + 25 * 60, launches: 12 },
-  { key: "game:skyrim", name: "Skyrim Special Edition", kind: "skyrim", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 90000, totalSeconds: 8 * 3600, launches: 5 },
-  { key: "game:cyberpunk", name: "Cyberpunk 2077", kind: "cyberpunk", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 400000, totalSeconds: 12 * 3600, launches: 9 },
+  { key: "instance:modrinth-1KVo5zza", name: "Fabulously Optimized", kind: "instance", icon: "https://cdn.modrinth.com/data/1KVo5zza/d8152911f8fd5d7e9a8c499fe89045af81fe816e_96.webp", lastPlayed: Math.floor(Date.now() / 1000) - 3600, totalSeconds: 3 * 3600 + 25 * 60, launches: 12, days: mockDays(5400, 0, 2700, 1800, 0, 4200) },
+  { key: "instance:demo-vanilla", name: "Vanilla 1.21.4", kind: "instance", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 2 * 86400, totalSeconds: 5 * 3600, launches: 7, days: mockDays(0, 0, 3600, 0, 1200) },
+  { key: "game:skyrim", name: "Skyrim Special Edition", kind: "skyrim", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 90000, totalSeconds: 8 * 3600, launches: 5, days: mockDays(0, 7200, 0, 0, 3000) },
+  { key: "game:cyberpunk", name: "Cyberpunk 2077", kind: "cyberpunk", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 400000, totalSeconds: 12 * 3600, launches: 9, days: mockDays(0, 0, 0, 0, 5400, 3600) },
 ];
 export const playStats = (): Promise<PlayRecord[]> =>
   isTauri ? call<PlayRecord[]>("play_stats") : Promise.resolve(mockStats);
@@ -485,7 +497,7 @@ export interface TogetherServerConfig {
 }
 const mockTogether: TogetherServerConfig = {
   available: true,
-  serverName: "Aurora Together Server",
+  serverName: "Kawma Together Server",
   password: "",
   maxPlayers: 8,
   port: 10578,
@@ -528,14 +540,14 @@ export interface ReleasesResult {
 const mockReleases: ReleasesResult = {
   current: "0.3.2",
   releases: [
-    { version: "0.3.2", name: "Aurora Launcher v0.3.2", date: "2026-06-14", notes: "- Styled Aurora Net dropdowns\n- Built-in updater + patch notes" },
-    { version: "0.3.0", name: "Aurora Launcher v0.3.0 — Aurora Net", date: "2026-06-14", notes: "- Aurora Net: built-in VPN for no-port-forward co-op" },
+    { version: "0.3.2", name: "Kawma Launcher v0.3.2", date: "2026-06-14", notes: "- Styled Kawma Net dropdowns\n- Built-in updater + patch notes" },
+    { version: "0.3.0", name: "Kawma Launcher v0.3.0 — Kawma Net", date: "2026-06-14", notes: "- Kawma Net: built-in VPN for no-port-forward co-op" },
   ],
 };
 export const listReleases = (): Promise<ReleasesResult> =>
   isTauri ? call<ReleasesResult>("list_releases") : Promise.resolve(mockReleases);
 
-// ---- Aurora Net (built-in Tailscale VPN) ----
+// ---- Kawma Net (built-in Tailscale VPN) ----
 export interface VpnStatus {
   installed: boolean;
   running: boolean;
@@ -570,7 +582,7 @@ export const vpnSetToken = (token: string): Promise<void> =>
 export const vpnJoin = (code: string): Promise<JoinPayload> =>
   isTauri
     ? call<JoinPayload>("vpn_join", { code })
-    : Promise.reject(new Error("Aurora Net is only available in the desktop app"));
+    : Promise.reject(new Error("Kawma Net is only available in the desktop app"));
 export interface PackRef {
   source: string;
   projectId: string;
@@ -586,7 +598,7 @@ export const vpnShare = (args: {
 }): Promise<string> =>
   isTauri
     ? call<string>("vpn_share", { args })
-    : Promise.reject(new Error("Aurora Net is only available in the desktop app"));
+    : Promise.reject(new Error("Kawma Net is only available in the desktop app"));
 
 export interface Peer {
   name: string;
@@ -603,7 +615,7 @@ export const vpnPeers = (): Promise<Peer[]> =>
   isTauri ? call<Peer[]>("vpn_peers") : Promise.resolve(mockPeers);
 
 // One-time Windows Firewall allow-rule so friends can reach servers you host
-// over Aurora Net. Returns true if it applied (false = already set up).
+// over Kawma Net. Returns true if it applied (false = already set up).
 export const repairAuroraNet = (): Promise<boolean> =>
   isTauri ? call<boolean>("repair_aurora_net") : Promise.resolve(false);
 
@@ -743,7 +755,7 @@ export const createInstanceFromModpack = (projectId: string, title: string): Pro
     : Promise.reject(new Error("Modpack install is only available in the desktop app"));
 
 // ---- Multi-source modpacks (Modrinth / FTB / CurseForge / Technic) ----
-import type { PackHit } from "./types";
+import type { PackHit, PackVersion } from "./types";
 
 export const packSearch = (source: string, query: string): Promise<PackHit[]> =>
   isTauri
@@ -753,24 +765,36 @@ export const packSearch = (source: string, query: string): Promise<PackHit[]> =>
         { id: "ftb-skyfactory", name: "FTB SkyFactory", summary: "Skyblock, but huge.", icon: null, downloads: 800000 },
       ]);
 
+/** A modpack's versions, newest first (empty when the platform has none to pick). */
+export const packVersions = (source: string, projectId: string): Promise<PackVersion[]> =>
+  isTauri
+    ? call("pack_versions", { source, projectId })
+    : Promise.resolve([
+        { id: "v3", name: "BMC4 v38.5", gameVersion: "1.20.1", loader: "forge", channel: "release", date: Date.now() / 1000 - 86400 },
+        { id: "v2", name: "BMC4 v38.4", gameVersion: "1.20.1", loader: "forge", channel: "release", date: Date.now() / 1000 - 30 * 86400 },
+        { id: "v1", name: "BMC3 v30", gameVersion: "1.19.2", loader: "forge", channel: "beta", date: Date.now() / 1000 - 300 * 86400 },
+      ]);
+
 export const createInstanceFromPack = (
   source: string,
   projectId: string,
   title: string,
-  icon: string | null
+  icon: string | null,
+  versionId?: string | null
 ): Promise<InstanceConfig> =>
   isTauri
-    ? call("create_instance_from_pack", { source, projectId, title, icon })
+    ? call("create_instance_from_pack", { source, projectId, title, icon, versionId: versionId ?? null })
     : Promise.reject(new Error("Modpack install is only available in the desktop app"));
 
 export const createServerFromPack = (
   source: string,
   projectId: string,
   title: string,
-  icon: string | null
+  icon: string | null,
+  versionId?: string | null
 ): Promise<unknown> =>
   isTauri
-    ? call("create_server_from_pack", { source, projectId, title, icon })
+    ? call("create_server_from_pack", { source, projectId, title, icon, versionId: versionId ?? null })
     : Promise.reject(new Error("Modpack install is only available in the desktop app"));
 
 export const instancePlay = (id: string, server?: string | null): Promise<string> =>

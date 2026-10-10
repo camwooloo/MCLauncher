@@ -11,7 +11,7 @@ function WelcomeArt() {
     <div className="onb-art">
       <div className="onb-aurora" />
       <div className="onb-logo">
-        <span className="onb-logo-a">Aurora</span>
+        <span className="onb-logo-a">Kawma</span>
       </div>
     </div>
   );
@@ -82,7 +82,7 @@ function ThemeArt() {
 type Slide = { art: ReactNode; title: string; line: string };
 
 const SLIDES: Slide[] = [
-  { art: <WelcomeArt />, title: "Welcome to Aurora", line: "Play, mod and host — beautifully, together." },
+  { art: <WelcomeArt />, title: "Welcome to Kawma Launcher", line: "Play, mod and host — beautifully, together." },
   { art: <GamesArt />, title: "Every game, one launcher", line: "Minecraft, Skyrim, Elden Ring & Cyberpunk." },
   { art: <NetArt />, title: "Play together, instantly", line: "Host a server, share a link — friends just join." },
   { art: <ThemeArt />, title: "Make it yours", line: "Themes, backgrounds and layouts to match your vibe." },

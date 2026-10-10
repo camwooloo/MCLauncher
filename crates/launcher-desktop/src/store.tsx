@@ -64,8 +64,8 @@ interface Launcher {
   saveInstanceCfg: (cfg: InstanceConfig) => Promise<void>;
   deleteInstanceCfg: (id: string) => Promise<void>;
   playInstance: (id: string, server?: string) => Promise<void>;
-  createFromPack: (source: string, projectId: string, title: string, icon: string | null) => Promise<void>;
-  createServerFromPack: (source: string, projectId: string, title: string, icon: string | null) => Promise<void>;
+  createFromPack: (source: string, projectId: string, title: string, icon: string | null, versionId?: string | null) => Promise<void>;
+  createServerFromPack: (source: string, projectId: string, title: string, icon: string | null, versionId?: string | null) => Promise<void>;
   openInstanceFolder: (id: string) => Promise<void>;
   openServerFolder: (id: string) => Promise<void>;
 
@@ -216,10 +216,12 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute("data-theme", settings.theme || "dark");
-    root.setAttribute("data-style", settings.uiStyle || "aurora");
+    // The Style picker is gone; older saved styles fall back to the default look.
+    root.setAttribute("data-style", "aurora");
     root.setAttribute("data-bg", settings.background || "pulsing");
     root.setAttribute("data-anim", settings.background === "static" ? "off" : "on");
-  }, [settings.theme, settings.background, settings.uiStyle]);
+    root.setAttribute("data-frame", settings.windowFrame || "flush");
+  }, [settings.theme, settings.background, settings.uiStyle, settings.windowFrame]);
 
   const activeAccount = useCallback(
     () => store.accounts.find((a) => a.uuid === store.active_uuid) ?? store.accounts[0],
@@ -303,11 +305,11 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     [showToast, instances]
   );
   const createFromPack = useCallback(
-    async (source: string, projectId: string, title: string, icon: string | null) => {
+    async (source: string, projectId: string, title: string, icon: string | null, versionId?: string | null) => {
       setBusy(true);
       setProgress({ stage: "Preparing", total: 0, done: 0, fraction: 0 });
       try {
-        await api.createInstanceFromPack(source, projectId, title, icon);
+        await api.createInstanceFromPack(source, projectId, title, icon, versionId);
         await refreshInstances();
         showToast(`Installed ${title}`);
       } catch (e) {
@@ -330,11 +332,11 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     setServers(await api.listServers());
   }, []);
   const createServerFromPack = useCallback(
-    async (source: string, projectId: string, title: string, icon: string | null) => {
+    async (source: string, projectId: string, title: string, icon: string | null, versionId?: string | null) => {
       setBusy(true);
       setProgress({ stage: "Preparing", total: 0, done: 0, fraction: 0 });
       try {
-        await api.createServerFromPack(source, projectId, title, icon);
+        await api.createServerFromPack(source, projectId, title, icon, versionId);
         await refreshServers();
         showToast(`Installed ${title}`);
       } catch (e) {

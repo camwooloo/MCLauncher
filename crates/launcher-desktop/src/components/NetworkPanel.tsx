@@ -27,7 +27,7 @@ function FriendAvatar({ name }: { name: string }) {
   );
 }
 
-/** Aurora Net — built-in Tailscale VPN so friends can connect with no port
+/** Kawma Net — built-in Tailscale VPN so friends can connect with no port
  *  forwarding. Phase 1 (setup/connect), Phase 2 (join), Phase 3 (host/share). */
 export function NetworkPanel() {
   const { showToast, playInstance } = useLauncher();
@@ -102,7 +102,7 @@ export function NetworkPanel() {
   const install = () =>
     run("install", async () => {
       await api.vpnInstall();
-      showToast("Aurora Net installed");
+      showToast("Kawma Net installed");
       await refresh();
     });
 
@@ -118,12 +118,12 @@ export function NetworkPanel() {
           const s = await api.vpnStatus();
           setStatus(s);
           if (s.running) {
-            showToast("Connected to Aurora Net");
+            showToast("Connected to Kawma Net");
             break;
           }
         }
       } else {
-        showToast("Connected to Aurora Net");
+        showToast("Connected to Kawma Net");
       }
       await refresh();
     });
@@ -137,7 +137,7 @@ export function NetworkPanel() {
   const repairFirewall = () =>
     run("repair", async () => {
       const applied = await api.repairAuroraNet();
-      showToast(applied ? "Aurora Net is allowed through the firewall" : "Firewall was already set up");
+      showToast(applied ? "Kawma Net is allowed through the firewall" : "Firewall was already set up");
     });
 
   const join = () =>
@@ -201,7 +201,7 @@ export function NetworkPanel() {
         </button>
       </div>
       <p className="muted">
-        Play together with no port forwarding — Aurora puts you and your friends on a private,
+        Play together with no port forwarding — Kawma puts you and your friends on a private,
         encrypted network (powered by Tailscale). Works for Minecraft servers, Skyrim Together,
         Elden Ring co-op and more.
       </p>
@@ -231,7 +231,7 @@ export function NetworkPanel() {
           <div className="row" style={{ gap: 8 }}>
             {!installed && (
               <button className="btn-play" disabled={busy !== null} onClick={install}>
-                <Icon.host size={16} /> {busy === "install" ? "Installing…" : "Set up Aurora Net"}
+                <Icon.host size={16} /> {busy === "install" ? "Installing…" : "Set up Kawma Net"}
               </button>
             )}
             {installed && !running && (
@@ -248,7 +248,7 @@ export function NetworkPanel() {
                   className="btn"
                   disabled={busy !== null}
                   onClick={repairFirewall}
-                  title="Allow servers you host through the Windows Firewall on Aurora Net (one-time)"
+                  title="Allow servers you host through the Windows Firewall on Kawma Net (one-time)"
                 >
                   <Icon.host size={15} /> {busy === "repair" ? "Fixing…" : "Fix hosting"}
                 </button>
@@ -274,7 +274,7 @@ export function NetworkPanel() {
 
           {friends.length === 0 ? (
             <div className="surface" style={{ padding: 18 }}>
-              <div style={{ fontWeight: 700, marginBottom: 4 }}>It's just you on Aurora Net</div>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>It's just you on Kawma Net</div>
               <p className="muted" style={{ marginTop: 0 }}>
                 To play together, <b>one</b> of you hosts and the others join the same network — then
                 everyone shows up here. Swapping <code className="md-code">100.x</code> addresses won't
@@ -293,7 +293,7 @@ export function NetworkPanel() {
             <>
               <div className="surface" style={{ padding: "10px 14px", marginBottom: 8, fontSize: 13 }}>
                 ✓ You're connected with <b>{friends.length}</b> {friends.length === 1 ? "friend" : "friends"} on
-                Aurora Net. Use a friend's address in-game (or hand them yours) to play.
+                Kawma Net. Use a friend's address in-game (or hand them yours) to play.
               </div>
               <div className="col" style={{ gap: 6 }}>
                 {me && (
@@ -351,7 +351,7 @@ export function NetworkPanel() {
             style={{ minWidth: 360 }}
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value)}
-            placeholder="aurora-net:…"
+            placeholder="kawma-net:…"
           />
         </Field>
         <button className="btn-play" disabled={busy !== null || !joinCode.trim()} onClick={join}>
@@ -403,7 +403,7 @@ export function NetworkPanel() {
       {!hasToken ? (
         <>
           <p className="muted">
-            One-time setup so Aurora can make your friend code: connect it to your Tailscale account.
+            One-time setup so Kawma can make your friend code: connect it to your Tailscale account.
             Create an <b>API access token</b> at{" "}
             <button className="linklike" onClick={() => void api.openUrl("https://login.tailscale.com/admin/settings/keys")}>
               login.tailscale.com → Settings → Keys
@@ -427,7 +427,7 @@ export function NetworkPanel() {
           </div>
         </>
       ) : !running ? (
-        <p className="muted">Connect to Aurora Net above, then your friend code appears here.</p>
+        <p className="muted">Connect to Kawma Net above, then your friend code appears here.</p>
       ) : (
         <>
           <p className="muted">
@@ -438,10 +438,10 @@ export function NetworkPanel() {
           {friendCode ? (
             <div className="surface" style={{ padding: "12px 16px", marginTop: 4 }}>
               <div className="codebox" style={{ wordBreak: "break-all", userSelect: "all" }}>
-                aurora-net:{friendCode}
+                kawma-net:{friendCode}
               </div>
               <div className="row" style={{ marginTop: 8, gap: 8 }}>
-                <button className="btn-play" onClick={() => copy(`aurora-net:${friendCode}`, "Friend code")}>
+                <button className="btn-play" onClick={() => copy(`kawma-net:${friendCode}`, "Friend code")}>
                   <Icon.copy size={15} /> Copy friend code
                 </button>
                 <button className="btn ghost" disabled={busy !== null} onClick={() => makeFriendCode(true)}>

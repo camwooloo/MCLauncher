@@ -1,9 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { LauncherProvider, useLauncher } from "./store";
-import { windowAction, checkAppUpdate, applyAppUpdate, type UpdateInfo, type PlayRecord } from "./lib/api";
+import { windowAction, checkAppUpdate, applyAppUpdate, playStats, gameIcons, type UpdateInfo, type PlayRecord } from "./lib/api";
 import type { GameKey } from "./lib/types";
-import { Icon, AuroraMark, Markdown } from "./components/ui";
+import { Icon, KawmaMark, Markdown, Avatar } from "./components/ui";
 import { AccountMenu } from "./components/AccountMenu";
 import { ServerDashboard } from "./components/ServerConsole";
 import { InstancesPanel, MinecraftServers, UpgradeModal } from "./components/MinecraftPanels";
@@ -13,6 +13,8 @@ import { BackupsModal } from "./components/BackupsModal";
 import { ConfigEditor } from "./components/ConfigEditor";
 import { CrashModal } from "./components/CrashModal";
 import { Onboarding } from "./components/Onboarding";
+import { GameArt } from "./components/GameArt";
+import { GameHome, loadChoice, saveChoice, pickedMode, type Choice } from "./components/GameHome";
 import {
   HomePanel,
   SkyrimPlay,
@@ -29,46 +31,67 @@ import { AccountsPanel, SettingsPanel } from "./components/SystemPanels";
 import { NetworkPanel } from "./components/NetworkPanel";
 
 type Section = GameKey | "home" | "accounts" | "settings" | "network";
+type IconFn = (p: { size?: number }) => JSX.Element;
 
-const GAME_TABS: Record<GameKey, string[]> = {
-  minecraft: ["Play", "Servers", "Skins"],
-  skyrim: ["Play", "Co-op", "Mods"],
-  eldenring: ["Play", "Co-op", "Cheats"],
-  cyberpunk: ["Play", "Co-op", "Mods"],
+const GAMES: GameKey[] = ["minecraft", "skyrim", "eldenring", "cyberpunk"];
+
+/* Each game's identity in the shell: name, maker line and rail icon. */
+const GAME_META: Record<GameKey, { name: string; short: string; maker: string; icon: IconFn }> = {
+  minecraft: { name: "Minecraft", short: "MC", maker: "Mojang Studios", icon: Icon.minecraft },
+  skyrim: { name: "Skyrim", short: "SK", maker: "The Elder Scrolls V", icon: Icon.skyrim },
+  eldenring: { name: "Elden Ring", short: "ER", maker: "FromSoftware", icon: Icon.elden },
+  cyberpunk: { name: "Cyberpunk 2077", short: "CP", maker: "CD Projekt Red", icon: Icon.cyberpunk },
 };
 
-const SECTION_TITLE: Record<string, string> = { home: "Home", accounts: "Accounts", settings: "Settings", network: "Aurora Net" };
+/* The functions each game exposes on the left rail. The first is the primary one. */
+const GAME_FUNCS: Record<GameKey, { tab: string; icon: IconFn }[]> = {
+  minecraft: [
+    { tab: "Play", icon: Icon.gamepad },
+    { tab: "Instances", icon: Icon.mods },
+    { tab: "Servers", icon: Icon.server },
+    { tab: "Skins", icon: Icon.shirt },
+  ],
+  skyrim: [
+    { tab: "Play", icon: Icon.gamepad },
+    { tab: "Setup", icon: Icon.sliders },
+    { tab: "Co-op", icon: Icon.coop },
+    { tab: "Mods", icon: Icon.mods },
+  ],
+  eldenring: [
+    { tab: "Play", icon: Icon.gamepad },
+    { tab: "Setup", icon: Icon.sliders },
+    { tab: "Co-op", icon: Icon.coop },
+    { tab: "Cheats", icon: Icon.sparkles },
+  ],
+  cyberpunk: [
+    { tab: "Play", icon: Icon.gamepad },
+    { tab: "Setup", icon: Icon.sliders },
+    { tab: "Co-op", icon: Icon.coop },
+    { tab: "Mods", icon: Icon.mods },
+  ],
+};
 
-/* Sliding "liquid" tab indicator. */
-function TabBar({
-  tabs,
-  active,
-  onSelect,
-}: {
-  tabs: string[];
-  active: string;
-  onSelect: (t: string) => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [ind, setInd] = useState({ left: 0, width: 0, ready: false });
-  useLayoutEffect(() => {
-    const el = ref.current?.querySelector(".tab.active") as HTMLElement | null;
-    if (el) setInd({ left: el.offsetLeft, width: el.offsetWidth, ready: true });
-  }, [active, tabs]);
-  return (
-    <div className="tabbar" ref={ref}>
-      <div
-        className="tab-ind"
-        style={{ left: 0, transform: `translateX(${ind.left}px)`, width: ind.width, opacity: ind.ready ? 1 : 0 }}
-      />
-      {tabs.map((t) => (
-        <button key={t} className={`tab ${t === active ? "active" : ""}`} onClick={() => onSelect(t)}>
-          {t}
-        </button>
-      ))}
-    </div>
-  );
+const SECTION_TITLE: Record<string, string> = { home: "Kawma", accounts: "Accounts", settings: "Settings", network: "Kawma Net" };
+const SECTION_KICKER: Record<string, string> = {
+  home: "Welcome back",
+  accounts: "Minecraft accounts",
+  settings: "Launcher",
+  network: "Play together, no port forwarding",
+};
+
+interface HeroStat {
+  icon: IconFn;
+  label: string;
+  value: string;
 }
+interface HeroInfo {
+  title: string;
+  kicker: string;
+  play?: { label: string; disabled: boolean; onClick: () => void };
+  stats: HeroStat[];
+}
+
+const ready = (b: boolean | undefined) => (b ? "Ready" : "Not installed");
 
 /* Title-bar pill: shows running servers; hover lists them to open a dashboard. */
 function ServerPill() {
@@ -116,7 +139,7 @@ function ServerPill() {
   );
 }
 
-/* Title-bar pill: other Aurora PCs on the LAN; pick one to control it. */
+/* Title-bar pill: other Kawma PCs on the LAN; pick one to control it. */
 function RemotePill() {
   const { netPeers, remoteTarget, connecting, connectRemote, disconnectRemote } = useLauncher();
   const [open, setOpen] = useState(false);
@@ -182,7 +205,7 @@ function UpdatePill() {
     setBusy(true);
     try {
       await applyAppUpdate(info.downloadUrl);
-      showToast("Downloading update — the installer will open, then Aurora restarts…");
+      showToast("Downloading update — the installer will open, then Kawma restarts…");
     } catch (e) {
       showToast(`${e}`);
       setBusy(false);
@@ -201,7 +224,7 @@ function UpdatePill() {
               <div>
                 <div className="eyebrow">Update available</div>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 22 }}>
-                  Aurora Launcher v{info.version}
+                  Kawma Launcher v{info.version}
                 </div>
                 <div className="sub" style={{ color: "var(--text-mute)" }}>You're on v{info.current}</div>
               </div>
@@ -227,8 +250,89 @@ function UpdatePill() {
   );
 }
 
+
+/* What the hero shows for the current section: title, the Play pill and status chips. */
+function useHero(section: Section, lastInstanceId: string | null, onContinue: (r: PlayRecord) => void, recent: PlayRecord | null, choice: Choice): HeroInfo {
+  const { games, instances, servers, serverStatuses, busy, playInstance, launchSkyrim, launchEldenRing, launchCyberpunk, activeAccount, netPeers } =
+    useLauncher();
+  const running = Object.values(serverStatuses).filter((s) => s.running).length;
+
+  switch (section) {
+    case "minecraft": {
+      const inst = instances.find((i) => i.id === choice.instance) ?? instances.find((i) => i.id === lastInstanceId) ?? instances[0];
+      const acct = activeAccount();
+      return {
+        title: "Minecraft",
+        kicker: GAME_META.minecraft.maker,
+        play: { label: "Play", disabled: busy || !inst, onClick: () => inst && void playInstance(inst.id) },
+        stats: [
+          { icon: Icon.clock, label: "Selected instance", value: inst ? (inst.name.includes(inst.version) ? inst.name : `${inst.name} · ${inst.version}`) : "None yet" },
+          { icon: Icon.mods, label: "Instances", value: `${instances.length} installed` },
+          { icon: Icon.server, label: "Servers", value: `${running} of ${servers.length} running` },
+          { icon: Icon.user, label: "Account", value: acct ? acct.username : "Signed out" },
+        ],
+      };
+    }
+    case "skyrim": {
+      const g = games?.skyrim;
+      return {
+        title: "Skyrim Special Edition",
+        kicker: GAME_META.skyrim.maker,
+        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchSkyrim(pickedMode("skyrim", games, choice)) },
+        stats: [
+          { icon: Icon.folder, label: "Install", value: g?.installed ? (g.source === "epic" ? "Epic Games" : "Steam") : "Not found" },
+          { icon: Icon.mods, label: "SKSE", value: ready(g?.has_skse) },
+          { icon: Icon.coop, label: "Skyrim Together", value: ready(g?.has_skyrim_together) },
+        ],
+      };
+    }
+    case "eldenring": {
+      const g = games?.eldenRing;
+      return {
+        title: "Elden Ring",
+        kicker: GAME_META.eldenring.maker,
+        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchEldenRing(pickedMode("eldenring", games, choice)) },
+        stats: [
+          { icon: Icon.folder, label: "Install", value: g?.installed ? "Steam" : "Not found" },
+          { icon: Icon.coop, label: "Seamless Co-op", value: ready(g?.has_seamless_coop) },
+          { icon: Icon.mods, label: "Mod Engine 2", value: ready(g?.has_mod_engine) },
+        ],
+      };
+    }
+    case "cyberpunk": {
+      const g = games?.cyberpunk;
+      return {
+        title: "Cyberpunk 2077",
+        kicker: GAME_META.cyberpunk.maker,
+        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchCyberpunk(pickedMode("cyberpunk", games, choice)) },
+        stats: [
+          { icon: Icon.folder, label: "Install", value: g?.installed ? (g.source === "epic" ? "Epic Games" : "Steam") : "Not found" },
+          { icon: Icon.coop, label: "CyberpunkMP", value: ready(g?.has_mp) },
+          { icon: Icon.terminal, label: "Cyber Engine Tweaks", value: ready(g?.has_cet) },
+        ],
+      };
+    }
+    case "home": {
+      const installed = 1 + [games?.skyrim, games?.eldenRing, games?.cyberpunk].filter((g) => g?.installed).length;
+      return {
+        title: "Kawma Launcher",
+        kicker: SECTION_KICKER.home,
+        play: recent ? { label: "Continue", disabled: busy, onClick: () => onContinue(recent) } : undefined,
+        stats: [
+          ...(recent ? [{ icon: Icon.clock, label: "Last played", value: recent.name }] : []),
+          { icon: Icon.gamepad, label: "Library", value: `${installed} games` },
+          { icon: Icon.server, label: "Servers", value: `${running} running` },
+          { icon: Icon.globe, label: "Nearby PCs", value: `${netPeers.length} online` },
+        ],
+      };
+    }
+    default:
+      return { title: SECTION_TITLE[section], kicker: SECTION_KICKER[section], stats: [] };
+  }
+}
+
 function Shell() {
-  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, configTarget, closeConfigEditor, playInstance, settings, settingsLoaded, connecting, remoteTarget, disconnectRemote } =
+  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, configTarget, closeConfigEditor, playInstance, settings, settingsLoaded, connecting, remoteTarget, disconnectRemote, activeAccount, busy } =
     useLauncher();
   const [activeGame, setActiveGame] = useState<GameKey>("minecraft");
   const [section, setSection] = useState<Section>("home");
@@ -238,6 +342,27 @@ function Shell() {
     eldenring: "Play",
     cyberpunk: "Play",
   });
+  const [recents, setRecents] = useState<PlayRecord[]>([]);
+  const [gameArt, setGameArt] = useState<Record<string, string>>({});
+  // What each game's home page has picked (instance, launch mode); Play uses it.
+  const [choice, setChoiceState] = useState<Choice>(loadChoice);
+  const setChoice = (c: Choice) => {
+    setChoiceState(c);
+    saveChoice(c);
+  };
+  useEffect(() => {
+    gameIcons().then(setGameArt).catch(() => {});
+  }, []);
+
+  // Play history drives the hero: the Minecraft "selected instance" is the one
+  // played most recently, and Home's Continue picks up the last game.
+  useEffect(() => {
+    if (busy) return;
+    playStats()
+      .then((r) => setRecents([...r].sort((a, b) => b.lastPlayed - a.lastPlayed)))
+      .catch(() => {});
+  }, [busy]);
+  const lastInstanceId = recents.find((r) => r.kind === "instance")?.key.replace(/^instance:/, "") ?? null;
 
   // Apply the saved "open to" view once, after settings have loaded from disk.
   const appliedDefault = useRef(false);
@@ -246,11 +371,10 @@ function Shell() {
     appliedDefault.current = true;
     const view = settings.defaultView || "home";
     const [sec, tab] = view.split(":");
-    const games: GameKey[] = ["minecraft", "skyrim", "eldenring", "cyberpunk"];
-    if ((games as string[]).includes(sec)) {
+    if ((GAMES as string[]).includes(sec)) {
       setActiveGame(sec as GameKey);
       setSection(sec as Section);
-      if (tab && GAME_TABS[sec as GameKey].includes(tab)) {
+      if (tab && GAME_FUNCS[sec as GameKey].some((f) => f.tab === tab)) {
         setTabs((prev) => ({ ...prev, [sec as GameKey]: tab }));
       }
     } else if (sec && sec !== "home") {
@@ -258,19 +382,18 @@ function Shell() {
     }
   }, [settingsLoaded, settings.defaultView]);
 
-  const isGame =
-    section === "minecraft" || section === "skyrim" || section === "eldenring" || section === "cyberpunk";
+  const isGame = (GAMES as string[]).includes(section);
 
   // Games carry their own accent; everything else (home, settings, accounts)
-  // wears the launcher's aurora identity.
+  // wears Kawma's own colours.
   useEffect(() => {
-    document.documentElement.setAttribute("data-game", isGame ? section : "aurora");
+    document.documentElement.setAttribute("data-game", isGame ? section : "kawma");
   }, [section, isGame]);
 
   // Liquid-glass pointer lensing: expose the cursor position to CSS so glass
   // controls brighten under it (used by the ::after radial in liquidglass).
   useEffect(() => {
-    const SEL = ".btn, .btn-play, .select-btn, .lrow, .game-tile, .rail-btn, .tab, .seg button, .acct-chip";
+    const SEL = ".btn, .btn-play, .select-btn, .lrow, .game-tile, .rail-btn, .tab, .seg button, .acct-chip, .fn-btn, .game-dot";
     const onMove = (e: PointerEvent) => {
       const el = (e.target as HTMLElement | null)?.closest?.(SEL) as HTMLElement | null;
       if (!el) return;
@@ -286,6 +409,10 @@ function Shell() {
     setActiveGame(g);
     setSection(g);
   };
+  const openFunc = (t: string) => {
+    setTabs((prev) => ({ ...prev, [activeGame]: t }));
+    setSection(activeGame);
+  };
   // Home "Continue": instances launch straight away; games open their section.
   const continuePlay = (r: PlayRecord) => {
     if (r.kind === "instance") {
@@ -299,86 +426,147 @@ function Shell() {
     selectGame("minecraft");
     void playInstance(s.id, s.address);
   };
-  const setTab = (t: string) => setTabs((prev) => ({ ...prev, [activeGame]: t }));
   const currentTab = isGame ? tabs[section as GameKey] : "";
   // Accounts are Minecraft/Microsoft — only surface the chip there.
   const showAccount = section === "minecraft" || section === "accounts";
+  const hero = useHero(section, lastInstanceId, continuePlay, recents[0] ?? null, choice);
+  const acct = activeAccount();
+  const funcs = GAME_FUNCS[activeGame];
+  const [primary, ...rest] = funcs;
+  const fnActive = (t: string) => section === activeGame && currentTab === t;
+  const SectionIcon = isGame ? GAME_META[section as GameKey].icon : null;
 
   return (
     <div className="app">
       <div className="titlebar" data-tauri-drag-region>
         <div className="brand" data-tauri-drag-region>
-          <AuroraMark size={24} />
-          Aurora
+          <KawmaMark size={22} />
+          Kawma
           <span className="brand-sub">Launcher</span>
         </div>
         <div className="spacer" data-tauri-drag-region />
         <UpdatePill />
         <ServerPill />
         <RemotePill />
-        <button className="win-btn" onClick={() => windowAction("minimize")}>
-          <Icon.min size={16} />
-        </button>
-        <button className="win-btn" onClick={() => windowAction("toggleMaximize")}>
-          <Icon.max size={13} />
-        </button>
-        <button className="win-btn close" onClick={() => windowAction("close")}>
-          <Icon.close size={15} />
-        </button>
+        {/* Just minimise and close: they sit together over the right rail. */}
+        <div className="win-ctrls">
+          <button className="win-btn" onClick={() => windowAction("minimize")} title="Minimise">
+            <Icon.min size={15} />
+          </button>
+          <button className="win-btn close" onClick={() => windowAction("close")} title="Close">
+            <Icon.close size={14} />
+          </button>
+        </div>
       </div>
 
-      <div className="shell">
-        <nav className="rail">
-          <RailBtn label="Home" active={section === "home"} onClick={() => setSection("home")}>
-            <Icon.home size={24} />
-          </RailBtn>
-          <RailBtn label="MC" active={section === "minecraft"} onClick={() => selectGame("minecraft")}>
-            <Icon.minecraft size={24} />
-          </RailBtn>
-          <RailBtn label="Skyrim" active={section === "skyrim"} onClick={() => selectGame("skyrim")}>
-            <Icon.skyrim size={24} />
-          </RailBtn>
-          <RailBtn label="Elden" active={section === "eldenring"} onClick={() => selectGame("eldenring")}>
-            <Icon.elden size={24} />
-          </RailBtn>
-          <RailBtn label="2077" active={section === "cyberpunk"} onClick={() => selectGame("cyberpunk")}>
-            <Icon.cyberpunk size={24} />
-          </RailBtn>
-          <div className="rail-spacer" />
-          <button
-            className={`rail-btn rail-mini ${section === "network" ? "active" : ""}`}
-            onClick={() => setSection("network")}
-            title="Aurora Net — play together with no port forwarding"
-          >
-            <Icon.coop size={20} />
+      <div className="deck">
+        <div className="stage-art" data-art={isGame ? section : "kawma"} aria-hidden />
+        {/* Left: what you can do with the selected game. */}
+        <nav className="fn-rail" aria-label={`${GAME_META[activeGame].name} functions`}>
+          <button className={`fn-mark ${section === "home" ? "active" : ""}`} onClick={() => setSection("home")} title="Home">
+            <KawmaMark size={38} />
           </button>
-          <button
-            className={`rail-btn rail-mini ${section === "settings" ? "active" : ""}`}
-            onClick={() => setSection("settings")}
-            title="Settings"
-          >
-            <Icon.gear size={19} />
-          </button>
+          <div className="fn-spacer" />
+          <div className="fn-solo">
+            <FnBtn label={primary.tab} active={fnActive(primary.tab)} onClick={() => openFunc(primary.tab)}>
+              <primary.icon size={19} />
+            </FnBtn>
+          </div>
+          <div className="fn-group">
+            {rest.map((f) => (
+              <FnBtn key={f.tab} label={f.tab} active={fnActive(f.tab)} onClick={() => openFunc(f.tab)}>
+                <f.icon size={18} />
+              </FnBtn>
+            ))}
+          </div>
+          <div className="fn-spacer" />
+          <div className="rail-foot">{GAME_META[activeGame].short}</div>
         </nav>
 
-        <main className="content">
-          <div className="topbar">
-            {isGame ? (
-              <TabBar tabs={GAME_TABS[section as GameKey]} active={currentTab} onSelect={setTab} />
-            ) : (
-              <div className="sect-title" style={{ fontSize: 20 }}>
-                {SECTION_TITLE[section]}
+        {/* Centre: hero + the selected function. */}
+        <main className="stage">
+          <div className="stage-scroll">
+            <header className="hero3">
+              <div className="hero3-top">
+                <span className="kicker">{hero.kicker}</span>
+                <div className="row" style={{ gap: 12, alignItems: "center" }}>
+                  {showAccount && <AccountMenu onManage={() => setSection("accounts")} />}
+                  {SectionIcon && (
+                    <span className="hero3-badge">
+                      <span>{GAME_META[section as GameKey].name}</span>
+                      <span className="hero3-badge-ico">
+                        <GameArt game={section as GameKey} icons={gameArt} size={30} />
+                      </span>
+                    </span>
+                  )}
+                </div>
               </div>
-            )}
-            {showAccount ? <AccountMenu onManage={() => setSection("accounts")} /> : <span />}
-          </div>
+              <h1 className="hero3-title">{hero.title}</h1>
+              {(hero.play || hero.stats.length > 0) && (
+                <div className="hero3-actions">
+                  {hero.play && (
+                    <button className="pill-play" disabled={hero.play.disabled} onClick={hero.play.onClick}>
+                      <span className="pill-play-ico">
+                        <Icon.play size={13} />
+                      </span>
+                      {hero.play.label}
+                    </button>
+                  )}
+                  {hero.stats.map((s) => (
+                    <div className="stat" key={s.label}>
+                      <s.icon size={20} />
+                      <div>
+                        <div className="stat-label">{s.label}</div>
+                        <div className="stat-value">{s.value}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </header>
 
-          <div className="panel-scroll">
             <div className="view" key={`${section}:${currentTab}`}>
-              <Panel section={section} tab={currentTab} onSelectGame={selectGame} onContinue={continuePlay} onRejoin={rejoin} />
+              <Panel
+                section={section}
+                tab={currentTab}
+                onSelectGame={selectGame}
+                onContinue={continuePlay}
+                onRejoin={rejoin}
+                home={{ icons: gameArt, choice, onChoice: setChoice, onOpen: openFunc }}
+              />
             </div>
           </div>
         </main>
+
+        {/* Right: your games, plus launcher-wide places (account, network, settings). */}
+        <aside className="game-rail" aria-label="Games">
+          <button
+            className={`game-me ${section === "accounts" ? "active" : ""}`}
+            onClick={() => setSection("accounts")}
+            title={acct ? acct.username : "Sign in"}
+          >
+            {acct ? <Avatar account={acct} size={40} /> : <Icon.user size={22} />}
+            <span className={`game-me-dot ${acct ? "on" : ""}`} />
+          </button>
+          <div className="fn-spacer" />
+          <div className="game-group">
+            {GAMES.map((g) => (
+              <GameDot key={g} game={g} label={GAME_META[g].name} active={section === g} onClick={() => selectGame(g)}>
+                <GameArt game={g} icons={gameArt} size={40} />
+              </GameDot>
+            ))}
+          </div>
+          <div className="fn-spacer" />
+          <div className="fn-group">
+            <FnBtn label="Kawma Net" active={section === "network"} onClick={() => setSection("network")}>
+              <Icon.globe size={18} />
+            </FnBtn>
+            <FnBtn label="Settings" active={section === "settings"} onClick={() => setSection("settings")}>
+              <Icon.gear size={18} />
+            </FnBtn>
+          </div>
+          <div className="rail-foot">Kawma</div>
+        </aside>
       </div>
 
       {consoleServerId && <ServerDashboard id={consoleServerId} onClose={closeConsole} />}
@@ -408,7 +596,7 @@ function Shell() {
   );
 }
 
-function RailBtn({
+function FnBtn({
   children,
   label,
   active,
@@ -420,9 +608,28 @@ function RailBtn({
   onClick: () => void;
 }) {
   return (
-    <button className={`rail-btn ${active ? "active" : ""}`} onClick={onClick} title={label}>
+    <button className={`fn-btn ${active ? "active" : ""}`} onClick={onClick} title={label} aria-label={label}>
       {children}
-      <span className="label">{label}</span>
+    </button>
+  );
+}
+
+function GameDot({
+  children,
+  label,
+  game,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  game?: GameKey;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button className={`game-dot ${active ? "active" : ""}`} data-g={game ?? "kawma"} onClick={onClick} title={label} aria-label={label}>
+      {children}
     </button>
   );
 }
@@ -433,30 +640,37 @@ function Panel({
   onSelectGame,
   onContinue,
   onRejoin,
+  home,
 }: {
   section: Section;
   tab: string;
   onSelectGame: (g: GameKey) => void;
   onContinue: (r: PlayRecord) => void;
   onRejoin: (s: { id: string; name: string; address: string }) => void;
+  home: { icons: Record<string, string>; choice: Choice; onChoice: (c: Choice) => void; onOpen: (tab: string) => void };
 }) {
+  const gameHome = (g: GameKey) => <GameHome game={g} {...home} />;
   switch (section) {
     case "minecraft":
+      if (tab === "Instances") return <InstancesPanel />;
       if (tab === "Servers") return <MinecraftServers />;
       if (tab === "Skins") return <SkinsPanel />;
-      return <InstancesPanel />;
+      return gameHome("minecraft");
     case "skyrim":
+      if (tab === "Setup") return <SkyrimPlay />;
       if (tab === "Co-op") return <SkyrimCoop />;
       if (tab === "Mods") return <SkyrimMods />;
-      return <SkyrimPlay />;
+      return gameHome("skyrim");
     case "eldenring":
+      if (tab === "Setup") return <EldenRingPlay />;
       if (tab === "Co-op") return <EldenRingCoop />;
       if (tab === "Cheats") return <EldenRingCheats />;
-      return <EldenRingPlay />;
+      return gameHome("eldenring");
     case "cyberpunk":
+      if (tab === "Setup") return <CyberpunkPlay />;
       if (tab === "Co-op") return <CyberpunkCoop />;
       if (tab === "Mods") return <CyberpunkMods />;
-      return <CyberpunkPlay />;
+      return gameHome("cyberpunk");
     case "home":
       return <HomePanel onSelect={onSelectGame} onContinue={onContinue} onRejoin={onRejoin} />;
     case "accounts":
@@ -468,7 +682,7 @@ function Panel({
   }
 }
 
-function Aurora() {
+function Backdrop() {
   return (
     <>
       <div className="aurora">
@@ -485,7 +699,7 @@ function Aurora() {
 export default function App() {
   return (
     <>
-      <Aurora />
+      <Backdrop />
       <LauncherProvider>
         <Shell />
       </LauncherProvider>

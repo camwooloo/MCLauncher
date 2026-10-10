@@ -817,6 +817,35 @@ pub async fn pack_search(source: String, query: String) -> Result<Vec<modpacks::
     }
 }
 
+/// A modpack's versions, newest first, so the player can pick one.
+/// Technic has no version list (empty: install uses its recommended build).
+#[tauri::command]
+pub async fn pack_versions(source: String, project_id: String) -> Result<Vec<modpacks::PackVersion>, String> {
+    use launcher_core::modpacks::{curseforge, ftb};
+    match source.as_str() {
+        "ftb" => ftb::versions(&project_id).await.map_err(err),
+        "curseforge" => curseforge::versions(&project_id, crate::secrets::CURSEFORGE_API_KEY).await.map_err(err),
+        "technic" => Ok(Vec::new()),
+        _ => Ok(modrinth::versions(&project_id)
+            .await
+            .map_err(err)?
+            .into_iter()
+            .map(|v| modpacks::PackVersion {
+                id: v.id,
+                name: if v.name.is_empty() { v.version_number } else { v.name },
+                game_version: v.game_versions.first().cloned(),
+                loader: v
+                    .loaders
+                    .iter()
+                    .find(|l| matches!(l.as_str(), "fabric" | "quilt" | "forge" | "neoforge"))
+                    .cloned(),
+                channel: if v.version_type.is_empty() { "release".into() } else { v.version_type },
+                date: modpacks::iso_secs(&v.date_published),
+            })
+            .collect()),
+    }
+}
+
 /// Create an instance from a modpack on any platform, installing into its dir.
 #[tauri::command]
 pub async fn create_instance_from_pack(
@@ -826,6 +855,7 @@ pub async fn create_instance_from_pack(
     project_id: String,
     title: String,
     icon: Option<String>,
+    version_id: Option<String>,
 ) -> Result<InstanceConfig, String> {
     use launcher_core::modpacks::{curseforge, ftb, technic};
 
@@ -861,7 +891,7 @@ pub async fn create_instance_from_pack(
     let outcome: std::result::Result<(String, String), launcher_core::Error> = async {
         match source.as_str() {
             "ftb" => {
-                let p = ftb::install(&inst, &project_id, &rep).await?;
+                let p = ftb::install(&inst, &project_id, version_id.as_deref(), &rep).await?;
                 Ok((p.version, p.loader))
             }
             "technic" => {
@@ -869,13 +899,16 @@ pub async fn create_instance_from_pack(
                 Ok((p.version, p.loader))
             }
             "curseforge" => {
-                let p = curseforge::install(&inst, &project_id, crate::secrets::CURSEFORGE_API_KEY, &rep).await?;
+                let p = curseforge::install(&inst, &project_id, version_id.as_deref(), crate::secrets::CURSEFORGE_API_KEY, &rep).await?;
                 Ok((p.version, p.loader))
             }
             _ => {
-                let v = modrinth::latest_any(&project_id)
-                    .await?
-                    .ok_or_else(|| launcher_core::Error::other("That modpack has no published versions"))?;
+                let v = match version_id.as_deref() {
+                    Some(vid) => modrinth::version(vid).await?,
+                    None => modrinth::latest_any(&project_id)
+                        .await?
+                        .ok_or_else(|| launcher_core::Error::other("That modpack has no published versions"))?,
+                };
                 let version = v
                     .game_versions
                     .first()
@@ -918,6 +951,7 @@ pub async fn create_server_from_pack(
     project_id: String,
     title: String,
     icon: Option<String>,
+    version_id: Option<String>,
 ) -> Result<crate::commands::ServerConfig, String> {
     use launcher_core::modpacks::{curseforge, ftb, technic};
 
@@ -948,7 +982,7 @@ pub async fn create_server_from_pack(
     let outcome: std::result::Result<(String, String), launcher_core::Error> = async {
         match source.as_str() {
             "ftb" => {
-                let p = ftb::install(&dir, &project_id, &rep).await?;
+                let p = ftb::install(&dir, &project_id, version_id.as_deref(), &rep).await?;
                 Ok((p.version, p.loader))
             }
             "technic" => {
@@ -956,13 +990,16 @@ pub async fn create_server_from_pack(
                 Ok((p.version, p.loader))
             }
             "curseforge" => {
-                let p = curseforge::install(&dir, &project_id, crate::secrets::CURSEFORGE_API_KEY, &rep).await?;
+                let p = curseforge::install(&dir, &project_id, version_id.as_deref(), crate::secrets::CURSEFORGE_API_KEY, &rep).await?;
                 Ok((p.version, p.loader))
             }
             _ => {
-                let v = modrinth::latest_any(&project_id)
-                    .await?
-                    .ok_or_else(|| launcher_core::Error::other("That modpack has no published versions"))?;
+                let v = match version_id.as_deref() {
+                    Some(vid) => modrinth::version(vid).await?,
+                    None => modrinth::latest_any(&project_id)
+                        .await?
+                        .ok_or_else(|| launcher_core::Error::other("That modpack has no published versions"))?,
+                };
                 let version = v.game_versions.first().cloned().ok_or_else(|| launcher_core::Error::other("Modpack has no Minecraft version"))?;
                 let loader = v
                     .loaders
@@ -989,7 +1026,7 @@ pub async fn create_server_from_pack(
         "vanilla" => None,
         other => {
             return Err(format!(
-                "This pack uses {other}, which isn't supported for hosting yet (the mods downloaded to the server folder, but Aurora can only run Vanilla, Fabric or Forge servers)."
+                "This pack uses {other}, which isn't supported for hosting yet (the mods downloaded to the server folder, but Kawma can only run Vanilla, Fabric or Forge servers)."
             ))
         }
     };
@@ -1128,7 +1165,7 @@ pub async fn instance_play(
         let mut options = LaunchOptions {
             max_memory_mb: cfg.max_ram_mb,
             game_directory: Some(inst_dir.clone()),
-            launcher_name: "Aurora Launcher".to_string(),
+            launcher_name: "Kawma Launcher".to_string(),
             ..Default::default()
         };
         if let Some(addr) = server.as_deref().filter(|s| !s.is_empty()) {
@@ -1189,7 +1226,7 @@ pub async fn instance_play(
                 cfg.icon.clone(),
                 pid.unwrap_or(0),
             );
-            crate::discord::set_playing(&format!("Playing {}", cfg.name), "Minecraft · via Aurora");
+            crate::discord::set_playing(&format!("Playing {}", cfg.name), "Minecraft · via Kawma");
             let msg = format!("Launched {}", cfg.name);
             let _ = app.emit("mc-done", serde_json::json!({ "message": msg, "pid": pid }));
             Ok(msg)

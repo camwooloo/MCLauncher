@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useLauncher, loadServers, saveServers } from "../store";
 import * as api from "../lib/api";
 import type { GameKey, ServerEntry } from "../lib/types";
-import { Field, Pill, Icon, Select, HostAddress } from "./ui";
+import { Field, Pill, Icon, Select, HostAddress, Switch } from "./ui";
 
 /* ------------------------------ Home ----------------------------------- */
 
@@ -108,10 +108,6 @@ export function HomePanel({
 
   return (
     <div className="hero">
-      <div className="eyebrow">Welcome to</div>
-      <h1 className="title">Aurora</h1>
-      <p className="subtitle">One launcher for playing, modding and hosting — together.</p>
-
       {last && (
         <button className="rejoin-card" onClick={() => onRejoin(last)}>
           <Icon.coop size={18} />
@@ -157,7 +153,7 @@ function NotInstalled({ title }: { title: string }) {
       <div className="eyebrow">Not detected</div>
       <h1 className="title">{title} isn't installed</h1>
       <p className="muted" style={{ marginTop: 8 }}>
-        Aurora scans your Steam libraries for this game. Install it through Steam (or add the library
+        Kawma scans your Steam libraries for this game. Install it through Steam (or add the library
         that holds it), then hit refresh on the Play tab — your saved settings stay intact.
       </p>
     </div>
@@ -273,7 +269,7 @@ function TogetherSetup() {
       <div style={{ fontWeight: 600, marginBottom: 6 }}>Set up Skyrim Together Reborn</div>
       <p className="muted" style={{ marginBottom: 10 }}>
         Nexus Mods requires signed-in downloads, so each part is two clicks: grab the file, then
-        Aurora finds it in your Downloads and installs it to the right place.
+        Kawma finds it in your Downloads and installs it to the right place.
       </p>
       {needTogether && (
         <div className="row wrap" style={{ marginBottom: needAddrLib ? 10 : 0 }}>
@@ -313,27 +309,8 @@ export function SkyrimPlay() {
   const sky = games?.skyrim;
 
   return (
-    <div className="hero">
-      <div className="eyebrow">The Elder Scrolls V</div>
-      <h1 className="title">Skyrim Special Edition</h1>
-      <p className="subtitle">{sky?.installed ? sky.install_dir : "Detecting your Steam install…"}</p>
-
-      <div className="action-bar surface">
-        <div className="row wrap">
-          <Pill tone={sky?.installed ? "ok" : "warn"}>
-            {sky?.installed ? (sky.source === "epic" ? "Installed · Epic" : "Installed") : "Not found"}
-          </Pill>
-          <Pill tone={sky?.has_skse ? "ok" : "default"}>SKSE {sky?.has_skse ? "ready" : "—"}</Pill>
-          <Pill tone={sky?.has_skyrim_together ? "ok" : "default"}>
-            Skyrim Together {sky?.has_skyrim_together ? "ready" : "—"}
-          </Pill>
-        </div>
-        <button className="btn-play" disabled={!sky?.installed} onClick={() => launchSkyrim("vanilla")}>
-          <Icon.play size={20} /> Play
-        </button>
-      </div>
-
-      <div className="sect" style={{ marginTop: 28 }}>
+    <div>
+      <div className="sect">
         <div className="sect-head">
           <div className="sect-title">Launch options</div>
           <button className="btn ghost" onClick={refreshGames}>
@@ -502,7 +479,7 @@ export function SkyrimCoop() {
         </button>
       </div>
       <ol className="steps">
-        <li>On the <b>Aurora Net</b> screen, paste your friend's <b>friend code</b> to join their network — they'll show up in your Friends list with their address.</li>
+        <li>On the <b>Kawma Net</b> screen, paste your friend's <b>friend code</b> to join their network — they'll show up in your Friends list with their address.</li>
         <li>Hit <b>Launch Together</b>, then open the <b>Skyrim Together</b> menu in-game.</li>
         <li><b>Paste</b> the host's address (e.g. <code className="md-code">100.x.x.x:10578</code>) into the server field and click <b>Connect</b>.</li>
       </ol>
@@ -511,7 +488,7 @@ export function SkyrimCoop() {
       <div className="sect-head" style={{ marginTop: 22 }}>
         <div className="sect-title">Host a session</div>
       </div>
-      <p className="muted">Run your own Skyrim Together server, then connect to it from the game. Your friends use the address shown below — share it with no port forwarding via <b>Aurora Net</b>.</p>
+      <p className="muted">Run your own Skyrim Together server, then connect to it from the game. Your friends use the address shown below — share it with no port forwarding via <b>Kawma Net</b>.</p>
       <SkyrimHost />
     </div>
   );
@@ -899,25 +876,8 @@ export function EldenRingPlay() {
   };
 
   return (
-    <div className="hero">
-      <div className="eyebrow">FromSoftware</div>
-      <h1 className="title">Elden Ring</h1>
-      <p className="subtitle">{er?.installed ? er.install_dir : "Detecting your Steam install…"}</p>
-
-      <div className="action-bar surface">
-        <div className="row wrap">
-          <Pill tone={er?.installed ? "ok" : "warn"}>{er?.installed ? "Installed" : "Not found"}</Pill>
-          <Pill tone={er?.has_seamless_coop ? "ok" : "default"}>
-            Seamless Co-op {er?.has_seamless_coop ? "ready" : "—"}
-          </Pill>
-          <Pill tone={er?.has_mod_engine ? "ok" : "default"}>Mod Engine {er?.has_mod_engine ? "ready" : "—"}</Pill>
-        </div>
-        <button className="btn-play" disabled={!er?.installed} onClick={() => launchEldenRing("vanilla")}>
-          <Icon.play size={20} /> Play
-        </button>
-      </div>
-
-      <div className="sect" style={{ marginTop: 28 }}>
+    <div>
+      <div className="sect">
         <div className="sect-head">
           <div className="sect-title">Launch options</div>
           <button className="btn ghost" onClick={refreshGames}>
@@ -968,10 +928,7 @@ export function EldenRingPlay() {
               <div style={{ fontWeight: 600 }}>21:9 / 32:9 ultrawide</div>
               <div className="muted">Removes the black bars and widens the FOV. Co-op/offline only (anti-cheat off).</div>
             </div>
-            <div className="seg">
-              <button className={er.ultrawide_enabled ? "on" : ""} onClick={() => setUltrawide(true)}>On</button>
-              <button className={!er.ultrawide_enabled ? "on" : ""} onClick={() => setUltrawide(false)}>Off</button>
-            </div>
+            <Switch value={er.ultrawide_enabled} onChange={(v) => void setUltrawide(v)} label="Ultrawide" />
           </div>
         ) : (
           <>
@@ -1017,7 +974,7 @@ export function EldenRingCoop() {
         <div className="sect-title">Seamless Co-op</div>
       </div>
       <p className="muted">
-        Everyone in your session must share the same co-op password. Set it here — Aurora writes it
+        Everyone in your session must share the same co-op password. Set it here — Kawma writes it
         straight into <code>ersc_settings.ini</code>.
       </p>
       {er.has_seamless_coop ? (
@@ -1054,7 +1011,7 @@ export function EldenRingCoop() {
         <div style={{ fontWeight: 600, marginBottom: 6 }}>Mod says "out of date"?</div>
         <p className="muted" style={{ marginBottom: 10 }}>
           Seamless Co-op updates land on Nexus before its GitHub releases. Download the newest main
-          file there, then Aurora installs it straight from your Downloads.
+          file there, then Kawma installs it straight from your Downloads.
         </p>
         <div className="row wrap">
           <button className="btn" onClick={() => api.openSeamlessPage()}>
@@ -1161,10 +1118,7 @@ export function EldenRingCheats() {
           <div className="sect-title">Cheats</div>
           <div className="muted" style={{ fontSize: 13 }}>Cinematic toolkit — for offline / co-op only (anti-cheat off).</div>
         </div>
-        <div className="seg">
-          <button className={on ? "on" : ""} onClick={() => setMaster(true)}>On</button>
-          <button className={!on ? "on" : ""} onClick={() => setMaster(false)}>Off</button>
-        </div>
+        <Switch value={on} onChange={(v) => void setMaster(v)} label="Cheats" />
       </div>
 
       <div
@@ -1191,7 +1145,7 @@ export function EldenRingCheats() {
       </div>
 
       <p className="muted" style={{ marginTop: 12, fontSize: 12 }}>
-        These cheats are built into Aurora — no separate trainer. They edit the running game's memory and
+        These cheats are built into Kawma — no separate trainer. They edit the running game's memory and
         only take effect with anti-cheat off (launch from the <b>Co-op</b> tab). This is an early build:
         a cheat that can't find its spot in your game version will simply do nothing (never crash) while
         we fine-tune it.
@@ -1207,25 +1161,8 @@ export function CyberpunkPlay() {
   const cp = games?.cyberpunk;
 
   return (
-    <div className="hero">
-      <div className="eyebrow">CD Projekt Red</div>
-      <h1 className="title">Cyberpunk 2077</h1>
-      <p className="subtitle">{cp?.installed ? cp.install_dir : "Detecting your Steam install…"}</p>
-
-      <div className="action-bar surface">
-        <div className="row wrap">
-          <Pill tone={cp?.installed ? "ok" : "warn"}>
-            {cp?.installed ? (cp.source === "epic" ? "Installed · Epic" : "Installed") : "Not found"}
-          </Pill>
-          <Pill tone={cp?.has_mp ? "ok" : "default"}>CyberpunkMP {cp?.has_mp ? "ready" : "—"}</Pill>
-          <Pill tone={cp?.has_cet ? "ok" : "default"}>CET {cp?.has_cet ? "ready" : "—"}</Pill>
-        </div>
-        <button className="btn-play" disabled={!cp?.installed} onClick={() => launchCyberpunk("vanilla")}>
-          <Icon.play size={20} /> Play
-        </button>
-      </div>
-
-      <div className="sect" style={{ marginTop: 28 }}>
+    <div>
+      <div className="sect">
         <div className="sect-head">
           <div className="sect-title">Launch options</div>
           <button className="btn ghost" onClick={refreshGames}>

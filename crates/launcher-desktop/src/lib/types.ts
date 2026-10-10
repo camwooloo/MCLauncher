@@ -30,6 +30,7 @@ export interface Settings {
   startMinimized?: boolean;
   closeToTray?: boolean;
   onboarded?: boolean;
+  windowFrame?: string; // "flush" | "floating"
 }
 
 export interface PackHit {
@@ -38,6 +39,16 @@ export interface PackHit {
   summary: string;
   icon: string | null;
   downloads: number;
+}
+
+/** One installable version of a modpack (newest first in lists). */
+export interface PackVersion {
+  id: string;
+  name: string;
+  gameVersion: string | null;
+  loader: string | null;
+  channel: string; // "release" | "beta" | "alpha"
+  date: number; // unix seconds, 0 if unknown
 }
 
 export interface InstanceConfig {

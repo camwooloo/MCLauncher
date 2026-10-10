@@ -1,4 +1,4 @@
-//! Aurora LAN **presence + remote control** (increment 1).
+//! Kawma LAN **presence + remote control** (increment 1).
 //!
 //! Per the user's choice, trust is **auto on the local network** — no pairing.
 //! Each launcher:
@@ -26,7 +26,7 @@ const CONTROL_PORT: u16 = 48998;
 const BEACON_SECS: u64 = 3;
 const PEER_TTL: Duration = Duration::from_secs(12);
 
-/// A discovered Aurora PC on the LAN.
+/// A discovered Kawma PC on the LAN.
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Peer {
@@ -51,7 +51,7 @@ impl NetState {
         let name = std::env::var("COMPUTERNAME")
             .ok()
             .filter(|s| !s.trim().is_empty())
-            .unwrap_or_else(|| "Aurora PC".to_string());
+            .unwrap_or_else(|| "Kawma PC".to_string());
         Self {
             id: name.clone(),
             name,

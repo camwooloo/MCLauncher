@@ -19,7 +19,7 @@ pub struct Settings {
     pub ui_style: String,
     /// Background mode: "static" | "pulsing".
     pub background: String,
-    /// Tailscale API access token for *hosting* on Aurora Net (minting friend
+    /// Tailscale API access token for *hosting* on Kawma Net (minting friend
     /// keys). Stored locally only; never committed.
     #[serde(default)]
     pub tailscale_api_token: String,
@@ -30,7 +30,7 @@ pub struct Settings {
     /// images/descriptions in the Skyrim mod browser. Stored locally only.
     #[serde(default)]
     pub nexus_api_key: String,
-    /// Show "Playing … via Aurora Launcher" in Discord.
+    /// Show "Playing … via Kawma Launcher" in Discord.
     #[serde(default = "default_true")]
     pub discord_rpc: bool,
     /// Which view the launcher opens to: "home", a section ("network",
@@ -49,6 +49,10 @@ pub struct Settings {
     /// Whether the first-run onboarding has been completed/skipped.
     #[serde(default)]
     pub onboarded: bool,
+    /// Window frame: "flush" (one edge-to-edge surface) | "floating" (rounded
+    /// card inset in the window).
+    #[serde(default = "default_frame")]
+    pub window_frame: String,
 }
 
 fn default_true() -> bool {
@@ -56,6 +60,9 @@ fn default_true() -> bool {
 }
 fn default_view() -> String {
     "home".to_string()
+}
+fn default_frame() -> String {
+    "flush".to_string()
 }
 
 impl Default for Settings {
@@ -76,6 +83,7 @@ impl Default for Settings {
             start_minimized: false,
             close_to_tray: true,
             onboarded: false,
+            window_frame: default_frame(),
         }
     }
 }

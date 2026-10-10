@@ -97,6 +97,33 @@ pub fn find_app_install_dir(app_id: u32) -> Option<PathBuf> {
     None
 }
 
+/// The game's own icon as the Steam client caches it, if Steam has shown it.
+///
+/// Newer clients keep per-app art in `appcache/librarycache/<appid>/`, where
+/// the icon is the file named by its 40-hex-digit hash; older clients wrote a
+/// flat `<appid>_icon.jpg` instead.
+pub fn library_icon(app_id: u32) -> Option<PathBuf> {
+    library_icon_in(&steam_root()?.join("appcache").join("librarycache"), app_id)
+}
+
+fn library_icon_in(cache: &std::path::Path, app_id: u32) -> Option<PathBuf> {
+    if let Ok(entries) = std::fs::read_dir(cache.join(app_id.to_string())) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
+            let is_image = matches!(
+                path.extension().and_then(|e| e.to_str()),
+                Some("jpg" | "jpeg" | "png" | "ico")
+            );
+            if is_image && stem.len() == 40 && stem.chars().all(|c| c.is_ascii_hexdigit()) {
+                return Some(path);
+            }
+        }
+    }
+    let flat = cache.join(format!("{app_id}_icon.jpg"));
+    flat.is_file().then_some(flat)
+}
+
 /// Extract every string value paired with `key` in a VDF document.
 ///
 /// VDF pairs look like `"key"<whitespace>"value"`. We scan for the quoted key
@@ -151,6 +178,22 @@ fn unescape_vdf(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_library_icons_in_both_cache_layouts() {
+        let cache = std::env::temp_dir().join(format!("aurora-icon-test-{}", std::process::id()));
+        let hashed = cache.join("1245620");
+        std::fs::create_dir_all(&hashed).unwrap();
+        std::fs::write(hashed.join("header.jpg"), b"x").unwrap();
+        let icon = hashed.join("b6e290dd5a92ce98f89089a207733c70c769be46.jpg");
+        std::fs::write(&icon, b"x").unwrap();
+        std::fs::write(cache.join("489830_icon.jpg"), b"x").unwrap();
+
+        assert_eq!(library_icon_in(&cache, 1245620), Some(icon));
+        assert_eq!(library_icon_in(&cache, 489830), Some(cache.join("489830_icon.jpg")));
+        assert_eq!(library_icon_in(&cache, 1091500), None);
+        std::fs::remove_dir_all(&cache).unwrap();
+    }
 
     #[test]
     fn extracts_library_paths() {

@@ -1,6 +1,6 @@
 [package]
 name = "launcher-desktop"
-description = "Aurora Launcher — multi-game desktop launcher (Tauri)."
+description = "Kawma Launcher — multi-game desktop launcher (Tauri)."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -167,7 +167,7 @@ pub async fn ensure_paper_jar(
 /// Write `eula.txt` accepting Mojang's EULA — required before a server starts.
 pub async fn accept_eula(dir: &Path) -> Result<()> {
     let path = dir.join("eula.txt");
-    tokio::fs::write(&path, "# Accepted via Aurora Launcher\neula=true\n")
+    tokio::fs::write(&path, "# Accepted via Kawma Launcher\neula=true\n")
         .await
         .map_err(|e| Error::io(&path, e))
 }

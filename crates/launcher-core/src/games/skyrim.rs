@@ -380,7 +380,7 @@ impl Default for TogetherServerConfig {
     fn default() -> Self {
         Self {
             available: false,
-            server_name: "Aurora Together Server".into(),
+            server_name: "Kawma Together Server".into(),
             password: String::new(),
             max_players: 8,
             port: 10578,

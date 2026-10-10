@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
-import { Field, Pill, Icon, Select, Avatar, Markdown } from "./ui";
+import { Field, Pill, Icon, Select, Switch, Avatar, Markdown } from "./ui";
 
 /** "What's new" — recent releases + their patch notes, from GitHub. */
 function WhatsNew() {
@@ -165,7 +165,7 @@ export function AccountsPanel() {
   );
 }
 
-/** A labelled On/Off toggle matching the launcher's segmented control. */
+/** A labelled on/off switch row. */
 function Toggle({
   title,
   note,
@@ -183,14 +183,7 @@ function Toggle({
         <div style={{ fontWeight: 600 }}>{title}</div>
         <div className="muted">{note}</div>
       </div>
-      <div className="seg">
-        <button className={value ? "on" : ""} onClick={() => onChange(true)}>
-          On
-        </button>
-        <button className={!value ? "on" : ""} onClick={() => onChange(false)}>
-          Off
-        </button>
-      </div>
+      <Switch value={value} onChange={onChange} label={title} />
     </div>
   );
 }
@@ -242,19 +235,16 @@ export function SettingsPanel() {
         <div className="divide" />
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontWeight: 600 }}>Style</div>
-            <div className="muted">The launcher's overall look.</div>
+            <div style={{ fontWeight: 600 }}>Window</div>
+            <div className="muted">One edge-to-edge surface, or a rounded card floating in the window.</div>
           </div>
           <Select
-            value={settings.uiStyle ?? "aurora"}
-            onChange={(v) => persistSettings({ uiStyle: v })}
+            value={settings.windowFrame ?? "flush"}
+            onChange={(v) => persistSettings({ windowFrame: v })}
             minWidth={180}
             options={[
-              { value: "aurora", label: "Aurora (default)" },
-              { value: "liquidglass", label: "Liquid Glass" },
-              { value: "compact", label: "Compact (dense)" },
-              { value: "cozy", label: "Cozy (big & round)" },
-              { value: "classic", label: "Classic (sidebar)" },
+              { value: "flush", label: "Flush (default)" },
+              { value: "floating", label: "Floating card" },
             ]}
           />
         </div>
@@ -291,7 +281,7 @@ export function SettingsPanel() {
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 600 }}>Open to</div>
-            <div className="muted">Which screen Aurora shows when it starts.</div>
+            <div className="muted">Which screen Kawma shows when it starts.</div>
           </div>
           <Select
             value={settings.defaultView ?? "home"}
@@ -307,14 +297,14 @@ export function SettingsPanel() {
               { value: "eldenring", label: "Elden Ring — Play" },
               { value: "eldenring:Co-op", label: "Elden Ring — Co-op" },
               { value: "cyberpunk", label: "Cyberpunk — Play" },
-              { value: "network", label: "Aurora Net" },
+              { value: "network", label: "Kawma Net" },
               { value: "settings", label: "Settings" },
             ]}
           />
         </div>
         <div className="divide" />
         <Toggle
-          title="Launch Aurora when Windows starts"
+          title="Launch Kawma when Windows starts"
           note="Great for hosting — your auto-start servers come online with your PC."
           value={settings.launchAtLogin === true}
           onChange={(v) => {
@@ -370,22 +360,13 @@ export function SettingsPanel() {
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 600 }}>Discord Rich Presence</div>
-            <div className="muted">Show "Playing … via Aurora Launcher" on your Discord profile.</div>
+            <div className="muted">Show "Playing … via Kawma Launcher" on your Discord profile.</div>
           </div>
-          <div className="seg">
-            <button
-              className={settings.discordRpc !== false ? "on" : ""}
-              onClick={() => persistSettings({ discordRpc: true })}
-            >
-              On
-            </button>
-            <button
-              className={settings.discordRpc === false ? "on" : ""}
-              onClick={() => persistSettings({ discordRpc: false })}
-            >
-              Off
-            </button>
-          </div>
+          <Switch
+            value={settings.discordRpc !== false}
+            onChange={(v) => persistSettings({ discordRpc: v })}
+            label="Discord Rich Presence"
+          />
         </div>
       </div>
 
@@ -398,8 +379,8 @@ export function SettingsPanel() {
           <div>
             <div style={{ fontWeight: 600 }}>Remote control on this network</div>
             <div className="muted">
-              Let other PCs running Aurora on your network find and control this one (manage its servers
-              from your main PC). Run this once on <b>each</b> PC — it allows Aurora through the firewall.
+              Let other PCs running Kawma on your network find and control this one (manage its servers
+              from your main PC). Run this once on <b>each</b> PC — it allows Kawma through the firewall.
             </div>
           </div>
           <button className="btn" disabled={netBusy} onClick={allowRemote}>

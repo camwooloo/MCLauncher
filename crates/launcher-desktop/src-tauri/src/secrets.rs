@@ -21,7 +21,7 @@ pub const AZURE_CLIENT_ID: &str = "807e7c3a-1ab3-4dd0-a78c-95e5892945d5";
 /// its Application ID here. Empty = Rich Presence disabled.
 pub const DISCORD_CLIENT_ID: &str = "1515804872740438250";
 
-/// Public repo URL — used for the "Get Aurora Launcher" Rich Presence button.
+/// Public repo URL — used for the "Get Kawma Launcher" Rich Presence button.
 pub const GITHUB_URL: &str = "https://github.com/camwooloo/MCLauncher";
 
 pub const CURSEFORGE_API_KEY: &str = match option_env!("AURORA_CF_KEY") {

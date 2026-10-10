@@ -1,5 +1,5 @@
 /* =========================================================================
-   Aurora Launcher — design system v2
+   Kawma Launcher — design system v2
    Floaty, low-card, "liquid glass". Per-game accent (data-game),
    light/dark themes (data-theme), motion toggle (data-anim).
    ========================================================================= */
@@ -84,12 +84,12 @@
   --accent-2: #00f0ff;
   --accent-rgb: 252, 238, 10;
 }
-/* The launcher's own identity (home, settings, accounts): aurora purple with
-   hints of green via the secondary accent. */
-[data-game="aurora"] {
-  --accent: #b794f6;
-  --accent-2: #34d399;
-  --accent-rgb: 183, 148, 246;
+/* The launcher's own identity (home, settings, accounts): Kawma's peach
+   orange, with Kawma violet as the secondary accent. */
+[data-game="kawma"] {
+  --accent: #ffb36b;
+  --accent-2: #8b3dff;
+  --accent-rgb: 255, 179, 107;
 }
 
 * {
@@ -1397,7 +1397,7 @@ code {
   background: var(--glass);
 }
 
-/* Aurora Net status dot */
+/* Kawma Net status dot */
 .net-dot {
   width: 11px;
   height: 11px;
@@ -2261,7 +2261,7 @@ input[type="range"]::-webkit-slider-thumb:active {
 }
 .onb-game-dot { width: 12px; height: 12px; border-radius: 99px; background: rgb(var(--g)); box-shadow: 0 0 14px rgb(var(--g)); }
 
-/* Slide 3 — Aurora Net */
+/* Slide 3 — Kawma Net */
 .onb-net { display: flex; align-items: center; gap: 8px; }
 .onb-node {
   display: grid; place-items: center; gap: 6px;
@@ -2450,7 +2450,7 @@ input[type="range"]::-webkit-slider-thumb:active {
 .gallery-thumb:hover { opacity: 0.85; }
 .gallery-thumb.on { opacity: 1; border-color: var(--accent); }
 
-/* ---- Aurora Net friends list ----------------------------------------- */
+/* ---- Kawma Net friends list ----------------------------------------- */
 .friend-row {
   display: flex;
   align-items: center;

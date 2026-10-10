@@ -22,7 +22,14 @@ pub struct PlayRecord {
     pub last_played: u64,
     pub total_seconds: u64,
     pub launches: u32,
+    /// Seconds played per day, keyed by days since the unix epoch (UTC).
+    /// Only the last few weeks are kept; feeds the weekly activity chart.
+    #[serde(default)]
+    pub days: HashMap<u64, u64>,
 }
+
+/// How many days of per-day playtime to keep.
+const KEEP_DAYS: u64 = 28;
 
 #[derive(Default, Serialize, Deserialize)]
 struct StatsFile {
@@ -101,10 +108,17 @@ pub fn record_session(
             let mut f = load(&dir);
             if let Some(e) = f.entries.get_mut(&key) {
                 e.total_seconds += secs;
+                add_day(e, now_secs() / 86_400, secs);
                 store(&dir, &f);
             }
         }
     });
+}
+
+/// Credit a session to the day it ended on and drop days past the window.
+fn add_day(e: &mut PlayRecord, today: u64, secs: u64) {
+    *e.days.entry(today).or_default() += secs;
+    e.days.retain(|d, _| today.saturating_sub(*d) < KEEP_DAYS);
 }
 
 /// All play records, most-recently-played first.
@@ -112,4 +126,27 @@ pub fn list(data_dir: &Path) -> Vec<PlayRecord> {
     let mut v: Vec<PlayRecord> = load(data_dir).entries.into_values().collect();
     v.sort_by(|a, b| b.last_played.cmp(&a.last_played));
     v
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn day_log_adds_up_and_forgets_old_days() {
+        let mut e = PlayRecord::default();
+        add_day(&mut e, 100, 60);
+        add_day(&mut e, 100, 30);
+        assert_eq!(e.days.get(&100), Some(&90));
+        add_day(&mut e, 100 + KEEP_DAYS, 10);
+        assert_eq!(e.days.get(&100), None);
+        assert_eq!(e.days.get(&(100 + KEEP_DAYS)), Some(&10));
+    }
+
+    #[test]
+    fn old_stats_files_still_load() {
+        let old = r#"{"entries":{"game:skyrim":{"key":"game:skyrim","name":"Skyrim","kind":"skyrim","lastPlayed":1,"totalSeconds":5,"launches":1}}}"#;
+        let f: StatsFile = serde_json::from_str(old).unwrap();
+        assert!(f.entries["game:skyrim"].days.is_empty());
+    }
 }

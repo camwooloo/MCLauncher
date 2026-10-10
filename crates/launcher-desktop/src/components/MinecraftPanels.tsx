@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
-import type { InstanceConfig, PackHit, ServerConfig } from "../lib/types";
+import type { InstanceConfig, PackHit, PackVersion, ServerConfig } from "../lib/types";
 import { Field, Progress, Pill, Icon, Select, HostAddress } from "./ui";
 import { MotdEditor } from "./MotdEditor";
 import { AccessModal } from "./AccessModal";
@@ -197,15 +197,101 @@ function PackTile({ hit, onCreate }: { hit: PackHit; onCreate: () => void }) {
   );
 }
 
+const CHANNEL_LABEL: Record<string, string> = { beta: "Beta", alpha: "Alpha" };
+
+/** Second step of adding a modpack: choose which version to install. */
+function PackVersionPick({
+  source,
+  hit,
+  onBack,
+  onInstall,
+}: {
+  source: string;
+  hit: PackHit;
+  onBack: () => void;
+  onInstall: (versionId: string | null) => void;
+}) {
+  const [versions, setVersions] = useState<PackVersion[] | null>(null);
+  const [error, setError] = useState("");
+  const [picked, setPicked] = useState<string>("");
+
+  useEffect(() => {
+    api
+      .packVersions(source, hit.id)
+      .then((v) => {
+        setVersions(v);
+        // Default to the newest full release, else the newest of anything.
+        setPicked((v.find((x) => x.channel === "release") ?? v[0])?.id ?? "");
+      })
+      .catch((e) => {
+        setError(String(e));
+        setVersions([]);
+      });
+  }, [source, hit.id]);
+
+  const label = (v: PackVersion) =>
+    [
+      v.name,
+      [v.gameVersion, v.loader ? loaderLabel(v.loader) : null].filter(Boolean).join(" "),
+      CHANNEL_LABEL[v.channel],
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  const current = versions?.find((v) => v.id === picked);
+
+  return (
+    <div className="col" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: 14, alignItems: "center" }}>
+        {hit.icon ? (
+          <img src={hit.icon} alt="" style={{ width: 52, height: 52, borderRadius: 14, objectFit: "cover" }} />
+        ) : null}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 17 }}>{hit.name}</div>
+          <div className="muted" style={{ fontSize: 12.5 }}>
+            {current ? `Minecraft ${current.gameVersion ?? "?"}${current.loader ? ` · ${loaderLabel(current.loader)}` : ""}` : hit.summary}
+          </div>
+        </div>
+      </div>
+
+      {versions === null && <p className="muted">Loading versions…</p>}
+      {error && <p className="muted">⚠ Couldn't load versions ({error}). You can still install the latest.</p>}
+      {versions && versions.length > 0 && (
+        <Field label="Version">
+          <Select
+            value={picked}
+            onChange={setPicked}
+            minWidth={340}
+            options={versions.map((v) => ({ value: v.id, label: label(v) }))}
+          />
+        </Field>
+      )}
+      {versions && versions.length === 0 && !error && (
+        <p className="muted">This source doesn't list versions, so the recommended one is installed.</p>
+      )}
+
+      <div className="row" style={{ gap: 10 }}>
+        <button className="btn ghost" onClick={onBack}>
+          Back
+        </button>
+        <button className="btn-play" disabled={versions === null} onClick={() => onInstall(picked || null)}>
+          <Icon.plus size={15} /> Install{current ? ` ${current.name}` : ""}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Inline multi-source modpack browser used inside the New Instance editor. */
 function ModpackBrowse({
   onCreate,
   onCancel,
 }: {
-  onCreate: (source: string, id: string, name: string, icon: string | null) => void;
+  onCreate: (source: string, id: string, name: string, icon: string | null, versionId?: string | null) => void;
   onCancel: () => void;
 }) {
   const [source, setSource] = useState("modrinth");
+  // The pack being installed: pick a version before creating.
+  const [picking, setPicking] = useState<PackHit | null>(null);
   const [query, setQuery] = useState("");
   const [packs, setPacks] = useState<PackHit[]>([]);
   const [loading, setLoading] = useState(false);
@@ -241,6 +327,17 @@ function ModpackBrowse({
   const isCf = source === "curseforge";
   const searchLabel = isCf ? "CurseForge Project ID" : "Find a modpack";
   const searchPlaceholder = isCf ? "e.g. 715572 (blank = popular)" : `Search ${source === "ftb" ? "FTB" : "Modrinth"} modpacks…`;
+
+  if (picking) {
+    return (
+      <PackVersionPick
+        source={source}
+        hit={picking}
+        onBack={() => setPicking(null)}
+        onInstall={(versionId) => onCreate(source, picking.id, picking.name, picking.icon, versionId)}
+      />
+    );
+  }
 
   return (
     <div className="col" style={{ gap: 12 }}>
@@ -311,7 +408,7 @@ function ModpackBrowse({
           {!loading && !error && packs.length === 0 && <p className="muted">No modpacks found.</p>}
           <div className="tiles">
             {packs.map((h) => (
-              <PackTile key={h.id} hit={h} onCreate={() => onCreate(source, h.id, h.name, h.icon)} />
+              <PackTile key={h.id} hit={h} onCreate={() => setPicking(h)} />
             ))}
           </div>
         </div>
@@ -420,8 +517,8 @@ export function InstancesPanel() {
             await saveInstanceCfg(cfg);
             setEditing(null);
           }}
-          onCreatePack={(source, pid, title, icon) => {
-            createFromPack(source, pid, title, icon);
+          onCreatePack={(source, pid, title, icon, versionId) => {
+            createFromPack(source, pid, title, icon, versionId);
             setEditing(null);
           }}
         />
@@ -536,7 +633,7 @@ function InstanceEditor({
   isNew: boolean;
   onSave: (cfg: InstanceConfig) => void;
   onCancel: () => void;
-  onCreatePack: (source: string, projectId: string, title: string, icon: string | null) => void;
+  onCreatePack: (source: string, projectId: string, title: string, icon: string | null, versionId?: string | null) => void;
 }) {
   const [cfg, setCfg] = useState<InstanceConfig>(value);
   const [mode, setMode] = useState<"blank" | "modpack">("blank");
@@ -681,8 +778,8 @@ export function MinecraftServers() {
             await saveServerCfg(cfg);
             setEditing(null);
           }}
-          onCreatePack={(source, pid, title, icon) => {
-            createServerFromPack(source, pid, title, icon);
+          onCreatePack={(source, pid, title, icon, versionId) => {
+            createServerFromPack(source, pid, title, icon, versionId);
             setEditing(null);
           }}
         />
@@ -694,7 +791,7 @@ export function MinecraftServers() {
 
       {servers.length === 0 && !editing && (
         <p className="muted">
-          No servers yet. Create one and Aurora downloads the server, writes server.properties, and
+          No servers yet. Create one and Kawma downloads the server, writes server.properties, and
           runs it — the dashboard opens in-app with a live console.
         </p>
       )}
@@ -816,7 +913,7 @@ function ServerEditor({
   isNew: boolean;
   onSave: (cfg: ServerConfig) => void;
   onCancel: () => void;
-  onCreatePack: (source: string, projectId: string, title: string, icon: string | null) => void;
+  onCreatePack: (source: string, projectId: string, title: string, icon: string | null, versionId?: string | null) => void;
 }) {
   const [cfg, setCfg] = useState<ServerConfig>(value);
   const [mode, setMode] = useState<"blank" | "modpack">("blank");
@@ -889,9 +986,9 @@ function ServerEditor({
       <label className="row" style={{ marginTop: 14, gap: 10, cursor: "pointer", alignItems: "center" }}>
         <input type="checkbox" checked={cfg.autoStart === true} onChange={(e) => set({ autoStart: e.target.checked })} />
         <span>
-          <span style={{ fontWeight: 600 }}>Start automatically when Aurora opens</span>
+          <span style={{ fontWeight: 600 }}>Start automatically when Kawma opens</span>
           <span className="muted" style={{ display: "block", fontSize: 12.5 }}>
-            Ideal with “Launch Aurora when Windows starts” for an always-on server.
+            Ideal with “Launch Kawma when Windows starts” for an always-on server.
           </span>
         </span>
       </label>

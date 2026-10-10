@@ -1,0 +1,1332 @@
+/* =========================================================================
+   Kawma Launcher — "deck" shell (v3)
+   One rounded window: the selected game's functions on the left, the hero
+   + panel in the centre over blurred game art, your games on the right.
+   Dark, glassy cards, pale pill buttons, uppercase section labels.
+   Loaded after global.css so it restyles the shared controls too.
+   ========================================================================= */
+
+:root,
+[data-theme="dark"] {
+  /* Pale, accent-tinted pill used for every primary action. */
+  --pill: color-mix(in srgb, var(--accent) 16%, #eef4f1);
+  --pill-hover: color-mix(in srgb, var(--accent) 24%, #ffffff);
+  --pill-ink: #0b0f0d;
+
+  /* Light tints: the heavy blur on the deck does the frosting, so the
+     animated background stays visible through it. */
+  --deck-bg: rgba(22, 23, 27, 0.34);
+  --deck-rail: rgba(10, 11, 13, 0.22);
+  --deck-edge: rgba(255, 255, 255, 0.07);
+  --card: rgba(6, 7, 9, 0.58);
+  --card-2: rgba(255, 255, 255, 0.045);
+  --card-edge: rgba(255, 255, 255, 0.06);
+  --label: rgba(236, 238, 242, 0.62);
+  --art-fade: rgba(14, 15, 18, 0.42);
+}
+[data-theme="light"] {
+  --pill: #10131a;
+  --pill-hover: #1d2230;
+  --pill-ink: #f4f6fb;
+
+  --deck-bg: rgba(255, 255, 255, 0.4);
+  --deck-rail: rgba(255, 255, 255, 0.28);
+  --deck-edge: rgba(15, 20, 40, 0.08);
+  --card: rgba(255, 255, 255, 0.72);
+  --card-2: rgba(15, 20, 40, 0.04);
+  --card-edge: rgba(15, 20, 40, 0.07);
+  --label: rgba(16, 19, 31, 0.55);
+  --art-fade: rgba(238, 241, 248, 0.45);
+}
+
+/* ---- Frame ------------------------------------------------------------- */
+.titlebar {
+  height: 46px;
+}
+.deck {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  margin: 0 14px 14px;
+  border-radius: 30px;
+  overflow: hidden;
+  background: var(--deck-bg);
+  border: 1px solid var(--deck-edge);
+  box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(60px) saturate(160%);
+  -webkit-backdrop-filter: blur(60px) saturate(160%);
+}
+
+/* Flush frame (default): the deck *is* the window — no inset card, rails run
+   to the window edges and the title bar floats over the top of everything,
+   so it reads as one program. "Floating" keeps the rounded card above. */
+:root:not([data-frame="floating"]) .titlebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: transparent;
+}
+:root:not([data-frame="floating"]) .titlebar .brand {
+  visibility: hidden;
+}
+:root:not([data-frame="floating"]) .deck {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+:root:not([data-frame="floating"]) .fn-rail,
+:root:not([data-frame="floating"]) .game-rail {
+  padding-top: 58px;
+  /* Barely-there tint: the art and backdrop run straight through, so the
+     rails and the window buttons sit on the same surface. */
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(255, 255, 255, 0.035);
+}
+[data-theme="light"]:not([data-frame="floating"]) .fn-rail,
+[data-theme="light"]:not([data-frame="floating"]) .game-rail {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(15, 20, 40, 0.05);
+}
+:root:not([data-frame="floating"]) .stage-scroll {
+  padding-top: 52px;
+}
+
+/* Minimise + close share one small pill. In the flush frame it is centred
+   over the right rail (same width), so the controls belong to that rail. */
+.win-ctrls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.win-ctrls .win-btn {
+  width: 32px;
+  height: 28px;
+  border-radius: 9px;
+}
+:root:not([data-frame="floating"]) .titlebar {
+  height: 46px;
+  padding-right: 0;
+}
+:root:not([data-frame="floating"]) .win-ctrls {
+  width: 96px;
+}
+@media (max-width: 900px) {
+  :root:not([data-frame="floating"]) .win-ctrls {
+    width: 76px;
+  }
+}
+
+/* ---- Rails (shared) ---------------------------------------------------- */
+.fn-rail,
+.game-rail {
+  position: relative;
+  z-index: 2;
+  width: 96px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 26px 0 22px;
+  background: var(--deck-rail);
+}
+.fn-rail {
+  border-right: 1px solid var(--deck-edge);
+}
+.game-rail {
+  border-left: 1px solid var(--deck-edge);
+}
+.fn-spacer {
+  flex: 1;
+}
+.rail-foot {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+
+/* The Aurora logo heads the function rail and doubles as the Home button. */
+.fn-mark {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: none;
+  border-radius: 13px;
+  background: none;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.9);
+  transition: transform 0.2s var(--spring), box-shadow 0.2s;
+}
+.fn-mark:hover {
+  transform: scale(1.06);
+}
+.fn-mark.active {
+  box-shadow: 0 0 0 2px var(--pill), 0 12px 28px -14px rgba(0, 0, 0, 0.9);
+}
+
+/* Function buttons: round, quiet until hovered; the selected one fills. */
+.fn-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+  background: transparent;
+  transition: transform 0.2s var(--spring), background 0.18s, color 0.18s, box-shadow 0.2s;
+}
+.fn-btn:hover {
+  color: var(--text);
+  background: var(--card-2);
+  transform: scale(1.06);
+}
+.fn-btn:active {
+  transform: scale(0.95);
+}
+.fn-btn.active {
+  color: var(--pill-ink);
+  background: var(--pill);
+  box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.6);
+}
+.fn-solo,
+.fn-group,
+.game-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 7px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--card-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+[data-theme="light"] .fn-solo,
+[data-theme="light"] .fn-group,
+[data-theme="light"] .game-group {
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 0 1px var(--card-edge);
+}
+.fn-sep {
+  width: 22px;
+  height: 1px;
+  margin: 4px 0;
+  background: var(--card-edge);
+}
+
+/* ---- Game rail -------------------------------------------------------- */
+.game-me {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 3px solid rgba(0, 0, 0, 0.75);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--text-dim);
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--card-edge);
+  transition: transform 0.2s var(--spring), box-shadow 0.2s;
+}
+.game-me .av {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+}
+.game-me:hover {
+  transform: scale(1.05);
+}
+.game-me.active {
+  box-shadow: 0 0 0 2px var(--pill);
+}
+.game-me-dot {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-mute);
+  border: 2px solid #000;
+}
+.game-me-dot.on {
+  background: #f4f6f5;
+}
+.game-dot {
+  --g: var(--accent-rgb);
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+  background: var(--card-2);
+  transition: transform 0.2s var(--spring), background 0.2s, color 0.2s, box-shadow 0.25s;
+}
+/* Art fills the circle (clipped on the art, so the selection pip outside
+   the dot stays visible). */
+.game-dot .game-art,
+.game-dot > svg[role="img"] {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  clip-path: circle(50%);
+}
+/* Unselected games sit back a little so the selected one leads. */
+.game-dot:not(.active) .game-art,
+.game-dot:not(.active) > svg[role="img"] {
+  filter: saturate(0.85) brightness(0.85);
+  transition: filter 0.2s;
+}
+.game-dot:hover .game-art,
+.game-dot:hover > svg[role="img"] {
+  filter: none;
+}
+.game-dot[data-g="minecraft"] { --g: 61, 220, 132; }
+.game-dot[data-g="skyrim"] { --g: 158, 197, 255; }
+.game-dot[data-g="eldenring"] { --g: 243, 201, 105; }
+.game-dot[data-g="cyberpunk"] { --g: 252, 238, 10; }
+.game-dot[data-g="kawma"] { --g: 255, 179, 107; }
+.game-dot:hover {
+  transform: scale(1.08);
+  color: rgb(var(--g));
+  background: rgba(var(--g), 0.12);
+}
+.game-dot.active {
+  color: rgb(var(--g));
+  background: rgba(var(--g), 0.16);
+  box-shadow: 0 0 0 2px rgba(var(--g), 0.85), 0 0 26px -4px rgba(var(--g), 0.6);
+}
+/* Little pip on the outer edge marks the selected game. */
+.game-dot.active::before {
+  content: "";
+  position: absolute;
+  right: -23px;
+  top: 50%;
+  width: 4px;
+  height: 18px;
+  transform: translateY(-50%);
+  border-radius: 4px;
+  background: rgb(var(--g));
+  box-shadow: 0 0 12px rgb(var(--g));
+}
+
+/* ---- Stage ------------------------------------------------------------- */
+.stage {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+/* Blurred "game art": layered blooms in the game's colours, fading to the
+   deck colour so cards below read cleanly. */
+.stage-art {
+  position: absolute;
+  inset: -80px;
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(60px) saturate(120%);
+  opacity: 0.6;
+  transition: background 0.6s var(--ease);
+  background:
+    radial-gradient(40% 45% at 72% 18%, rgba(var(--accent-rgb), 0.38), transparent 70%),
+    radial-gradient(38% 40% at 30% 8%, rgba(var(--a2, 124, 92, 246), 0.32), transparent 70%),
+    radial-gradient(60% 50% at 95% 60%, rgba(var(--a3, 255, 140, 90), 0.18), transparent 70%),
+    linear-gradient(180deg, rgba(60, 62, 70, 0.55), transparent 55%);
+}
+.stage-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, transparent 30%, var(--art-fade) 72%);
+}
+.stage-art[data-art="minecraft"] { --a2: 99, 160, 255; --a3: 230, 160, 120; }
+.stage-art[data-art="skyrim"] { --a2: 200, 210, 230; --a3: 120, 140, 170; }
+.stage-art[data-art="eldenring"] { --a2: 255, 170, 80; --a3: 120, 90, 50; }
+.stage-art[data-art="cyberpunk"] { --a2: 0, 240, 255; --a3: 255, 40, 120; }
+.stage-art[data-art="kawma"] { --a2: 139, 61, 255; --a3: 255, 122, 69; }
+
+.stage-scroll {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow-y: auto;
+  padding: 30px 46px 48px;
+}
+
+/* ---- Hero -------------------------------------------------------------- */
+.hero3 {
+  margin-bottom: 44px;
+}
+.hero3-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 48px;
+}
+.kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2.6px;
+  text-transform: uppercase;
+  color: var(--label);
+}
+.hero3-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.hero3-badge-ico {
+  overflow: hidden;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: #000;
+  box-shadow: 0 0 0 1px var(--card-edge), 0 10px 24px -12px rgba(0, 0, 0, 0.8);
+}
+.hero3-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(40px, 5.2vw, 68px);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  margin: 36px 0 26px;
+}
+.hero3-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px 30px;
+}
+.pill-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 32px 13px 16px;
+  border: none;
+  border-radius: 99px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--pill-ink);
+  background: var(--pill);
+  box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: transform 0.18s var(--spring), background 0.18s;
+}
+.pill-play:hover {
+  background: var(--pill-hover);
+  transform: translateY(-2px) scale(1.02);
+}
+.pill-play:active {
+  transform: scale(0.97);
+}
+.pill-play:disabled {
+  opacity: 0.45;
+  transform: none;
+  cursor: not-allowed;
+}
+.pill-play-ico {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--pill);
+  background: var(--pill-ink);
+  padding-left: 2px;
+}
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--text);
+}
+.stat > svg {
+  opacity: 0.85;
+}
+.stat-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.stat-value {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Panels restyled to match ----------------------------------------- */
+/* Section labels: bold, spaced uppercase, no rule. */
+.stage .sect-head {
+  border-bottom: none;
+  padding-bottom: 2px;
+}
+.stage .sect-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 3.5px;
+  text-transform: uppercase;
+  color: var(--label);
+}
+.stage .sect + .sect {
+  margin-top: 40px;
+}
+.stage .hero {
+  padding: 0;
+}
+
+/* Pale pill buttons for every primary action (modals included). */
+.app .btn-play {
+  border-radius: 99px;
+  color: var(--pill-ink);
+  background: var(--pill);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 13px 28px;
+  box-shadow: 0 12px 30px -14px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.app .btn-play:hover {
+  background: var(--pill-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px -14px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.app .btn {
+  border-radius: 99px;
+  background: var(--card-2);
+  border-color: var(--card-edge);
+}
+.app .btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+.app .btn.ghost {
+  background: transparent;
+}
+.app .pill {
+  border-radius: 99px;
+}
+
+/* Cards: deep, rounded, softly edged. */
+.stage .surface {
+  background: var(--card);
+  border-color: var(--card-edge);
+  border-radius: 28px;
+  box-shadow: 0 30px 60px -36px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.stage .surface::before {
+  opacity: 0.25;
+}
+.stage .lrow {
+  padding: 14px 16px 14px 14px;
+  margin-bottom: 8px;
+  border-radius: 22px;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: none;
+  background-image: none;
+}
+.stage .lrow:hover {
+  transform: none;
+  background: rgba(14, 15, 18, 0.72);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+[data-theme="light"] .stage .lrow:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+.stage .lrow .name {
+  font-weight: 700;
+}
+
+/* Home "library": tall art cards with a pill action, like store tiles. */
+.stage .home-grid {
+  margin-top: 18px;
+  max-width: none;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  padding: 12px;
+  border-radius: 32px;
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--card-edge);
+}
+[data-theme="light"] .stage .home-grid {
+  background: rgba(255, 255, 255, 0.5);
+}
+.stage .game-tile {
+  min-height: 0;
+  padding: 0 0 20px;
+  gap: 0;
+  border-radius: 24px;
+  border: 1px solid var(--card-edge);
+  background: rgba(14, 15, 18, 0.8);
+  box-shadow: none;
+}
+[data-theme="light"] .stage .game-tile {
+  background: rgba(255, 255, 255, 0.85);
+}
+.stage .game-tile:hover {
+  transform: translateY(-3px);
+  border-color: rgba(var(--t), 0.45);
+  box-shadow: 0 26px 50px -30px rgba(var(--t), 0.6);
+}
+.stage .tile-icon {
+  width: 100%;
+  height: 150px;
+  margin: 0 0 18px;
+  border: none;
+  border-radius: 23px 23px 0 0;
+  color: rgb(var(--t));
+  background:
+    radial-gradient(60% 80% at 30% 20%, rgba(var(--t), 0.55), transparent 70%),
+    radial-gradient(70% 90% at 85% 90%, rgba(var(--t), 0.3), transparent 70%),
+    linear-gradient(160deg, rgba(var(--t), 0.18), rgba(0, 0, 0, 0.4));
+}
+.stage .tile-icon svg {
+  width: 52px;
+  height: 52px;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5));
+}
+.stage .tile-name {
+  padding: 0 20px;
+  font-size: 21px;
+}
+.stage .tile-tag {
+  padding: 4px 20px 48px;
+}
+.stage .tile-go {
+  opacity: 1;
+  transform: none;
+  right: 18px;
+  bottom: 16px;
+  padding: 10px 20px;
+  border-radius: 99px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--pill-ink);
+  background: var(--pill);
+}
+
+.stage .recent {
+  max-width: none;
+  margin: 0 0 30px;
+}
+.stage .recent .sect-title {
+  margin-bottom: 14px !important;
+}
+.stage .recent-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.stage .recent-card {
+  border-radius: 22px;
+  padding: 12px;
+  background: var(--card);
+  border-color: var(--card-edge);
+}
+.stage .recent-art {
+  border-radius: 14px;
+}
+.stage .rejoin-card {
+  max-width: none;
+  border-radius: 22px;
+  padding: 14px 18px;
+}
+
+/* Account chip sits in the hero now: keep it light. */
+.stage .acct-chip {
+  background: var(--card);
+  border-color: var(--card-edge);
+}
+
+/* ---- Controls: dropdowns, switches, segmented ----------------------- */
+.app .select-btn {
+  gap: 12px;
+  padding: 10px 10px 10px 20px;
+  border-radius: 99px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.app .select-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.app .select-chev {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+[data-theme="light"] .app .select-btn {
+  background: rgba(255, 255, 255, 0.6);
+}
+[data-theme="light"] .app .select-chev {
+  background: rgba(15, 20, 40, 0.06);
+}
+.app .select-menu {
+  top: calc(100% + 8px) !important;
+  padding: 6px;
+  gap: 2px;
+  border-radius: 20px;
+  background: #141519;
+  background-image: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.85);
+  animation: menu-in 0.16s var(--ease);
+}
+[data-theme="light"] .app .select-menu {
+  background: #fff;
+  border-color: rgba(15, 20, 40, 0.08);
+  box-shadow: 0 24px 50px -20px rgba(15, 20, 40, 0.35);
+}
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+.app .select-menu .row-menu-item {
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.app .select-menu .row-menu-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+[data-theme="light"] .app .select-menu .row-menu-item:hover {
+  background: rgba(15, 20, 40, 0.05);
+}
+.app .select-menu .row-menu-item.sel {
+  font-weight: 700;
+  color: var(--pill-ink);
+  background: var(--pill);
+}
+.app .select-menu .row-menu-item.sel svg {
+  flex: none;
+}
+
+/* Switch: a pale pill when on, like the Play buttons. */
+.app .switch {
+  width: 52px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--card-edge);
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.app .switch::after {
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: transform 0.26s var(--spring), background 0.2s;
+}
+.app .switch.on {
+  border-color: transparent;
+  background: var(--pill);
+}
+.app .switch.on::after {
+  transform: translateX(22px);
+  background: var(--pill-ink);
+}
+.app .switch:active::after {
+  width: 26px;
+}
+.app .switch.on:active::after {
+  transform: translateX(18px);
+}
+[data-theme="light"] .app .switch:not(.on) {
+  background: rgba(15, 20, 40, 0.1);
+}
+[data-theme="light"] .app .switch:not(.on)::after {
+  background: #fff;
+}
+
+/* Segmented control: a pill track; the chosen option is a pale pill. */
+.app .seg {
+  padding: 4px;
+  gap: 2px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-edge);
+}
+.app .seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border-radius: 99px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.app .seg button:not(.on):hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+.app .seg button.on {
+  color: var(--pill-ink);
+  background: var(--pill);
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] .app .seg {
+  background: rgba(15, 20, 40, 0.05);
+}
+
+/* ---- Game home (each game's Play page) -------------------------------- */
+/* Dashboard layout: library cards + current session on top, then activity,
+   installed builds/tools and recent play. Deep cards on darker trays. */
+.ghome {
+  --tray: rgba(0, 0, 0, 0.5);
+  --row: rgba(255, 255, 255, 0.045);
+}
+[data-theme="light"] .ghome {
+  --tray: rgba(255, 255, 255, 0.6);
+  --row: rgba(15, 20, 40, 0.05);
+}
+.dash-label {
+  margin-bottom: 14px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 3.5px;
+  text-transform: uppercase;
+  color: var(--label);
+}
+.ghome-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(280px, 1fr);
+  gap: 30px;
+  align-items: start;
+}
+.ghome-bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr);
+  gap: 30px;
+  margin-top: 40px;
+}
+.ghome section {
+  min-width: 0;
+}
+
+/* Library: two art cards in a tray. */
+.lib-shelf {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 32px;
+  background: var(--tray);
+  border: 1px solid var(--card-edge);
+}
+.lib-card {
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+}
+.lib-art {
+  position: relative;
+  height: 170px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(70% 90% at 25% 15%, rgba(var(--accent-rgb), 0.5), transparent 70%),
+    linear-gradient(160deg, rgba(var(--accent-rgb), 0.25), rgba(0, 0, 0, 0.5));
+}
+.lib-art > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* No photo: the game's icon, blown up and blurred, gives the card its colours. */
+.lib-art > img.lib-art-blur {
+  inset: -40px;
+  width: calc(100% + 80px);
+  height: calc(100% + 80px);
+  filter: blur(34px) saturate(1.6) brightness(0.8);
+}
+.lib-card:nth-child(2) .lib-art > img.lib-art-blur {
+  transform: scaleX(-1) rotate(12deg) scale(1.3);
+}
+/* A wash of the game's accent keeps monochrome icons (Skyrim) from going grey. */
+.lib-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 80% at 20% 10%, rgba(var(--accent-rgb), 0.45), transparent 70%),
+    radial-gradient(50% 70% at 90% 100%, rgba(var(--accent-rgb), 0.25), transparent 70%),
+    linear-gradient(180deg, transparent 45%, rgba(0, 0, 0, 0.45));
+  mix-blend-mode: screen;
+}
+:root[data-game="minecraft"] .lib-art:not(.photo)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.35;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.35) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.35) 0 1px, transparent 1px 22px);
+}
+.lib-art-title {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.6);
+}
+.lib-art-ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.lib-body {
+  padding: 22px 20px 20px;
+}
+.lib-text {
+  font-size: 19px;
+  font-weight: 700;
+}
+.pill-btn {
+  display: block;
+  margin: 22px 0 0 auto;
+  padding: 12px 26px;
+  border: none;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--pill-ink);
+  background: var(--pill);
+  box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: transform 0.18s var(--spring), background 0.18s;
+}
+.pill-btn:hover {
+  background: var(--pill-hover);
+  transform: translateY(-2px);
+}
+.pill-btn:active {
+  transform: scale(0.97);
+}
+
+/* Current session: a list of rows plus a picker, like a friends panel. */
+.sess-card {
+  padding: 18px 16px 16px;
+  border-radius: 30px;
+  background: var(--tray);
+  border: 1px solid var(--card-edge);
+}
+.sess-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px 14px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+.sess-head span + span {
+  color: var(--text-mute);
+  font-size: 10px;
+}
+.sess-row,
+.act-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+  padding: 11px 14px 11px 11px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background: var(--row);
+  color: var(--text);
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.sess-row:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.sess-row.selected {
+  border-color: rgba(var(--accent-rgb), 0.45);
+}
+.sess-ico,
+.act-ico {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: #000;
+}
+.sess-ico img,
+.act-ico img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sess-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sess-name {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sess-sub {
+  font-size: 11.5px;
+  color: var(--text-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sess-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-mute);
+  opacity: 0.6;
+}
+.sess-dot.on {
+  opacity: 1;
+  background: #f4f6f5;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+}
+[data-theme="light"] .sess-dot.on {
+  background: #18a957;
+  box-shadow: none;
+}
+.sess-empty {
+  padding: 18px 8px;
+  font-size: 13px;
+  color: var(--text-mute);
+}
+.link-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+}
+.sess-foot {
+  margin: 4px 4px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+.sess-pick {
+  display: block;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--row);
+  cursor: pointer;
+}
+.sess-pick-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+.sess-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.sess-pick-row svg {
+  flex: none;
+}
+.sess-pick select {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sess-pick select option {
+  color: #111;
+}
+
+/* Bottom row cards. */
+.dash-card {
+  min-height: 150px;
+  padding: 14px;
+  border-radius: 26px;
+  background: var(--tray);
+  border: 1px solid var(--card-edge);
+}
+.dash-card.week {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 16px 18px 14px;
+}
+.week-ico {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: #000;
+}
+.week-ico img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.week-cols {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  height: 104px;
+}
+.week-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+.week-track {
+  flex: 1;
+  width: 100%;
+  max-width: 22px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  border-radius: 7px;
+  background: var(--row);
+}
+.week-bar {
+  width: 100%;
+  border-radius: 7px;
+  background: rgba(var(--accent-rgb), 0.45);
+  transition: height 0.5s var(--ease);
+}
+.week-bar.today {
+  background: var(--pill);
+  box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.5);
+}
+.week-day {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-mute);
+}
+.week-total {
+  width: 100%;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+
+/* Installed builds / tools: small poster tiles. */
+.dash-card.shelf {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(88px, 128px);
+  gap: 10px;
+  overflow-x: auto;
+}
+.shelf-tile {
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  text-align: center;
+}
+.shelf-art {
+  position: relative;
+  height: 92px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(var(--accent-rgb), 0.35), rgba(0, 0, 0, 0.6));
+  border: 1px solid var(--card-edge);
+  transition: transform 0.18s var(--spring), box-shadow 0.18s;
+}
+.shelf-art img {
+  position: absolute;
+  inset: -20px;
+  width: calc(100% + 40px);
+  height: calc(100% + 40px);
+  object-fit: cover;
+  filter: blur(14px) brightness(0.6) saturate(1.4);
+}
+.shelf-name {
+  position: relative;
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.55), 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+.shelf-sub {
+  display: block;
+  margin-top: 9px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-mute);
+}
+.shelf-tile:hover .shelf-art {
+  transform: translateY(-2px);
+}
+.shelf-tile.selected .shelf-art {
+  box-shadow: 0 0 0 2px var(--pill);
+}
+.shelf-tile.missing .shelf-art {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.act-row {
+  cursor: default;
+}
+.act-when {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-mute);
+}
+
+@media (max-width: 1250px) {
+  .ghome-top {
+    grid-template-columns: 1fr;
+  }
+  .ghome-bottom {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ghome-bottom section:last-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 760px) {
+  .lib-shelf,
+  .ghome-bottom {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Narrow windows --------------------------------------------------- */
+@media (max-width: 900px) {
+  .fn-rail,
+  .game-rail {
+    width: 76px;
+  }
+  .stage-scroll {
+    padding: 22px 24px 36px;
+  }
+  .game-dot.active::before {
+    right: -17px;
+  }
+}
+
+/* An open dropdown lifts its row above the rows below it (they can form their
+   own stacking contexts), so switches don't show through the menu. */
+.app :is(.row, .sect, .field, .surface, .col):has(.select-menu) {
+  position: relative;
+  z-index: 40;
+}

@@ -27,6 +27,53 @@ pub struct PackHit {
     pub downloads: u64,
 }
 
+/// One installable version of a pack, newest first in listings.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PackVersion {
+    /// Platform-specific version/file id (stringified) passed back to install.
+    pub id: String,
+    pub name: String,
+    /// Minecraft version, when the platform says.
+    pub game_version: Option<String>,
+    /// Our loader id ("forge", "fabric", …), when the platform says.
+    pub loader: Option<String>,
+    /// "release" | "beta" | "alpha".
+    pub channel: String,
+    /// Publish date, unix seconds (0 if unknown).
+    pub date: i64,
+}
+
+/// `YYYY-MM-DDTHH:MM:SS…` (UTC, as the platforms send it) to unix seconds;
+/// 0 when it can't be read. Only used to order versions.
+pub fn iso_secs(s: &str) -> i64 {
+    let n = |r: std::ops::Range<usize>| s.get(r).and_then(|x| x.parse::<i64>().ok());
+    let (Some(y), Some(m), Some(d)) = (n(0..4), n(5..7), n(8..10)) else { return 0 };
+    let (h, mi, se) = (n(11..13).unwrap_or(0), n(14..16).unwrap_or(0), n(17..19).unwrap_or(0));
+    // Days from 1970-01-01 (Howard Hinnant's days_from_civil).
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    days * 86_400 + h * 3600 + mi * 60 + se
+}
+
+/// Pull the Minecraft version and loader out of a CurseForge-style list of
+/// tags like `["1.20.1", "Forge", "Client"]`.
+fn split_tags(tags: &[String]) -> (Option<String>, Option<String>) {
+    let mc = tags
+        .iter()
+        .find(|t| t.starts_with("1.") && t.chars().all(|c| c.is_ascii_digit() || c == '.'))
+        .cloned();
+    let loader = tags
+        .iter()
+        .find(|t| matches!(t.to_ascii_lowercase().as_str(), "forge" | "neoforge" | "fabric" | "quilt"))
+        .map(|t| map_loader(t));
+    (mc, loader)
+}
+
 /// What to configure on the instance after installing a pack.
 pub struct PackInstall {
     pub version: String,
@@ -78,6 +125,12 @@ pub mod ftb {
         id: i64,
         #[serde(default, rename = "type")]
         kind: String,
+        #[serde(default)]
+        name: String,
+        #[serde(default)]
+        updated: i64,
+        #[serde(default)]
+        targets: Vec<Target>,
     }
     #[derive(Deserialize)]
     struct Pack {
@@ -174,16 +227,50 @@ pub mod ftb {
         Ok(hits)
     }
 
-    pub async fn install(game_dir: &Path, pack_id: &str, reporter: &SharedReporter) -> Result<PackInstall> {
+    /// Every version of a pack, newest first.
+    pub async fn versions(pack_id: &str) -> Result<Vec<PackVersion>> {
+        let id: i64 = pack_id.parse().map_err(|_| Error::other("invalid FTB pack id"))?;
+        let mut out: Vec<PackVersion> = pack(id)
+            .await?
+            .versions
+            .into_iter()
+            .map(|v| PackVersion {
+                id: v.id.to_string(),
+                name: if v.name.is_empty() { v.id.to_string() } else { v.name },
+                game_version: v.targets.iter().find(|t| t.kind == "minecraft").map(|t| t.version.clone()),
+                loader: v.targets.iter().find(|t| t.kind == "modloader").map(|t| map_loader(&t.name)),
+                channel: if v.kind.is_empty() { "release".into() } else { v.kind.to_ascii_lowercase() },
+                date: v.updated,
+            })
+            .collect();
+        out.sort_by(|a, b| b.date.cmp(&a.date).then(b.id.cmp(&a.id)));
+        Ok(out)
+    }
+
+    /// Install a pack; `version_id` picks a version, else the newest release.
+    pub async fn install(
+        game_dir: &Path,
+        pack_id: &str,
+        version_id: Option<&str>,
+        reporter: &SharedReporter,
+    ) -> Result<PackInstall> {
         let id: i64 = pack_id.parse().map_err(|_| Error::other("invalid FTB pack id"))?;
         let p = pack(id).await?;
-        let ver = p
-            .versions
-            .iter()
-            .filter(|v| v.kind == "release")
-            .last()
-            .or_else(|| p.versions.last())
-            .ok_or_else(|| Error::other("FTB pack has no versions"))?;
+        let picked = version_id.and_then(|v| v.parse::<i64>().ok());
+        let ver = match picked {
+            Some(v) => p
+                .versions
+                .iter()
+                .find(|x| x.id == v)
+                .ok_or_else(|| Error::other("That FTB pack version no longer exists"))?,
+            None => p
+                .versions
+                .iter()
+                .filter(|v| v.kind == "release")
+                .last()
+                .or_else(|| p.versions.last())
+                .ok_or_else(|| Error::other("FTB pack has no versions"))?,
+        };
 
         let detail: VersionDetail = crate::http::client()
             .get(format!("{API}/modpack/{id}/{}", ver.id))
@@ -258,15 +345,6 @@ pub mod curseforge {
         id: i64,
         #[serde(default, rename = "downloadUrl")]
         download_url: Option<String>,
-    }
-    #[derive(Deserialize)]
-    struct ModResp {
-        data: ModDetail,
-    }
-    #[derive(Deserialize)]
-    struct ModDetail {
-        #[serde(default, rename = "latestFiles")]
-        latest_files: Vec<FileInfo>,
     }
 
     // .mrpack-style CurseForge manifest.
@@ -390,9 +468,66 @@ pub mod curseforge {
         v["data"].as_str().filter(|s| !s.is_empty()).map(|s| s.to_string())
     }
 
+    #[derive(Deserialize)]
+    struct FileListing {
+        id: i64,
+        #[serde(default, rename = "displayName")]
+        display_name: String,
+        #[serde(default, rename = "fileDate")]
+        file_date: String,
+        #[serde(default, rename = "releaseType")]
+        release_type: i64,
+        #[serde(default, rename = "gameVersions")]
+        game_versions: Vec<String>,
+    }
+    #[derive(Deserialize)]
+    struct FilesResp {
+        data: Vec<FileListing>,
+    }
+    #[derive(Deserialize)]
+    struct OneFile {
+        data: FileInfo,
+    }
+
+    /// The pack's files (its versions), newest first.
+    pub async fn versions(mod_id: &str, key: &str) -> Result<Vec<PackVersion>> {
+        let id: i64 = mod_id.parse().map_err(|_| Error::other("invalid CurseForge id"))?;
+        let resp: FilesResp = get(format!("{API}/mods/{id}/files"), key)
+            .query(&[("pageSize", "50")])
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        let mut out: Vec<PackVersion> = resp
+            .data
+            .into_iter()
+            .map(|f| {
+                let (game_version, loader) = split_tags(&f.game_versions);
+                PackVersion {
+                    id: f.id.to_string(),
+                    name: if f.display_name.is_empty() { f.id.to_string() } else { f.display_name },
+                    game_version,
+                    loader,
+                    channel: match f.release_type {
+                        2 => "beta",
+                        3 => "alpha",
+                        _ => "release",
+                    }
+                    .into(),
+                    date: iso_secs(&f.file_date),
+                }
+            })
+            .collect();
+        out.sort_by(|a, b| b.date.cmp(&a.date));
+        Ok(out)
+    }
+
+    /// Install a pack; `file_id` picks a version, else the newest file.
     pub async fn install(
         game_dir: &Path,
         mod_id: &str,
+        file_id: Option<&str>,
         key: &str,
         reporter: &SharedReporter,
     ) -> Result<PackInstall> {
@@ -400,18 +535,26 @@ pub mod curseforge {
             return Err(Error::other("Add your CurseForge API key in Settings first"));
         }
         let id: i64 = mod_id.parse().map_err(|_| Error::other("invalid CurseForge id"))?;
-        let m: ModResp = get(format!("{API}/mods/{id}"), key)
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
-        let file = m
-            .data
-            .latest_files
-            .into_iter()
-            .next()
-            .ok_or_else(|| Error::other("CurseForge pack has no files"))?;
+        let file = match file_id {
+            Some(f) => {
+                let f: i64 = f.parse().map_err(|_| Error::other("invalid CurseForge file id"))?;
+                get(format!("{API}/mods/{id}/files/{f}"), key)
+                    .send()
+                    .await?
+                    .error_for_status()?
+                    .json::<OneFile>()
+                    .await?
+                    .data
+            }
+            // No pick: the newest file. `latestFiles` isn't ordered, so sort.
+            None => versions(mod_id, key)
+                .await?
+                .into_iter()
+                .next()
+                .and_then(|v| v.id.parse().ok())
+                .map(|fid| FileInfo { id: fid, download_url: None })
+                .ok_or_else(|| Error::other("CurseForge pack has no files"))?,
+        };
         let zip_url = match file.download_url {
             Some(u) if !u.is_empty() => u,
             _ => file_url(id, file.id, key)
@@ -595,5 +738,24 @@ mod tests {
         assert_eq!(map_loader("fabric"), "fabric");
         assert_eq!(map_loader("NeoForge"), "neoforge");
         assert_eq!(map_loader("whatever"), "vanilla");
+    }
+}
+
+#[cfg(test)]
+mod version_tests {
+    use super::*;
+
+    #[test]
+    fn reads_curseforge_version_tags() {
+        let tags = ["Client".to_string(), "1.20.1".to_string(), "Forge".to_string()];
+        assert_eq!(split_tags(&tags), (Some("1.20.1".into()), Some("forge".into())));
+        assert_eq!(split_tags(&["NeoForge".to_string()]), (None, Some("neoforge".into())));
+    }
+
+    #[test]
+    fn reads_iso_dates() {
+        assert_eq!(iso_secs("2024-01-01T00:00:00Z"), 1_704_067_200);
+        assert_eq!(iso_secs("2024-01-01T00:00:00.123+00:00"), 1_704_067_200);
+        assert_eq!(iso_secs("nope"), 0);
     }
 }

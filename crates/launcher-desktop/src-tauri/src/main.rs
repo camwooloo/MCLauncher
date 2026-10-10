@@ -1,4 +1,4 @@
-//! Aurora Launcher — Tauri entry point.
+//! Kawma Launcher — Tauri entry point.
 //!
 //! The window is frameless (`decorations: false`) so the web UI can draw its
 //! own liquid-glass title bar. Commands bridging `launcher-core` are registered
@@ -54,11 +54,11 @@ fn main() {
             // keep running); the tray menu shows it again or quits for real.
             use tauri::menu::{Menu, MenuItem};
             use tauri::tray::{TrayIconBuilder, TrayIconEvent};
-            let show = MenuItem::with_id(app, "show", "Open Aurora", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Open Kawma", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit (stops servers)", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
             let mut tray = TrayIconBuilder::new()
-                .tooltip("Aurora Launcher")
+                .tooltip("Kawma Launcher")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -125,6 +125,7 @@ fn main() {
             commands::minecraft_versions,
             commands::play_minecraft,
             commands::detect_games,
+            commands::game_icons,
             commands::launch_skyrim,
             commands::skyrim_server_config,
             commands::save_skyrim_server_config,
@@ -211,6 +212,7 @@ fn main() {
             instances::popular_modpacks,
             instances::create_instance_from_modpack,
             instances::pack_search,
+            instances::pack_versions,
             instances::create_instance_from_pack,
             instances::create_server_from_pack,
             instances::open_instance_folder,
@@ -221,7 +223,7 @@ fn main() {
             inventory::save_inventory,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building Aurora Launcher")
+        .expect("error while building Kawma Launcher")
         .run(|app, event| {
             // Never leave hosted servers running after the launcher closes.
             if let tauri::RunEvent::ExitRequested { .. } = event {

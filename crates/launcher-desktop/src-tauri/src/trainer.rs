@@ -117,7 +117,7 @@ fn attach() -> Result<Proc, String> {
     let pid = find_pid().ok_or("Elden Ring isn't running — launch it (Co-op or Modded) first.")?;
     let (base, size) = module_range(pid).ok_or("Couldn't read the game's memory layout.")?;
     let handle = unsafe { OpenProcess(PROCESS_ALL_ACCESS, false, pid) }
-        .map_err(|_| "Couldn't open Elden Ring (try running Aurora as admin).".to_string())?;
+        .map_err(|_| "Couldn't open Elden Ring (try running Kawma as admin).".to_string())?;
     Ok(Proc { handle, base, size })
 }
 

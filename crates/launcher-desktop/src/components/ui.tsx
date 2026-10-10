@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import * as api from "../lib/api";
 
@@ -231,6 +231,8 @@ export const Icon = {
   sun: ({ size = 24 }: IconProps) =>
     svg(size, <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" /></>),
   moon: ({ size = 24 }: IconProps) => svg(size, <path d="M21 12.8A8 8 0 1 1 11.2 3a6 6 0 0 0 9.8 9.8z" />),
+  sliders: ({ size = 24 }: IconProps) =>
+    svg(size, <><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></>),
   sparkles: ({ size = 24 }: IconProps) =>
     svg(size, <><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" /><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z" /></>),
   dots: ({ size = 24 }: IconProps) =>
@@ -248,6 +250,21 @@ export const Icon = {
     ),
   host: ({ size = 24 }: IconProps) =>
     svg(size, <><rect x="3" y="4" width="18" height="7" rx="2" /><rect x="3" y="13" width="18" height="7" rx="2" /><path d="M7 7.5h.01M7 16.5h.01M17 7.5h2M17 16.5h2" /></>),
+  gamepad: ({ size = 24 }: IconProps) =>
+    svg(
+      size,
+      <>
+        <path d="M7 7h10a5 5 0 0 1 4.9 6l-.7 3.3a2.4 2.4 0 0 1-4.1 1.1L15 15H9l-2.1 2.4a2.4 2.4 0 0 1-4.1-1.1L2.1 13A5 5 0 0 1 7 7z" />
+        <path d="M7 10v4M5 12h4" />
+        <path d="M15.5 11h.01M17.5 13h.01" />
+      </>
+    ),
+  shirt: ({ size = 24 }: IconProps) =>
+    svg(size, <path d="M8 3 3 6l2 4 2-1v12h10V9l2 1 2-4-5-3a4 4 0 0 1-8 0z" />),
+  globe: ({ size = 24 }: IconProps) =>
+    svg(size, <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>),
+  clock: ({ size = 24 }: IconProps) =>
+    svg(size, <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
 };
 
 export function initials(name: string) {
@@ -326,36 +343,38 @@ export function Avatar({
   );
 }
 
-/** The Aurora logo: northern-lights ribbons over a night sky, with a star. */
-export function AuroraMark({ size = 24 }: { size?: number }) {
+/** The Kawma Launcher mark: Kawma's ringed planet, with a play glyph
+ *  glowing on its face in place of Kawma's eyes. */
+export function KawmaMark({ size = 24 }: { size?: number }) {
+  const id = useId().replace(/:/g, "");
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-label="Aurora">
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-label="Kawma Launcher" role="img">
       <defs>
-        <linearGradient id="am-sky" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#171034" />
-          <stop offset="1" stopColor="#081226" />
+        <linearGradient id={`${id}-ring`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#8b3dff" />
+          <stop offset="0.42" stopColor="#ff7a45" />
+          <stop offset="1" stopColor="#ffb36b" />
         </linearGradient>
-        <linearGradient id="am-r1" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stopColor="#b794f6" stopOpacity="0" />
-          <stop offset="0.35" stopColor="#b794f6" />
-          <stop offset="1" stopColor="#7c5cf6" stopOpacity="0.25" />
+        <linearGradient id={`${id}-arc`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#8b3dff" stopOpacity="0" />
+          <stop offset="0.3" stopColor="#ff7a45" />
+          <stop offset="1" stopColor="#fff0d8" stopOpacity="0" />
         </linearGradient>
-        <linearGradient id="am-r2" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stopColor="#34d399" stopOpacity="0" />
-          <stop offset="0.4" stopColor="#34d399" />
-          <stop offset="1" stopColor="#22d3ee" stopOpacity="0.3" />
-        </linearGradient>
+        <filter id={`${id}-glow`} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="1.4" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
-      <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#am-sky)" />
-      <rect x="2.5" y="2.5" width="59" height="59" rx="15.5" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
-      {/* aurora ribbons */}
-      <path d="M8 50 C 22 44, 28 28, 56 14" stroke="url(#am-r1)" strokeWidth="9" strokeLinecap="round" fill="none" opacity="0.95" />
-      <path d="M8 56 C 26 52, 36 38, 58 26" stroke="url(#am-r2)" strokeWidth="6.5" strokeLinecap="round" fill="none" opacity="0.9" />
-      <path d="M10 44 C 22 38, 30 24, 50 13" stroke="rgba(255,255,255,0.55)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-      {/* star */}
-      <path d="M48 42 l1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6 z" fill="#fff" opacity="0.9" />
-      <circle cx="16" cy="14" r="1.3" fill="#fff" opacity="0.7" />
-      <circle cx="26" cy="10" r="0.9" fill="#fff" opacity="0.5" />
+      <rect width="64" height="64" rx="14" fill="#07070a" />
+      <ellipse cx="32" cy="32" rx="25.5" ry="9.2" transform="rotate(-11 32 32)" fill="none" stroke={`url(#${id}-ring)`} strokeWidth="6.5" />
+      <circle cx="32" cy="32" r="14.5" fill="#040406" />
+      <path d="M 14.6 30.4 A 17.4 17 0 0 1 49.4 30.4" fill="none" stroke={`url(#${id}-arc)`} strokeWidth="3.6" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="14.5" fill="#040406" />
+      <circle cx="32" cy="32" r="15.1" fill="none" stroke="rgba(255,240,216,0.8)" strokeWidth="0.85" />
+      <path d="M28.6 25.6 Q28.6 24.2 29.9 24.9 L38.6 30.6 Q39.8 31.4 38.6 32.2 L29.9 37.9 Q28.6 38.6 28.6 37.2 Z" fill="#ffe9c9" filter={`url(#${id}-glow)`} />
     </svg>
   );
 }
@@ -433,7 +452,7 @@ export function Markdown({ source }: { source: string }) {
 }
 
 /** Shows the address(es) friends use to reach a server hosted on this PC —
- *  the Aurora Net IP (preferred, no port forwarding) and/or the LAN IP. Never
+ *  the Kawma Net IP (preferred, no port forwarding) and/or the LAN IP. Never
  *  shows localhost, which only works for the host themselves. */
 /** One "how friends connect" method row. */
 function AddrRow({ tag, note, addr, onCopy, accent }: { tag: string; note: string; addr: string; onCopy: () => void; accent?: boolean }) {
@@ -454,7 +473,7 @@ function AddrRow({ tag, note, addr, onCopy, accent }: { tag: string; note: strin
 }
 
 /** How friends connect to a hosted server — three methods:
- *  a public bore tunnel (any launcher, no port-forward), Aurora Net (private
+ *  a public bore tunnel (any launcher, no port-forward), Kawma Net (private
  *  VPN), and direct/port-forward. `tunnelKey` scopes the tunnel; `internetTunnel`
  *  is false for UDP games (Skyrim Together) where bore (TCP) can't help. */
 export function HostAddress({
@@ -548,9 +567,9 @@ export function HostAddress({
           </div>
         ))}
 
-      {/* 2 · Aurora Net (private VPN). */}
+      {/* 2 · Kawma Net (private VPN). */}
       {a.aurora && (
-        <AddrRow tag="Aurora Net" note="Private, encrypted — friends need Aurora Net too." addr={`${a.aurora}:${port}`} accent onCopy={() => copy(`${a.aurora}:${port}`)} />
+        <AddrRow tag="Kawma Net" note="Private, encrypted — friends need Kawma Net too." addr={`${a.aurora}:${port}`} accent onCopy={() => copy(`${a.aurora}:${port}`)} />
       )}
 
       {/* 3 · Direct / port-forward. */}
@@ -576,6 +595,20 @@ export interface SelectOption {
 }
 
 /** A styled dropdown that matches the launcher (custom popover, not native). */
+/** An on/off switch. */
+export function Switch({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={value}
+      aria-label={label}
+      className={`switch ${value ? "on" : ""}`}
+      onClick={() => onChange(!value)}
+    />
+  );
+}
+
 export function Select({
   value,
   onChange,
@@ -622,7 +655,8 @@ export function Select({
                   setOpen(false);
                 }}
               >
-                {o.label}
+                <span className="select-opt">{o.label}</span>
+                {o.value === value && <Icon.check size={14} />}
               </button>
             ))}
           </div>
