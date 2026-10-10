@@ -32,6 +32,8 @@ Profile shape:
 - `DELETE /auth/desktop/launcher/session` → `{ ok: true }`.
 - `GET /auth/desktop/launcher/session/requests` → `{ requests: [{ id: string, name: string (Minecraft name), from: "twitch"|"discord", user: string (display name), at: number }] }` pending whitelist requests. Poll every 10 s while a session with `whitelist: true` is open.
 - `POST /auth/desktop/launcher/session/requests/:id` `{ ok: boolean, error?: string ≤200 }` → `{ ok: true }` after the launcher ran `whitelist add <name>` on the hosted server (the bot tells the viewer).
+- `GET /auth/desktop/launcher/stars` → `{ best: number, unlocked: boolean }` the account's Star catcher best (the easter egg behind holding the launcher's rail logo) and whether Starfield is unlocked in Kawma Studio. 404 when the feature isn't released for the account; the launcher then keeps the best locally.
+- `POST /auth/desktop/launcher/stars` `{ score: integer 0..500 }` (sent when a 20-second round ends) → `{ best, unlocked, newBest: boolean, justUnlocked: boolean }`. A round of 40 or more unlocks Starfield in Kawma Studio; `justUnlocked` is true only on the round that did it. 404 when not released (the launcher falls back silently to its local best).
 
 ## Updates (replaces GitHub releases)
 

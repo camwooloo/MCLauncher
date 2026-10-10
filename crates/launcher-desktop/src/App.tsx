@@ -5,6 +5,7 @@ import { windowAction, checkAppUpdate, applyAppUpdate, playStats, gameIcons, typ
 import type { GameKey } from "./lib/types";
 import { Icon, KawmaMark, Markdown } from "./components/ui";
 import { KawmaLogo } from "./components/KawmaLogo";
+import { StarCatcher, HoldRing, useHoldToPlay, HOLD_MS } from "./components/StarCatcher";
 import { Popover } from "./components/Popover";
 import { AccountMenu } from "./components/AccountMenu";
 import { KawmaAccountButton, KawmaStudioTile } from "./components/KawmaAccount";
@@ -436,6 +437,23 @@ function Shell() {
   const fnActive = (t: string) => section === activeGame && currentTab === t;
   const SectionIcon = isGame ? GAME_META[section as GameKey].icon : null;
   const [logoBounce, setLogoBounce] = useState(0);
+  // Star catcher: hold the rail logo to play, a plain click still goes Home.
+  const [stars, setStars] = useState(false);
+  const logoRef = useRef<HTMLButtonElement>(null);
+  const logoHold = useHoldToPlay(
+    () => {
+      setSection("home");
+      setLogoBounce((n) => n + 1);
+    },
+    () => {
+      setLogoBounce((n) => n + 1);
+      setStars(true);
+    },
+  );
+  const closeStars = () => {
+    setStars(false);
+    logoRef.current?.focus();
+  };
 
   return (
     <div className="app">
@@ -465,13 +483,13 @@ function Shell() {
         {/* Left: what you can do with the selected game. */}
         <nav className="fn-rail" aria-label={`${GAME_META[activeGame].name} functions`}>
           <button
-            className={`fn-mark ${section === "home" ? "active" : ""}`}
-            onClick={() => {
-              setSection("home");
-              setLogoBounce((n) => n + 1);
-            }}
-            title="Home"
+            ref={logoRef}
+            className={`fn-mark ${section === "home" ? "active" : ""} ${logoHold.holding ? "holding" : ""}`}
+            style={{ ["--hold-ms" as string]: `${HOLD_MS}ms` }}
+            {...logoHold.props}
+            title="Home · hold for a surprise"
           >
+            <HoldRing holding={logoHold.holding} />
             <KawmaLogo size={40} bounce={logoBounce} />
           </button>
           <div className="fn-spacer" />
@@ -544,6 +562,7 @@ function Shell() {
               />
             </div>
           </div>
+          {stars && <StarCatcher onClose={closeStars} />}
         </main>
 
         {/* Right: your Kawma account, your games, plus launcher-wide places

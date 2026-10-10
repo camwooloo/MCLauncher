@@ -585,6 +585,30 @@ export const kawmaSignInCancel = (): Promise<void> =>
 export const kawmaSignOut = (): Promise<void> =>
   isTauri ? call<void>("kawma_sign_out") : Promise.resolve(void (mockSignedIn = false));
 
+// ---- Star catcher (the rail logo's easter egg) ----
+/** A Star catcher best kept by kawma.app. `newBest`/`justUnlocked` only come back from a submit. */
+export interface StarsResult {
+  best: number;
+  unlocked: boolean;
+  newBest?: boolean;
+  justUnlocked?: boolean;
+}
+// Browser preview: pretend kawma.app keeps the best while signed in.
+let mockStars: StarsResult = { best: 34, unlocked: false };
+/** The saved best; null when signed out or not released for this account (use the local best). */
+export const starsBest = (): Promise<StarsResult | null> =>
+  isTauri ? call("kawma_stars_best") : Promise.resolve(mockSignedIn ? { ...mockStars } : null);
+/** Save a finished round (0..500); null when signed out or not released. */
+export const starsSubmit = (score: number): Promise<StarsResult | null> => {
+  const s = Math.max(0, Math.min(500, Math.round(score)));
+  if (isTauri) return call("kawma_stars_submit", { score: s });
+  if (!mockSignedIn) return Promise.resolve(null);
+  const newBest = s > mockStars.best;
+  const justUnlocked = !mockStars.unlocked && s >= 40;
+  mockStars = { best: Math.max(s, mockStars.best), unlocked: mockStars.unlocked || s >= 40 };
+  return Promise.resolve({ ...mockStars, newBest, justUnlocked });
+};
+
 // ---- Kawma Studio on this PC ----
 export interface StudioStatus {
   installed: boolean;
