@@ -108,10 +108,6 @@ export function HomePanel({
 
   return (
     <div className="hero">
-      <div className="eyebrow">Welcome to</div>
-      <h1 className="title">Aurora</h1>
-      <p className="subtitle">One launcher for playing, modding and hosting — together.</p>
-
       {last && (
         <button className="rejoin-card" onClick={() => onRejoin(last)}>
           <Icon.coop size={18} />
@@ -313,27 +309,8 @@ export function SkyrimPlay() {
   const sky = games?.skyrim;
 
   return (
-    <div className="hero">
-      <div className="eyebrow">The Elder Scrolls V</div>
-      <h1 className="title">Skyrim Special Edition</h1>
-      <p className="subtitle">{sky?.installed ? sky.install_dir : "Detecting your Steam install…"}</p>
-
-      <div className="action-bar surface">
-        <div className="row wrap">
-          <Pill tone={sky?.installed ? "ok" : "warn"}>
-            {sky?.installed ? (sky.source === "epic" ? "Installed · Epic" : "Installed") : "Not found"}
-          </Pill>
-          <Pill tone={sky?.has_skse ? "ok" : "default"}>SKSE {sky?.has_skse ? "ready" : "—"}</Pill>
-          <Pill tone={sky?.has_skyrim_together ? "ok" : "default"}>
-            Skyrim Together {sky?.has_skyrim_together ? "ready" : "—"}
-          </Pill>
-        </div>
-        <button className="btn-play" disabled={!sky?.installed} onClick={() => launchSkyrim("vanilla")}>
-          <Icon.play size={20} /> Play
-        </button>
-      </div>
-
-      <div className="sect" style={{ marginTop: 28 }}>
+    <div>
+      <div className="sect">
         <div className="sect-head">
           <div className="sect-title">Launch options</div>
           <button className="btn ghost" onClick={refreshGames}>
@@ -899,25 +876,8 @@ export function EldenRingPlay() {
   };
 
   return (
-    <div className="hero">
-      <div className="eyebrow">FromSoftware</div>
-      <h1 className="title">Elden Ring</h1>
-      <p className="subtitle">{er?.installed ? er.install_dir : "Detecting your Steam install…"}</p>
-
-      <div className="action-bar surface">
-        <div className="row wrap">
-          <Pill tone={er?.installed ? "ok" : "warn"}>{er?.installed ? "Installed" : "Not found"}</Pill>
-          <Pill tone={er?.has_seamless_coop ? "ok" : "default"}>
-            Seamless Co-op {er?.has_seamless_coop ? "ready" : "—"}
-          </Pill>
-          <Pill tone={er?.has_mod_engine ? "ok" : "default"}>Mod Engine {er?.has_mod_engine ? "ready" : "—"}</Pill>
-        </div>
-        <button className="btn-play" disabled={!er?.installed} onClick={() => launchEldenRing("vanilla")}>
-          <Icon.play size={20} /> Play
-        </button>
-      </div>
-
-      <div className="sect" style={{ marginTop: 28 }}>
+    <div>
+      <div className="sect">
         <div className="sect-head">
           <div className="sect-title">Launch options</div>
           <button className="btn ghost" onClick={refreshGames}>
@@ -1207,25 +1167,8 @@ export function CyberpunkPlay() {
   const cp = games?.cyberpunk;
 
   return (
-    <div className="hero">
-      <div className="eyebrow">CD Projekt Red</div>
-      <h1 className="title">Cyberpunk 2077</h1>
-      <p className="subtitle">{cp?.installed ? cp.install_dir : "Detecting your Steam install…"}</p>
-
-      <div className="action-bar surface">
-        <div className="row wrap">
-          <Pill tone={cp?.installed ? "ok" : "warn"}>
-            {cp?.installed ? (cp.source === "epic" ? "Installed · Epic" : "Installed") : "Not found"}
-          </Pill>
-          <Pill tone={cp?.has_mp ? "ok" : "default"}>CyberpunkMP {cp?.has_mp ? "ready" : "—"}</Pill>
-          <Pill tone={cp?.has_cet ? "ok" : "default"}>CET {cp?.has_cet ? "ready" : "—"}</Pill>
-        </div>
-        <button className="btn-play" disabled={!cp?.installed} onClick={() => launchCyberpunk("vanilla")}>
-          <Icon.play size={20} /> Play
-        </button>
-      </div>
-
-      <div className="sect" style={{ marginTop: 28 }}>
+    <div>
+      <div className="sect">
         <div className="sect-head">
           <div className="sect-title">Launch options</div>
           <button className="btn ghost" onClick={refreshGames}>

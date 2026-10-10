@@ -248,6 +248,21 @@ export const Icon = {
     ),
   host: ({ size = 24 }: IconProps) =>
     svg(size, <><rect x="3" y="4" width="18" height="7" rx="2" /><rect x="3" y="13" width="18" height="7" rx="2" /><path d="M7 7.5h.01M7 16.5h.01M17 7.5h2M17 16.5h2" /></>),
+  gamepad: ({ size = 24 }: IconProps) =>
+    svg(
+      size,
+      <>
+        <path d="M7 7h10a5 5 0 0 1 4.9 6l-.7 3.3a2.4 2.4 0 0 1-4.1 1.1L15 15H9l-2.1 2.4a2.4 2.4 0 0 1-4.1-1.1L2.1 13A5 5 0 0 1 7 7z" />
+        <path d="M7 10v4M5 12h4" />
+        <path d="M15.5 11h.01M17.5 13h.01" />
+      </>
+    ),
+  shirt: ({ size = 24 }: IconProps) =>
+    svg(size, <path d="M8 3 3 6l2 4 2-1v12h10V9l2 1 2-4-5-3a4 4 0 0 1-8 0z" />),
+  globe: ({ size = 24 }: IconProps) =>
+    svg(size, <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>),
+  clock: ({ size = 24 }: IconProps) =>
+    svg(size, <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
 };
 
 export function initials(name: string) {

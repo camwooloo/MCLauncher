@@ -1,9 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { LauncherProvider, useLauncher } from "./store";
-import { windowAction, checkAppUpdate, applyAppUpdate, type UpdateInfo, type PlayRecord } from "./lib/api";
+import { windowAction, checkAppUpdate, applyAppUpdate, playStats, type UpdateInfo, type PlayRecord } from "./lib/api";
 import type { GameKey } from "./lib/types";
-import { Icon, AuroraMark, Markdown } from "./components/ui";
+import { Icon, AuroraMark, Markdown, Avatar } from "./components/ui";
 import { AccountMenu } from "./components/AccountMenu";
 import { ServerDashboard } from "./components/ServerConsole";
 import { InstancesPanel, MinecraftServers, UpgradeModal } from "./components/MinecraftPanels";
@@ -29,46 +29,63 @@ import { AccountsPanel, SettingsPanel } from "./components/SystemPanels";
 import { NetworkPanel } from "./components/NetworkPanel";
 
 type Section = GameKey | "home" | "accounts" | "settings" | "network";
+type IconFn = (p: { size?: number }) => JSX.Element;
 
-const GAME_TABS: Record<GameKey, string[]> = {
-  minecraft: ["Play", "Servers", "Skins"],
-  skyrim: ["Play", "Co-op", "Mods"],
-  eldenring: ["Play", "Co-op", "Cheats"],
-  cyberpunk: ["Play", "Co-op", "Mods"],
+const GAMES: GameKey[] = ["minecraft", "skyrim", "eldenring", "cyberpunk"];
+
+/* Each game's identity in the shell: name, maker line and rail icon. */
+const GAME_META: Record<GameKey, { name: string; short: string; maker: string; icon: IconFn }> = {
+  minecraft: { name: "Minecraft", short: "MC", maker: "Mojang Studios", icon: Icon.minecraft },
+  skyrim: { name: "Skyrim", short: "SK", maker: "The Elder Scrolls V", icon: Icon.skyrim },
+  eldenring: { name: "Elden Ring", short: "ER", maker: "FromSoftware", icon: Icon.elden },
+  cyberpunk: { name: "Cyberpunk 2077", short: "CP", maker: "CD Projekt Red", icon: Icon.cyberpunk },
 };
 
-const SECTION_TITLE: Record<string, string> = { home: "Home", accounts: "Accounts", settings: "Settings", network: "Aurora Net" };
+/* The functions each game exposes on the left rail. The first is the primary one. */
+const GAME_FUNCS: Record<GameKey, { tab: string; icon: IconFn }[]> = {
+  minecraft: [
+    { tab: "Play", icon: Icon.gamepad },
+    { tab: "Servers", icon: Icon.server },
+    { tab: "Skins", icon: Icon.shirt },
+  ],
+  skyrim: [
+    { tab: "Play", icon: Icon.gamepad },
+    { tab: "Co-op", icon: Icon.coop },
+    { tab: "Mods", icon: Icon.mods },
+  ],
+  eldenring: [
+    { tab: "Play", icon: Icon.gamepad },
+    { tab: "Co-op", icon: Icon.coop },
+    { tab: "Cheats", icon: Icon.sparkles },
+  ],
+  cyberpunk: [
+    { tab: "Play", icon: Icon.gamepad },
+    { tab: "Co-op", icon: Icon.coop },
+    { tab: "Mods", icon: Icon.mods },
+  ],
+};
 
-/* Sliding "liquid" tab indicator. */
-function TabBar({
-  tabs,
-  active,
-  onSelect,
-}: {
-  tabs: string[];
-  active: string;
-  onSelect: (t: string) => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [ind, setInd] = useState({ left: 0, width: 0, ready: false });
-  useLayoutEffect(() => {
-    const el = ref.current?.querySelector(".tab.active") as HTMLElement | null;
-    if (el) setInd({ left: el.offsetLeft, width: el.offsetWidth, ready: true });
-  }, [active, tabs]);
-  return (
-    <div className="tabbar" ref={ref}>
-      <div
-        className="tab-ind"
-        style={{ left: 0, transform: `translateX(${ind.left}px)`, width: ind.width, opacity: ind.ready ? 1 : 0 }}
-      />
-      {tabs.map((t) => (
-        <button key={t} className={`tab ${t === active ? "active" : ""}`} onClick={() => onSelect(t)}>
-          {t}
-        </button>
-      ))}
-    </div>
-  );
+const SECTION_TITLE: Record<string, string> = { home: "Aurora", accounts: "Accounts", settings: "Settings", network: "Aurora Net" };
+const SECTION_KICKER: Record<string, string> = {
+  home: "Welcome back",
+  accounts: "Minecraft accounts",
+  settings: "Launcher",
+  network: "Play together, no port forwarding",
+};
+
+interface HeroStat {
+  icon: IconFn;
+  label: string;
+  value: string;
 }
+interface HeroInfo {
+  title: string;
+  kicker: string;
+  play?: { label: string; disabled: boolean; onClick: () => void };
+  stats: HeroStat[];
+}
+
+const ready = (b: boolean | undefined) => (b ? "Ready" : "Not installed");
 
 /* Title-bar pill: shows running servers; hover lists them to open a dashboard. */
 function ServerPill() {
@@ -227,8 +244,89 @@ function UpdatePill() {
   );
 }
 
+
+/* What the hero shows for the current section: title, the Play pill and status chips. */
+function useHero(section: Section, lastInstanceId: string | null, onContinue: (r: PlayRecord) => void, recent: PlayRecord | null): HeroInfo {
+  const { games, instances, servers, serverStatuses, busy, playInstance, launchSkyrim, launchEldenRing, launchCyberpunk, activeAccount, netPeers } =
+    useLauncher();
+  const running = Object.values(serverStatuses).filter((s) => s.running).length;
+
+  switch (section) {
+    case "minecraft": {
+      const inst = instances.find((i) => i.id === lastInstanceId) ?? instances[0];
+      const acct = activeAccount();
+      return {
+        title: "Minecraft",
+        kicker: GAME_META.minecraft.maker,
+        play: { label: "Play", disabled: busy || !inst, onClick: () => inst && void playInstance(inst.id) },
+        stats: [
+          { icon: Icon.clock, label: "Selected instance", value: inst ? (inst.name.includes(inst.version) ? inst.name : `${inst.name} · ${inst.version}`) : "None yet" },
+          { icon: Icon.mods, label: "Instances", value: `${instances.length} installed` },
+          { icon: Icon.server, label: "Servers", value: `${running} of ${servers.length} running` },
+          { icon: Icon.user, label: "Account", value: acct ? acct.username : "Signed out" },
+        ],
+      };
+    }
+    case "skyrim": {
+      const g = games?.skyrim;
+      return {
+        title: "Skyrim Special Edition",
+        kicker: GAME_META.skyrim.maker,
+        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchSkyrim("vanilla") },
+        stats: [
+          { icon: Icon.folder, label: "Install", value: g?.installed ? (g.source === "epic" ? "Epic Games" : "Steam") : "Not found" },
+          { icon: Icon.mods, label: "SKSE", value: ready(g?.has_skse) },
+          { icon: Icon.coop, label: "Skyrim Together", value: ready(g?.has_skyrim_together) },
+        ],
+      };
+    }
+    case "eldenring": {
+      const g = games?.eldenRing;
+      return {
+        title: "Elden Ring",
+        kicker: GAME_META.eldenring.maker,
+        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchEldenRing("vanilla") },
+        stats: [
+          { icon: Icon.folder, label: "Install", value: g?.installed ? "Steam" : "Not found" },
+          { icon: Icon.coop, label: "Seamless Co-op", value: ready(g?.has_seamless_coop) },
+          { icon: Icon.mods, label: "Mod Engine 2", value: ready(g?.has_mod_engine) },
+        ],
+      };
+    }
+    case "cyberpunk": {
+      const g = games?.cyberpunk;
+      return {
+        title: "Cyberpunk 2077",
+        kicker: GAME_META.cyberpunk.maker,
+        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchCyberpunk("vanilla") },
+        stats: [
+          { icon: Icon.folder, label: "Install", value: g?.installed ? (g.source === "epic" ? "Epic Games" : "Steam") : "Not found" },
+          { icon: Icon.coop, label: "CyberpunkMP", value: ready(g?.has_mp) },
+          { icon: Icon.terminal, label: "Cyber Engine Tweaks", value: ready(g?.has_cet) },
+        ],
+      };
+    }
+    case "home": {
+      const installed = 1 + [games?.skyrim, games?.eldenRing, games?.cyberpunk].filter((g) => g?.installed).length;
+      return {
+        title: "Aurora",
+        kicker: SECTION_KICKER.home,
+        play: recent ? { label: "Continue", disabled: busy, onClick: () => onContinue(recent) } : undefined,
+        stats: [
+          ...(recent ? [{ icon: Icon.clock, label: "Last played", value: recent.name }] : []),
+          { icon: Icon.gamepad, label: "Library", value: `${installed} games` },
+          { icon: Icon.server, label: "Servers", value: `${running} running` },
+          { icon: Icon.globe, label: "Nearby PCs", value: `${netPeers.length} online` },
+        ],
+      };
+    }
+    default:
+      return { title: SECTION_TITLE[section], kicker: SECTION_KICKER[section], stats: [] };
+  }
+}
+
 function Shell() {
-  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, configTarget, closeConfigEditor, playInstance, settings, settingsLoaded, connecting, remoteTarget, disconnectRemote } =
+  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, configTarget, closeConfigEditor, playInstance, settings, settingsLoaded, connecting, remoteTarget, disconnectRemote, activeAccount, busy } =
     useLauncher();
   const [activeGame, setActiveGame] = useState<GameKey>("minecraft");
   const [section, setSection] = useState<Section>("home");
@@ -238,6 +336,17 @@ function Shell() {
     eldenring: "Play",
     cyberpunk: "Play",
   });
+  const [recents, setRecents] = useState<PlayRecord[]>([]);
+
+  // Play history drives the hero: the Minecraft "selected instance" is the one
+  // played most recently, and Home's Continue picks up the last game.
+  useEffect(() => {
+    if (busy) return;
+    playStats()
+      .then((r) => setRecents([...r].sort((a, b) => b.lastPlayed - a.lastPlayed)))
+      .catch(() => {});
+  }, [busy]);
+  const lastInstanceId = recents.find((r) => r.kind === "instance")?.key.replace(/^instance:/, "") ?? null;
 
   // Apply the saved "open to" view once, after settings have loaded from disk.
   const appliedDefault = useRef(false);
@@ -246,11 +355,10 @@ function Shell() {
     appliedDefault.current = true;
     const view = settings.defaultView || "home";
     const [sec, tab] = view.split(":");
-    const games: GameKey[] = ["minecraft", "skyrim", "eldenring", "cyberpunk"];
-    if ((games as string[]).includes(sec)) {
+    if ((GAMES as string[]).includes(sec)) {
       setActiveGame(sec as GameKey);
       setSection(sec as Section);
-      if (tab && GAME_TABS[sec as GameKey].includes(tab)) {
+      if (tab && GAME_FUNCS[sec as GameKey].some((f) => f.tab === tab)) {
         setTabs((prev) => ({ ...prev, [sec as GameKey]: tab }));
       }
     } else if (sec && sec !== "home") {
@@ -258,8 +366,7 @@ function Shell() {
     }
   }, [settingsLoaded, settings.defaultView]);
 
-  const isGame =
-    section === "minecraft" || section === "skyrim" || section === "eldenring" || section === "cyberpunk";
+  const isGame = (GAMES as string[]).includes(section);
 
   // Games carry their own accent; everything else (home, settings, accounts)
   // wears the launcher's aurora identity.
@@ -270,7 +377,7 @@ function Shell() {
   // Liquid-glass pointer lensing: expose the cursor position to CSS so glass
   // controls brighten under it (used by the ::after radial in liquidglass).
   useEffect(() => {
-    const SEL = ".btn, .btn-play, .select-btn, .lrow, .game-tile, .rail-btn, .tab, .seg button, .acct-chip";
+    const SEL = ".btn, .btn-play, .select-btn, .lrow, .game-tile, .rail-btn, .tab, .seg button, .acct-chip, .fn-btn, .game-dot";
     const onMove = (e: PointerEvent) => {
       const el = (e.target as HTMLElement | null)?.closest?.(SEL) as HTMLElement | null;
       if (!el) return;
@@ -286,6 +393,10 @@ function Shell() {
     setActiveGame(g);
     setSection(g);
   };
+  const openFunc = (t: string) => {
+    setTabs((prev) => ({ ...prev, [activeGame]: t }));
+    setSection(activeGame);
+  };
   // Home "Continue": instances launch straight away; games open their section.
   const continuePlay = (r: PlayRecord) => {
     if (r.kind === "instance") {
@@ -299,16 +410,21 @@ function Shell() {
     selectGame("minecraft");
     void playInstance(s.id, s.address);
   };
-  const setTab = (t: string) => setTabs((prev) => ({ ...prev, [activeGame]: t }));
   const currentTab = isGame ? tabs[section as GameKey] : "";
   // Accounts are Minecraft/Microsoft — only surface the chip there.
   const showAccount = section === "minecraft" || section === "accounts";
+  const hero = useHero(section, lastInstanceId, continuePlay, recents[0] ?? null);
+  const acct = activeAccount();
+  const funcs = GAME_FUNCS[activeGame];
+  const [primary, ...rest] = funcs;
+  const fnActive = (t: string) => section === activeGame && currentTab === t;
+  const SectionIcon = isGame ? GAME_META[section as GameKey].icon : null;
 
   return (
     <div className="app">
       <div className="titlebar" data-tauri-drag-region>
         <div className="brand" data-tauri-drag-region>
-          <AuroraMark size={24} />
+          <AuroraMark size={22} />
           Aurora
           <span className="brand-sub">Launcher</span>
         </div>
@@ -327,58 +443,116 @@ function Shell() {
         </button>
       </div>
 
-      <div className="shell">
-        <nav className="rail">
-          <RailBtn label="Home" active={section === "home"} onClick={() => setSection("home")}>
-            <Icon.home size={24} />
-          </RailBtn>
-          <RailBtn label="MC" active={section === "minecraft"} onClick={() => selectGame("minecraft")}>
-            <Icon.minecraft size={24} />
-          </RailBtn>
-          <RailBtn label="Skyrim" active={section === "skyrim"} onClick={() => selectGame("skyrim")}>
-            <Icon.skyrim size={24} />
-          </RailBtn>
-          <RailBtn label="Elden" active={section === "eldenring"} onClick={() => selectGame("eldenring")}>
-            <Icon.elden size={24} />
-          </RailBtn>
-          <RailBtn label="2077" active={section === "cyberpunk"} onClick={() => selectGame("cyberpunk")}>
-            <Icon.cyberpunk size={24} />
-          </RailBtn>
-          <div className="rail-spacer" />
-          <button
-            className={`rail-btn rail-mini ${section === "network" ? "active" : ""}`}
-            onClick={() => setSection("network")}
-            title="Aurora Net — play together with no port forwarding"
-          >
-            <Icon.coop size={20} />
+      <div className="deck">
+        {/* Left: what you can do with the selected game. */}
+        <nav className="fn-rail" aria-label={`${GAME_META[activeGame].name} functions`}>
+          <button className="fn-mark" data-g={activeGame} onClick={() => selectGame(activeGame)} title={GAME_META[activeGame].name}>
+            {(() => {
+              const G = GAME_META[activeGame].icon;
+              return <G size={24} />;
+            })()}
           </button>
-          <button
-            className={`rail-btn rail-mini ${section === "settings" ? "active" : ""}`}
-            onClick={() => setSection("settings")}
-            title="Settings"
-          >
-            <Icon.gear size={19} />
-          </button>
+          <div className="fn-spacer" />
+          <FnBtn primary label={primary.tab} active={fnActive(primary.tab)} onClick={() => openFunc(primary.tab)}>
+            <primary.icon size={26} />
+          </FnBtn>
+          <div className="fn-group">
+            {rest.map((f) => (
+              <FnBtn key={f.tab} label={f.tab} active={fnActive(f.tab)} onClick={() => openFunc(f.tab)}>
+                <f.icon size={21} />
+              </FnBtn>
+            ))}
+            <span className="fn-sep" />
+            <FnBtn label="Aurora Net" active={section === "network"} onClick={() => setSection("network")}>
+              <Icon.globe size={21} />
+            </FnBtn>
+            <FnBtn label="Accounts" active={section === "accounts"} onClick={() => setSection("accounts")}>
+              <Icon.user size={21} />
+            </FnBtn>
+            <FnBtn label="Settings" active={section === "settings"} onClick={() => setSection("settings")}>
+              <Icon.gear size={21} />
+            </FnBtn>
+          </div>
+          <div className="fn-spacer" />
+          <div className="rail-foot">{GAME_META[activeGame].short}</div>
         </nav>
 
-        <main className="content">
-          <div className="topbar">
-            {isGame ? (
-              <TabBar tabs={GAME_TABS[section as GameKey]} active={currentTab} onSelect={setTab} />
-            ) : (
-              <div className="sect-title" style={{ fontSize: 20 }}>
-                {SECTION_TITLE[section]}
+        {/* Centre: hero + the selected function. */}
+        <main className="stage">
+          <div className="stage-art" data-art={isGame ? section : "aurora"} aria-hidden />
+          <div className="stage-scroll">
+            <header className="hero3">
+              <div className="hero3-top">
+                <span className="kicker">{hero.kicker}</span>
+                <div className="row" style={{ gap: 12, alignItems: "center" }}>
+                  {showAccount && <AccountMenu onManage={() => setSection("accounts")} />}
+                  {SectionIcon && (
+                    <span className="hero3-badge">
+                      <span>{GAME_META[section as GameKey].name}</span>
+                      <span className="hero3-badge-ico">
+                        <SectionIcon size={20} />
+                      </span>
+                    </span>
+                  )}
+                </div>
               </div>
-            )}
-            {showAccount ? <AccountMenu onManage={() => setSection("accounts")} /> : <span />}
-          </div>
+              <h1 className="hero3-title">{hero.title}</h1>
+              {(hero.play || hero.stats.length > 0) && (
+                <div className="hero3-actions">
+                  {hero.play && (
+                    <button className="pill-play" disabled={hero.play.disabled} onClick={hero.play.onClick}>
+                      <span className="pill-play-ico">
+                        <Icon.play size={13} />
+                      </span>
+                      {hero.play.label}
+                    </button>
+                  )}
+                  {hero.stats.map((s) => (
+                    <div className="stat" key={s.label}>
+                      <s.icon size={20} />
+                      <div>
+                        <div className="stat-label">{s.label}</div>
+                        <div className="stat-value">{s.value}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </header>
 
-          <div className="panel-scroll">
             <div className="view" key={`${section}:${currentTab}`}>
               <Panel section={section} tab={currentTab} onSelectGame={selectGame} onContinue={continuePlay} onRejoin={rejoin} />
             </div>
           </div>
         </main>
+
+        {/* Right: your games. */}
+        <aside className="game-rail" aria-label="Games">
+          <button
+            className={`game-me ${section === "accounts" ? "active" : ""}`}
+            onClick={() => setSection("accounts")}
+            title={acct ? acct.username : "Sign in"}
+          >
+            {acct ? <Avatar account={acct} size={44} /> : <Icon.user size={22} />}
+            <span className={`game-me-dot ${acct ? "on" : ""}`} />
+          </button>
+          <div className="fn-spacer" />
+          <div className="game-group">
+            <GameDot label="Home" active={section === "home"} onClick={() => setSection("home")}>
+              <AuroraMark size={22} />
+            </GameDot>
+            {GAMES.map((g) => {
+              const G = GAME_META[g].icon;
+              return (
+                <GameDot key={g} game={g} label={GAME_META[g].name} active={section === g} onClick={() => selectGame(g)}>
+                  <G size={22} />
+                </GameDot>
+              );
+            })}
+          </div>
+          <div className="fn-spacer" />
+          <div className="rail-foot">Aurora</div>
+        </aside>
       </div>
 
       {consoleServerId && <ServerDashboard id={consoleServerId} onClose={closeConsole} />}
@@ -408,21 +582,42 @@ function Shell() {
   );
 }
 
-function RailBtn({
+function FnBtn({
   children,
   label,
   active,
+  primary,
   onClick,
 }: {
   children: React.ReactNode;
   label: string;
   active: boolean;
+  primary?: boolean;
   onClick: () => void;
 }) {
   return (
-    <button className={`rail-btn ${active ? "active" : ""}`} onClick={onClick} title={label}>
+    <button className={`fn-btn ${primary ? "primary" : ""} ${active ? "active" : ""}`} onClick={onClick} title={label} aria-label={label}>
       {children}
-      <span className="label">{label}</span>
+    </button>
+  );
+}
+
+function GameDot({
+  children,
+  label,
+  game,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  game?: GameKey;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button className={`game-dot ${active ? "active" : ""}`} data-g={game ?? "aurora"} onClick={onClick} title={label} aria-label={label}>
+      {children}
     </button>
   );
 }
