@@ -755,7 +755,7 @@ export const createInstanceFromModpack = (projectId: string, title: string): Pro
     : Promise.reject(new Error("Modpack install is only available in the desktop app"));
 
 // ---- Multi-source modpacks (Modrinth / FTB / CurseForge / Technic) ----
-import type { PackHit } from "./types";
+import type { PackHit, PackVersion } from "./types";
 
 export const packSearch = (source: string, query: string): Promise<PackHit[]> =>
   isTauri
@@ -765,24 +765,36 @@ export const packSearch = (source: string, query: string): Promise<PackHit[]> =>
         { id: "ftb-skyfactory", name: "FTB SkyFactory", summary: "Skyblock, but huge.", icon: null, downloads: 800000 },
       ]);
 
+/** A modpack's versions, newest first (empty when the platform has none to pick). */
+export const packVersions = (source: string, projectId: string): Promise<PackVersion[]> =>
+  isTauri
+    ? call("pack_versions", { source, projectId })
+    : Promise.resolve([
+        { id: "v3", name: "BMC4 v38.5", gameVersion: "1.20.1", loader: "forge", channel: "release", date: Date.now() / 1000 - 86400 },
+        { id: "v2", name: "BMC4 v38.4", gameVersion: "1.20.1", loader: "forge", channel: "release", date: Date.now() / 1000 - 30 * 86400 },
+        { id: "v1", name: "BMC3 v30", gameVersion: "1.19.2", loader: "forge", channel: "beta", date: Date.now() / 1000 - 300 * 86400 },
+      ]);
+
 export const createInstanceFromPack = (
   source: string,
   projectId: string,
   title: string,
-  icon: string | null
+  icon: string | null,
+  versionId?: string | null
 ): Promise<InstanceConfig> =>
   isTauri
-    ? call("create_instance_from_pack", { source, projectId, title, icon })
+    ? call("create_instance_from_pack", { source, projectId, title, icon, versionId: versionId ?? null })
     : Promise.reject(new Error("Modpack install is only available in the desktop app"));
 
 export const createServerFromPack = (
   source: string,
   projectId: string,
   title: string,
-  icon: string | null
+  icon: string | null,
+  versionId?: string | null
 ): Promise<unknown> =>
   isTauri
-    ? call("create_server_from_pack", { source, projectId, title, icon })
+    ? call("create_server_from_pack", { source, projectId, title, icon, versionId: versionId ?? null })
     : Promise.reject(new Error("Modpack install is only available in the desktop app"));
 
 export const instancePlay = (id: string, server?: string | null): Promise<string> =>

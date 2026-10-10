@@ -51,6 +51,9 @@ pub struct Version {
     pub dependencies: Vec<Dependency>,
     #[serde(default)]
     pub date_published: String,
+    /// "release" | "beta" | "alpha".
+    #[serde(default)]
+    pub version_type: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -145,6 +148,30 @@ pub async fn latest_any(project: &str) -> Result<Option<Version>> {
         .await?;
     versions.sort_by(|a, b| b.date_published.cmp(&a.date_published));
     Ok(versions.into_iter().next())
+}
+
+/// Every published version of a project, newest first.
+pub async fn versions(project: &str) -> Result<Vec<Version>> {
+    let mut versions = crate::http::client()
+        .get(format!("{API}/project/{project}/version"))
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<Vec<Version>>()
+        .await?;
+    versions.sort_by(|a, b| b.date_published.cmp(&a.date_published));
+    Ok(versions)
+}
+
+/// One version by its id.
+pub async fn version(id: &str) -> Result<Version> {
+    Ok(crate::http::client()
+        .get(format!("{API}/version/{id}"))
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<Version>()
+        .await?)
 }
 
 /// The latest version of a project compatible with `game_version` (and `loader`

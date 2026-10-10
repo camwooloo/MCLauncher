@@ -212,6 +212,7 @@ fn main() {
             instances::popular_modpacks,
             instances::create_instance_from_modpack,
             instances::pack_search,
+            instances::pack_versions,
             instances::create_instance_from_pack,
             instances::create_server_from_pack,
             instances::open_instance_folder,

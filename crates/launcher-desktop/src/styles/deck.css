@@ -1326,9 +1326,7 @@
 
 /* An open dropdown lifts its row above the rows below it (they can form their
    own stacking contexts), so switches don't show through the menu. */
-.app .row:has(.select-menu),
-.app .sect:has(.select-menu),
-.app .field:has(.select-menu) {
+.app :is(.row, .sect, .field, .surface, .col):has(.select-menu) {
   position: relative;
   z-index: 40;
 }

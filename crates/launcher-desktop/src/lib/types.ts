@@ -41,6 +41,16 @@ export interface PackHit {
   downloads: number;
 }
 
+/** One installable version of a modpack (newest first in lists). */
+export interface PackVersion {
+  id: string;
+  name: string;
+  gameVersion: string | null;
+  loader: string | null;
+  channel: string; // "release" | "beta" | "alpha"
+  date: number; // unix seconds, 0 if unknown
+}
+
 export interface InstanceConfig {
   id: string;
   name: string;

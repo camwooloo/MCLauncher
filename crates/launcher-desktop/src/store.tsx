@@ -64,8 +64,8 @@ interface Launcher {
   saveInstanceCfg: (cfg: InstanceConfig) => Promise<void>;
   deleteInstanceCfg: (id: string) => Promise<void>;
   playInstance: (id: string, server?: string) => Promise<void>;
-  createFromPack: (source: string, projectId: string, title: string, icon: string | null) => Promise<void>;
-  createServerFromPack: (source: string, projectId: string, title: string, icon: string | null) => Promise<void>;
+  createFromPack: (source: string, projectId: string, title: string, icon: string | null, versionId?: string | null) => Promise<void>;
+  createServerFromPack: (source: string, projectId: string, title: string, icon: string | null, versionId?: string | null) => Promise<void>;
   openInstanceFolder: (id: string) => Promise<void>;
   openServerFolder: (id: string) => Promise<void>;
 
@@ -305,11 +305,11 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     [showToast, instances]
   );
   const createFromPack = useCallback(
-    async (source: string, projectId: string, title: string, icon: string | null) => {
+    async (source: string, projectId: string, title: string, icon: string | null, versionId?: string | null) => {
       setBusy(true);
       setProgress({ stage: "Preparing", total: 0, done: 0, fraction: 0 });
       try {
-        await api.createInstanceFromPack(source, projectId, title, icon);
+        await api.createInstanceFromPack(source, projectId, title, icon, versionId);
         await refreshInstances();
         showToast(`Installed ${title}`);
       } catch (e) {
@@ -332,11 +332,11 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     setServers(await api.listServers());
   }, []);
   const createServerFromPack = useCallback(
-    async (source: string, projectId: string, title: string, icon: string | null) => {
+    async (source: string, projectId: string, title: string, icon: string | null, versionId?: string | null) => {
       setBusy(true);
       setProgress({ stage: "Preparing", total: 0, done: 0, fraction: 0 });
       try {
-        await api.createServerFromPack(source, projectId, title, icon);
+        await api.createServerFromPack(source, projectId, title, icon, versionId);
         await refreshServers();
         showToast(`Installed ${title}`);
       } catch (e) {
