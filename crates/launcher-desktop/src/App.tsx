@@ -8,6 +8,7 @@ import { Icon, KawmaMark } from "./components/ui";
 import { KawmaLogo } from "./components/KawmaLogo";
 import { StarCatcher, HoldRing, useHoldToPlay, HOLD_MS } from "./components/StarCatcher";
 import { Popover } from "./components/Popover";
+import { useRailIndicator } from "./components/RailIndicator";
 import { AccountMenu } from "./components/AccountMenu";
 import { KawmaAccountButton, KawmaStudioTile } from "./components/KawmaAccount";
 import { UpdateButton } from "./components/UpdateButton";
@@ -396,6 +397,10 @@ function Shell() {
     setStars(false);
     logoRef.current?.focus();
   };
+  // Selection markers that slide between rail items (see RailIndicator).
+  const fnInd = useRailIndicator<HTMLElement>();
+  const gameInd = useRailIndicator<HTMLDivElement>();
+  const placeInd = useRailIndicator<HTMLDivElement>();
 
   return (
     <div className="app">
@@ -422,7 +427,8 @@ function Shell() {
       <div className="deck">
         <div className="stage-art" data-art={isGame ? section : "kawma"} aria-hidden />
         {/* Left: what you can do with the selected game. */}
-        <nav className="fn-rail" aria-label={`${GAME_META[activeGame].name} functions`}>
+        <nav ref={fnInd.box} className="fn-rail rail-ind-box" aria-label={`${GAME_META[activeGame].name} functions`}>
+          <span ref={fnInd.ind} className="rail-ind pill" aria-hidden />
           <button
             ref={logoRef}
             className={`fn-mark ${section === "home" ? "active" : ""} ${logoHold.holding ? "holding" : ""}`}
@@ -468,9 +474,11 @@ function Shell() {
                   )}
                 </div>
               </div>
-              <h1 className="hero3-title">{hero.title}</h1>
+              <h1 className="hero3-title swap-in" key={`title:${section}`}>
+                {hero.title}
+              </h1>
               {(hero.play || hero.stats.length > 0) && (
-                <div className="hero3-actions">
+                <div className="hero3-actions swap-in" key={`actions:${section}`}>
                   {hero.play && (
                     <button className="pill-play" disabled={hero.play.disabled} onClick={hero.play.onClick}>
                       <span className="pill-play-ico">
@@ -514,7 +522,8 @@ function Shell() {
             <UpdateButton />
           </div>
           <div className="fn-spacer" />
-          <div className="game-group">
+          <div ref={gameInd.box} className="game-group rail-ind-box">
+            <span ref={gameInd.ind} className="rail-ind ring" aria-hidden />
             {GAMES.map((g) => (
               <GameDot key={g} game={g} label={GAME_META[g].name} active={section === g} onClick={() => selectGame(g)}>
                 <GameArt game={g} icons={gameArt} size={40} />
@@ -522,7 +531,8 @@ function Shell() {
             ))}
           </div>
           <div className="fn-spacer" />
-          <div className="fn-group">
+          <div ref={placeInd.box} className="fn-group rail-ind-box">
+            <span ref={placeInd.ind} className="rail-ind pill" aria-hidden />
             <KawmaStudioTile />
             <FnBtn label="Kawma Net" active={section === "network"} onClick={() => setSection("network")}>
               <Icon.globe size={18} />
@@ -574,7 +584,14 @@ function FnBtn({
   onClick: () => void;
 }) {
   return (
-    <button className={`fn-btn ${active ? "active" : ""}`} onClick={onClick} title={label} aria-label={label}>
+    <button
+      className={`fn-btn ${active ? "active" : ""}`}
+      data-rail-item
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+    >
       {children}
     </button>
   );
@@ -594,7 +611,15 @@ function GameDot({
   onClick: () => void;
 }) {
   return (
-    <button className={`game-dot ${active ? "active" : ""}`} data-g={game ?? "kawma"} onClick={onClick} title={label} aria-label={label}>
+    <button
+      className={`game-dot ${active ? "active" : ""}`}
+      data-g={game ?? "kawma"}
+      data-rail-item
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+    >
       {children}
     </button>
   );

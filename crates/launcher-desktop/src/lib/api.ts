@@ -623,11 +623,15 @@ const mockKawma: KawmaProfile = {
   displayName: "vKarmah",
   avatar: null,
   twitch: "vkarmah",
-  discord: null,
+  discord: "vkarmah",
+  extraTwitch: null,
+  extraDiscord: null,
+  kick: "vkarmah",
   tester: false,
   testMode: false,
   releases: { "launcher-now-playing": true, "launcher-community": true },
   minecraft: [{ uuid: "9a1f0c5e7b2d4a3c8e6f1b09d4a25c11", name: "KawmaDev" }],
+  stars: { best: 34, unlocked: false },
 };
 let mockSignedIn = false;
 /** The signed-in profile, refreshed from kawma.app; null when signed out. */
