@@ -48,7 +48,7 @@ static PLAYING: AtomicU64 = AtomicU64::new(0);
 
 /// The game's own process names, for games launched through Steam or a
 /// helper (where the pid we have isn't the game, or there is none).
-fn game_processes(game: &str) -> &'static [&'static str] {
+pub(crate) fn game_processes(game: &str) -> &'static [&'static str] {
     match game {
         "skyrim" => &["SkyrimSE.exe"],
         "eldenring" => &["eldenring.exe"],

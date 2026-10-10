@@ -46,10 +46,24 @@ async function callRemote<T>(cmd: string, args?: Record<string, unknown>): Promi
   return j.data as T;
 }
 
+// Commands that download, install, launch or rewrite files. An automatic
+// launcher update waits while any of these is running (see lib/updates.ts).
+const WORK_CMDS =
+  /^(install_|content_install$|apply_update$|create_backup$|restore_backup$|export_instance$|import_mrpack$|instance_play$|play_minecraft$|create_instance_from|create_server_from|server_start$|start_skyrim_server$|launch_|vpn_install$|vpn_join$|repair_aurora_net$|set_skin|microsoft_login|save_inventory$|write_config_file$)/;
+let workInFlight = 0;
+/** How many download/install/launch commands are running right now. */
+export const workInProgress = () => workInFlight;
+
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (remoteHost && REMOTE_CMDS.has(cmd)) return callRemote<T>(cmd, args);
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<T>(cmd, args);
+  if (!WORK_CMDS.test(cmd)) return invoke<T>(cmd, args);
+  workInFlight++;
+  try {
+    return await invoke<T>(cmd, args);
+  } finally {
+    workInFlight--;
+  }
 }
 
 // Ping a peer's control server to confirm it's reachable before connecting.
@@ -526,7 +540,15 @@ export interface UpdateInfo {
   notes: string;
   downloadUrl: string;
   channel: "stable" | "test";
+  /** Already downloaded and verified, waiting to install. */
+  ready: boolean;
 }
+export interface UpdateProgress {
+  version: string;
+  received: number;
+  total: number | null;
+}
+let mockReady = false;
 export const checkAppUpdate = (): Promise<UpdateInfo | null> =>
   isTauri ? call<UpdateInfo | null>("check_app_update") : new Promise((r) => setTimeout(() => r(mockUpdate()), 700));
 // Browser preview: set localStorage "aurora:mock-update" to a version to be offered it.
@@ -537,14 +559,38 @@ function mockUpdate(): UpdateInfo | null {
   } catch {
     /* no storage */
   }
-  return v ? { version: v, current: "0.3.2", notes: "- Preview build", downloadUrl: "https://kawma.app/launcher/download", channel: "stable" } : null;
+  return v
+    ? { version: v, current: "0.3.2", notes: "- Preview build", downloadUrl: "https://kawma.app/launcher/download", channel: "stable", ready: mockReady }
+    : null;
 }
 /** The running launcher's version, as the update check compares it (Tauri's `getVersion`). */
 export const launcherVersion = (): Promise<string> =>
   isTauri ? import("@tauri-apps/api/app").then((m) => m.getVersion()) : Promise.resolve("0.3.2");
-/** Downloads the update the last check offered, verifies it and runs the installer. */
-export const applyAppUpdate = (): Promise<void> =>
-  isTauri ? call<void>("apply_app_update") : Promise.resolve();
+/** Downloads the update the last check offered and verifies its SHA-256. Progress arrives on `onUpdateProgress`. */
+export async function downloadAppUpdate(onProgress?: (p: UpdateProgress) => void): Promise<void> {
+  if (isTauri) {
+    const stop = onProgress ? await listen<UpdateProgress>("app-update-progress", onProgress) : () => {};
+    try {
+      await call<void>("download_app_update");
+    } finally {
+      stop();
+    }
+    return;
+  }
+  // Browser preview: a pretend 6 MB download.
+  const total = 6_000_000;
+  for (let received = 0; received <= total; received += 600_000) {
+    onProgress?.({ version: "mock", received, total });
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  mockReady = true;
+}
+/** Runs the downloaded installer in update mode; the launcher closes and reopens. `auto` = background update. */
+export const installAppUpdate = (auto: boolean): Promise<void> =>
+  isTauri ? call<void>("install_app_update", { auto }) : Promise.resolve();
+/** What an automatic update is waiting for (a hosted server, a game), or null. */
+export const updateBlocker = (): Promise<string | null> =>
+  isTauri ? call<string | null>("update_blocker") : Promise.resolve(null);
 
 export interface ReleaseInfo {
   version: string;

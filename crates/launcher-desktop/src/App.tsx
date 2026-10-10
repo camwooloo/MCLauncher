@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from "react";
 
 import { LauncherProvider, useLauncher } from "./store";
 import { windowAction, playStats, gameIcons, type PlayRecord } from "./lib/api";
-import { useAppUpdate, checkAtStartup, installUpdate } from "./lib/updates";
+import { useAutoUpdates } from "./lib/updates";
 import type { GameKey } from "./lib/types";
-import { Icon, KawmaMark, Markdown } from "./components/ui";
+import { Icon, KawmaMark } from "./components/ui";
 import { KawmaLogo } from "./components/KawmaLogo";
 import { StarCatcher, HoldRing, useHoldToPlay, HOLD_MS } from "./components/StarCatcher";
 import { Popover } from "./components/Popover";
 import { AccountMenu } from "./components/AccountMenu";
 import { KawmaAccountButton, KawmaStudioTile } from "./components/KawmaAccount";
+import { UpdateButton } from "./components/UpdateButton";
 import { ServerDashboard } from "./components/ServerConsole";
 import { InstancesPanel, MinecraftServers, UpgradeModal } from "./components/MinecraftPanels";
 import { SkinsPanel, ContentOverlay } from "./components/ContentPanel";
@@ -189,65 +190,6 @@ function RemotePill() {
   );
 }
 
-/* Title-bar pill: appears when a newer release exists; opens patch notes + 1-click update. */
-function UpdatePill() {
-  const { showToast } = useLauncher();
-  // Shared with Settings → Updates, so a manual check there lights this up too.
-  const { info, installing: busy } = useAppUpdate();
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => checkAtStartup(), []);
-
-  if (!info) return null;
-
-  const update = async () => {
-    try {
-      await installUpdate();
-      showToast("Downloading update — the installer will open, then Kawma restarts…");
-    } catch (e) {
-      showToast(`${e}`);
-    }
-  };
-
-  return (
-    <>
-      <button className="update-ind" onClick={() => setOpen(true)} title={`Update to v${info.version}`}>
-        <Icon.upgrade size={15} /> Update available
-      </button>
-      {open && (
-        <div className="dash-overlay" onClick={() => setOpen(false)}>
-          <div className="update-modal surface" onClick={(e) => e.stopPropagation()}>
-            <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div className="eyebrow">{info.channel === "test" ? "Test build available" : "Update available"}</div>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 22 }}>
-                  Kawma Launcher v{info.version}
-                </div>
-                <div className="sub" style={{ color: "var(--text-mute)" }}>You're on v{info.current}</div>
-              </div>
-              <button className="btn ghost" onClick={() => setOpen(false)}>
-                <Icon.close size={16} /> Close
-              </button>
-            </div>
-            <div className="patch-notes">
-              <Markdown source={info.notes.trim() || "No release notes provided."} />
-            </div>
-            <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 4 }}>
-              <button className="btn ghost" onClick={() => setOpen(false)}>
-                Later
-              </button>
-              <button className="btn-play" disabled={busy} onClick={update}>
-                <Icon.upgrade size={16} /> {busy ? "Updating…" : "Update now"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-
 /* What the hero shows for the current section: title, the Play pill and status chips. */
 function useHero(section: Section, lastInstanceId: string | null, onContinue: (r: PlayRecord) => void, recent: PlayRecord | null, choice: Choice): HeroInfo {
   const { games, instances, servers, serverStatuses, busy, playInstance, launchSkyrim, launchEldenRing, launchCyberpunk, activeAccount, netPeers } =
@@ -350,6 +292,11 @@ function Shell() {
   useEffect(() => {
     gameIcons().then(setGameArt).catch(() => {});
   }, []);
+  // Automatic launcher updates (Settings → Updates): they also wait for
+  // anything the launcher is in the middle of.
+  useAutoUpdates(settings.autoUpdate !== false, settingsLoaded, () =>
+    busy ? "Kawma is installing or launching something" : null,
+  );
 
   // Play history drives the hero: the Minecraft "selected instance" is the one
   // played most recently, and Home's Continue picks up the last game.
@@ -459,7 +406,6 @@ function Shell() {
           <span className="brand-sub">Launcher</span>
         </div>
         <div className="spacer" data-tauri-drag-region />
-        <UpdatePill />
         <ServerPill />
         <RemotePill />
         {/* Just minimise and close: they sit together over the right rail. */}
@@ -563,7 +509,10 @@ function Shell() {
         {/* Right: your Kawma account, your games, plus launcher-wide places
             (Kawma Studio, network, settings). */}
         <aside className="game-rail" aria-label="Games">
-          <KawmaAccountButton active={section === "accounts"} onManage={() => setSection("accounts")} />
+          <div className="me-stack">
+            <KawmaAccountButton active={section === "accounts"} onManage={() => setSection("accounts")} />
+            <UpdateButton />
+          </div>
           <div className="fn-spacer" />
           <div className="game-group">
             {GAMES.map((g) => (

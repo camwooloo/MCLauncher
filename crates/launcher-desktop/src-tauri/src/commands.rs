@@ -187,199 +187,8 @@ pub fn play_stats(state: State<'_, AppState>) -> Result<Vec<crate::stats::PlayRe
     Ok(crate::stats::list(&state.paths.data_dir))
 }
 
-// --- Self-update (kawma.app) ----------------------------------------------
-
-/// Builds are published on kawma.app (built by `.github/workflows/launcher.yml`
-/// and released from kawma.app admin → Updates). Everyone follows the stable
-/// channel; Kawma testers with test mode on also get test builds.
-const STABLE_MANIFEST: &str = "/launcher/releases/latest.json";
-const TEST_MANIFEST: &str = "/launcher/test/latest.json";
-const UPDATE_PLATFORM: &str = "windows-x86_64";
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateInfo {
-    /// Latest version (without the leading `v`).
-    pub version: String,
-    /// Currently-running version.
-    pub current: String,
-    /// Release notes (markdown).
-    pub notes: String,
-    /// Where the installer comes from (always https://kawma.app/…).
-    pub download_url: String,
-    /// "stable" | "test".
-    pub channel: String,
-}
-
-#[derive(Deserialize)]
-struct UpdateManifest {
-    version: String,
-    #[serde(default)]
-    notes: String,
-    #[serde(default)]
-    platforms: std::collections::HashMap<String, UpdateBuild>,
-}
-
-#[derive(Deserialize, Clone)]
-struct UpdateBuild {
-    url: String,
-    sha256: String,
-    #[serde(default)]
-    size: Option<u64>,
-}
-
-/// The build `check_app_update` offered; `apply_app_update` installs exactly this.
-static OFFERED_UPDATE: std::sync::Mutex<Option<UpdateBuild>> = std::sync::Mutex::new(None);
-
-/// Compare dotted versions numerically: is `latest` newer than `current`?
-fn version_is_newer(latest: &str, current: &str) -> bool {
-    fn parts(s: &str) -> [u32; 3] {
-        let mut out = [0u32; 3];
-        for (i, seg) in s.trim().trim_start_matches('v').split(['.', '-', '+']).take(3).enumerate() {
-            let digits: String = seg.chars().take_while(|c| c.is_ascii_digit()).collect();
-            out[i] = digits.parse().unwrap_or(0);
-        }
-        out
-    }
-    let (a, b) = (parts(latest), parts(current));
-    a > b
-}
-
-/// Installers are only ever downloaded over https from kawma.app.
-fn is_kawma_download(url: &str) -> bool {
-    reqwest::Url::parse(url).is_ok_and(|u| {
-        u.scheme() == "https"
-            && u.host_str() == Some("kawma.app")
-            && u.port().is_none()
-            && u.username().is_empty()
-            && u.password().is_none()
-    })
-}
-
-/// Release notes as a markdown list: plain lines become bullets.
-fn notes_markdown<'a>(lines: impl Iterator<Item = &'a str>) -> String {
-    lines
-        .map(str::trim)
-        .filter(|l| !l.is_empty())
-        .map(|l| if l.starts_with(['-', '*', '#']) { l.to_string() } else { format!("- {l}") })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-/// One channel's manifest; `None` when nothing is published there yet.
-async fn fetch_update_manifest(path: &str) -> Result<Option<UpdateManifest>, String> {
-    let resp = crate::kawma::client()?
-        .get(format!("{}{path}", crate::kawma::ORIGIN))
-        .send()
-        .await
-        .map_err(|_| "Couldn't reach kawma.app to check for updates".to_string())?;
-    if resp.status().as_u16() == 404 {
-        return Ok(None);
-    }
-    if !resp.status().is_success() {
-        return Err(format!("kawma.app answered {} for updates", resp.status().as_u16()));
-    }
-    resp.json().await.map(Some).map_err(|_| "kawma.app returned an invalid update manifest".to_string())
-}
-
-/// Check kawma.app for a newer build. Returns `None` if up to date.
-#[tauri::command]
-pub async fn check_app_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
-    let current = app.package_info().version.to_string();
-    // Testers with test mode on look at the test channel first.
-    let tester = matches!(crate::kawma::fetch_profile().await, Ok(Some(p)) if p.tester && p.test_mode);
-    let mut channels = vec![("stable", STABLE_MANIFEST)];
-    if tester {
-        channels.insert(0, ("test", TEST_MANIFEST));
-    }
-    for (channel, path) in channels {
-        let manifest = match fetch_update_manifest(path).await {
-            Ok(Some(m)) => m,
-            Ok(None) => continue,
-            Err(e) if channel == "test" => {
-                eprintln!("[update] test channel: {e}");
-                continue;
-            }
-            Err(e) => return Err(e),
-        };
-        let Some(build) = manifest.platforms.get(UPDATE_PLATFORM).cloned() else { continue };
-        let sha_ok = build.sha256.len() == 64 && build.sha256.bytes().all(|c| c.is_ascii_hexdigit());
-        if !version_is_newer(&manifest.version, &current) || !is_kawma_download(&build.url) || !sha_ok {
-            continue;
-        }
-        let download_url = build.url.clone();
-        if let Ok(mut offered) = OFFERED_UPDATE.lock() {
-            *offered = Some(build);
-        }
-        return Ok(Some(UpdateInfo {
-            version: manifest.version.trim_start_matches('v').to_string(),
-            current,
-            notes: notes_markdown(manifest.notes.lines()),
-            download_url,
-            channel: channel.to_string(),
-        }));
-    }
-    Ok(None)
-}
-
-/// Download the offered installer, verify its SHA-256, run it, then quit so
-/// it can replace our files.
-#[tauri::command]
-pub async fn apply_app_update(app: AppHandle) -> Result<(), String> {
-    use sha2::{Digest, Sha256};
-
-    let build = OFFERED_UPDATE
-        .lock()
-        .ok()
-        .and_then(|o| o.clone())
-        .ok_or("Check for updates first")?;
-    if !is_kawma_download(&build.url) {
-        return Err("Updates only install from kawma.app".into());
-    }
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15 * 60))
-        .user_agent(concat!("Kawma-Launcher/", env!("CARGO_PKG_VERSION")))
-        // Follow redirects only while they stay on kawma.app.
-        .redirect(reqwest::redirect::Policy::custom(|attempt| {
-            if attempt.previous().len() < 5 && is_kawma_download(attempt.url().as_str()) {
-                attempt.follow()
-            } else {
-                attempt.stop()
-            }
-        }))
-        .build()
-        .map_err(err)?;
-    let resp = client
-        .get(&build.url)
-        .send()
-        .await
-        .map_err(|_| "Couldn't download the update".to_string())?;
-    if !resp.status().is_success() {
-        return Err(format!("Couldn't download the update ({})", resp.status().as_u16()));
-    }
-    let bytes = resp.bytes().await.map_err(|_| "The update download was interrupted".to_string())?;
-    if build.size.is_some_and(|size| size != bytes.len() as u64) {
-        return Err("The update download was incomplete. Try again.".into());
-    }
-    let digest = hex::encode(Sha256::digest(&bytes));
-    if !digest.eq_ignore_ascii_case(build.sha256.trim()) {
-        return Err("The update failed its integrity check, so it wasn't installed. Try again later.".into());
-    }
-    let path = std::env::temp_dir().join("Kawma-Launcher-Update.exe");
-    tokio::fs::write(&path, &bytes).await.map_err(err)?;
-
-    // Launch the installer, then exit shortly after so it isn't blocked by our
-    // running exe (the installer relaunches the app when it finishes).
-    std::process::Command::new(&path)
-        .spawn()
-        .map_err(|e| format!("Couldn't start the installer: {e}"))?;
-    let app2 = app.clone();
-    tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_millis(1200)).await;
-        app2.exit(0);
-    });
-    Ok(())
-}
+// --- Release notes (kawma.app) -------------------------------------------
+// Self-update lives in `updates.rs`.
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -434,7 +243,7 @@ pub async fn list_releases(app: AppHandle) -> Result<ReleasesResult, String> {
         .take(20)
         .map(|r| ReleaseInfo {
             name: if r.title.trim().is_empty() { format!("Kawma Launcher v{}", r.version) } else { r.title },
-            notes: notes_markdown(r.notes.iter().map(String::as_str)),
+            notes: crate::updates::notes_markdown(r.notes.iter().map(String::as_str)),
             date: r.date.chars().take(10).collect(),
             version: r.version.trim_start_matches('v').to_string(),
         })
@@ -920,6 +729,7 @@ fn track_game(
     pid: u32,
 ) {
     crate::stats::record_session(&state.paths.data_dir, key, name, kind, None, pid);
+    crate::updates::game_launched(kind, pid);
     crate::discord::set_playing(&format!("Playing {name}"), "via Kawma Launcher");
     crate::activity::game_started(app, kind, name, detail, pid);
 }

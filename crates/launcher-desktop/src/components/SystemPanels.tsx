@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
-import { Field, Pill, Icon, Select, Switch, Avatar, Markdown } from "./ui";
+import { Field, Pill, Icon, Select, Switch, Avatar, Markdown, Progress } from "./ui";
 import { KawmaAvatar, KawmaSignIn, isLinked, kawmaLinks } from "./KawmaAccount";
-import { useAppUpdate, checkForUpdates, installUpdate } from "../lib/updates";
+import { useAppUpdate, checkForUpdates, downloadUpdate, installUpdate } from "../lib/updates";
 
 function lastCheckedLabel(at: number | null, now: number): string {
   if (!at) return "Not checked yet";
@@ -17,12 +17,14 @@ function lastCheckedLabel(at: number | null, now: number): string {
   return `Last checked ${sameDay ? "today" : d.toLocaleDateString()} at ${time}`;
 }
 
-/** Settings → Updates: version, channel and a manual "Check for updates". */
+/** Settings → Updates: version, channel, automatic updates and a manual
+ *  "Check for updates". Shares its state with the rail's update button. */
 function UpdatesSection() {
-  const { kawma, showToast } = useLauncher();
-  const { info, checking, error, lastChecked, installing } = useAppUpdate();
+  const { kawma, showToast, settings, persistSettings } = useLauncher();
+  const { info, checking, downloading, progress, ready, error, lastChecked, installing, waitingFor } = useAppUpdate();
   const [version, setVersion] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const automatic = settings.autoUpdate !== false;
   // Same rule as the update check: testers with test mode on get test builds.
   const channel = kawma?.tester && kawma.testMode ? "Test builds" : "Stable";
 
@@ -39,11 +41,16 @@ function UpdatesSection() {
   const install = async () => {
     try {
       await installUpdate();
-      showToast("Downloading update — the installer will open, then Kawma restarts…");
+      showToast("Updating Kawma Launcher. It reopens by itself.");
     } catch {
       /* shown inline */
     }
   };
+  const setAutomatic = (on: boolean) => {
+    persistSettings({ autoUpdate: on });
+    if (on && info && !ready) downloadUpdate().catch(() => {});
+  };
+  const pct = progress == null ? null : Math.round(progress * 100);
 
   return (
     <div className="sect">
@@ -65,20 +72,52 @@ function UpdatesSection() {
           {checking ? "Checking…" : "Check for updates"}
         </button>
       </div>
+      <div className="divide" />
+      <Toggle
+        title="Automatic updates"
+        note={
+          automatic
+            ? "Check on launch and every four hours. Download verified updates in the background and install after Kawma Launcher has been in the background for a minute. Games you launched from here, hosted servers and downloads always pause installation."
+            : "Off: Kawma Launcher still checks when it starts and shows an update button under your profile. Updates install only when you choose."
+        }
+        value={automatic}
+        onChange={setAutomatic}
+      />
       {error ? (
         <div className="upd-status err" role="alert">
           {error}
+        </div>
+      ) : info && downloading ? (
+        <div className="upd-status avail" role="status" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <span style={{ fontWeight: 600 }}>
+              Downloading version {info.version}
+              {info.channel === "test" ? " (test build)" : ""}…
+            </span>
+            {pct != null && <span className="muted">{pct}%</span>}
+          </div>
+          <Progress value={progress ?? 0} />
         </div>
       ) : info ? (
         <div className="upd-status avail">
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 600 }}>
-              Version {info.version} is available{info.channel === "test" ? " (test build)" : ""}
+              {ready ? `Ready to install: version ${info.version}` : `Version ${info.version} is available`}
+              {info.channel === "test" ? " (test build)" : ""}
             </div>
-            <div className="muted">You're on v{info.current}</div>
+            <div className="muted">
+              You're on v{info.current}.{" "}
+              {installing
+                ? "Restarting to update…"
+                : ready && automatic
+                  ? waitingFor
+                    ? `Installs once Kawma is in the background. Waiting: ${waitingFor.charAt(0).toLowerCase()}${waitingFor.slice(1)}.`
+                    : "Installs once Kawma Launcher is in the background, or restart now."
+                  : "Kawma Launcher closes, updates and reopens by itself."}
+            </div>
           </div>
           <button className="btn-play" disabled={installing} onClick={install}>
-            <Icon.upgrade size={16} /> {installing ? "Installing…" : "Install"}
+            <Icon.upgrade size={16} /> {installing ? "Restarting…" : ready ? "Restart to update" : "Update now"}
           </button>
         </div>
       ) : lastChecked && !checking ? (
@@ -87,7 +126,7 @@ function UpdatesSection() {
         </div>
       ) : null}
       <div className="muted" style={{ fontSize: 12 }}>
-        Every download is verified before installation.
+        Updates come from kawma.app, and every download is verified before it installs.
       </div>
     </div>
   );
