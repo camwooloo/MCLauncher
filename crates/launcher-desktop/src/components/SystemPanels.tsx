@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
 import { Field, Pill, Icon, Select, Switch, Avatar, Markdown } from "./ui";
+import { KawmaAvatar, KawmaSignIn, isLinked, kawmaLinks } from "./KawmaAccount";
 
-/** "What's new" — recent releases + their patch notes, from GitHub. */
+/** "What's new" — released builds + their patch notes, from kawma.app. */
 function WhatsNew() {
   const [data, setData] = useState<api.ReleasesResult | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -61,6 +62,7 @@ function WhatsNew() {
   );
 }
 
+/** The Kawma account and the Minecraft accounts linked to it. */
 export function AccountsPanel() {
   const {
     store,
@@ -72,18 +74,40 @@ export function AccountsPanel() {
     loginPrompt,
     loginError,
     busy,
+    kawma,
   } = useLauncher();
   const [name, setName] = useState("");
 
   return (
+    <div>
     <div className="sect">
       <div className="sect-head">
-        <div className="sect-title">Sign in</div>
+        <div className="sect-title">Kawma account</div>
+        {kawma && <Pill tone="ok">Signed in</Pill>}
+      </div>
+      <div className="lrow">
+        <KawmaAvatar profile={kawma} size={42} />
+        <div className="grow">
+          <div className="name">{kawma ? kawma.displayName : "Not signed in"}</div>
+          <div className="sub">
+            {kawma
+              ? kawmaLinks(kawma) || "Kawma account"
+              : "Optional. Sign in with Twitch or Discord to link your Minecraft accounts to Kawma. Everything here works without it."}
+          </div>
+        </div>
+      </div>
+      {!kawma && <KawmaSignIn />}
+    </div>
+
+    <div className="sect">
+      <div className="sect-head">
+        <div className="sect-title">Link a Minecraft account</div>
         <button className="btn-play" style={{ padding: "11px 22px", fontSize: 14 }} disabled={busy} onClick={microsoftLogin}>
           <Icon.user size={17} /> Sign in with Microsoft
         </button>
       </div>
       <p className="muted" style={{ marginTop: -4 }}>
+        {kawma ? "Microsoft accounts you add are linked to your Kawma account. " : ""}
         Opens your browser — just sign in and approve, no code to copy.{" "}
         <button className="linklike" disabled={busy} onClick={microsoftLoginCode}>
           Use a sign-in code instead
@@ -134,10 +158,10 @@ export function AccountsPanel() {
       )}
 
       <div className="sect-head" style={{ marginTop: 18 }}>
-        <div className="sect-title">Your accounts</div>
+        <div className="sect-title">{kawma ? "Linked Minecraft accounts" : "Minecraft accounts"}</div>
       </div>
       <div className="col" style={{ gap: 2 }}>
-        {store.accounts.length === 0 && <p className="muted">No accounts yet.</p>}
+        {store.accounts.length === 0 && <p className="muted">No Minecraft accounts yet.</p>}
         {store.accounts.map((a) => {
           const active = a.uuid === store.active_uuid;
           return (
@@ -147,7 +171,13 @@ export function AccountsPanel() {
                 <div className="name">
                   {a.username} {active && <Pill tone="ok">active</Pill>}
                 </div>
-                <div className="sub">{a.user_type === "msa" ? "Microsoft account" : "Offline account"}</div>
+                <div className="sub">
+                  {a.user_type === "msa"
+                    ? isLinked(kawma, a)
+                      ? "Microsoft account · linked to Kawma"
+                      : "Microsoft account"
+                    : "Offline account · stays on this PC"}
+                </div>
               </div>
               {!active && (
                 <button className="btn ghost" onClick={() => setActive(a.uuid)}>
@@ -162,6 +192,7 @@ export function AccountsPanel() {
         })}
       </div>
     </div>
+    </div>
   );
 }
 
@@ -171,25 +202,42 @@ function Toggle({
   note,
   value,
   onChange,
+  disabled,
+  hint,
 }: {
   title: string;
   note: string;
   value: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
+  /** Why the switch is unavailable. */
+  hint?: string | null;
 }) {
   return (
     <div className="row" style={{ justifyContent: "space-between" }}>
       <div>
         <div style={{ fontWeight: 600 }}>{title}</div>
         <div className="muted">{note}</div>
+        {hint && <div className="muted" style={{ fontSize: 12, marginTop: 2, color: "var(--accent)" }}>{hint}</div>}
       </div>
-      <Switch value={value} onChange={onChange} label={title} />
+      <div style={disabled ? { opacity: 0.45, pointerEvents: "none" } : undefined} aria-disabled={disabled}>
+        <Switch value={value && !disabled} onChange={onChange} label={title} />
+      </div>
     </div>
   );
 }
 
+/** Why a Kawma feature switch can't be used yet, or null when it can. */
+function kawmaGate(signedIn: boolean, released: boolean) {
+  if (!signedIn) return "Sign in to Kawma (top of the right rail) to turn this on.";
+  if (!released) return "Coming soon for your account.";
+  return null;
+}
+
 export function SettingsPanel() {
-  const { settings, persistSettings, paths, systemRamMb, showToast } = useLauncher();
+  const { settings, persistSettings, paths, systemRamMb, showToast, kawma, kawmaReleased } = useLauncher();
+  const nowPlayingGate = kawmaGate(!!kawma, kawmaReleased("launcher-now-playing"));
+  const communityGate = kawmaGate(!!kawma, kawmaReleased("launcher-community"));
   const ramMax = Math.max(2048, Math.floor(systemRamMb / 512) * 512);
   const mcRam = Math.min(settings.maxMemoryMb || 4096, ramMax);
   const [netBusy, setNetBusy] = useState(false);
@@ -368,6 +416,31 @@ export function SettingsPanel() {
             label="Discord Rich Presence"
           />
         </div>
+      </div>
+
+      {/* Kawma — optional, off by default, needs the Kawma sign-in */}
+      <div className="sect">
+        <div className="sect-head">
+          <div className="sect-title">Kawma</div>
+          {!kawma && <Pill>Signed out</Pill>}
+        </div>
+        <Toggle
+          title="Now Playing: share what you're playing with Kawma"
+          note="When you launch a game here, Kawma shows it on your stream and in Kawma Studio. Cleared when you stop playing. Needs your Kawma sign-in."
+          value={settings.nowPlaying === true}
+          onChange={(v) => persistSettings({ nowPlaying: v })}
+          disabled={!!nowPlayingGate}
+          hint={nowPlayingGate}
+        />
+        <div className="divide" />
+        <Toggle
+          title="Play with your community"
+          note="When you share a Minecraft server to the internet, post it to your Kawma community on Twitch and Discord. With the whitelist on, viewers ask with !server (Twitch) or /server (Discord) and Kawma whitelists them for you. You can still choose per share. Needs your Kawma sign-in."
+          value={settings.community === true}
+          onChange={(v) => persistSettings({ community: v })}
+          disabled={!!communityGate}
+          hint={communityGate}
+        />
       </div>
 
       {/* Network — LAN remote control */}

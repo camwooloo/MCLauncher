@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { LauncherProvider, useLauncher } from "./store";
 import { windowAction, checkAppUpdate, applyAppUpdate, playStats, gameIcons, type UpdateInfo, type PlayRecord } from "./lib/api";
 import type { GameKey } from "./lib/types";
-import { Icon, KawmaMark, Markdown, Avatar } from "./components/ui";
+import { Icon, KawmaMark, Markdown } from "./components/ui";
 import { AccountMenu } from "./components/AccountMenu";
+import { KawmaAccountButton, KawmaStudioTile } from "./components/KawmaAccount";
 import { ServerDashboard } from "./components/ServerConsole";
 import { InstancesPanel, MinecraftServers, UpgradeModal } from "./components/MinecraftPanels";
 import { SkinsPanel, ContentOverlay } from "./components/ContentPanel";
@@ -71,10 +72,10 @@ const GAME_FUNCS: Record<GameKey, { tab: string; icon: IconFn }[]> = {
   ],
 };
 
-const SECTION_TITLE: Record<string, string> = { home: "Kawma", accounts: "Accounts", settings: "Settings", network: "Kawma Net" };
+const SECTION_TITLE: Record<string, string> = { home: "Kawma", accounts: "Minecraft accounts", settings: "Settings", network: "Kawma Net" };
 const SECTION_KICKER: Record<string, string> = {
   home: "Welcome back",
-  accounts: "Minecraft accounts",
+  accounts: "Linked to your Kawma account",
   settings: "Launcher",
   network: "Play together, no port forwarding",
 };
@@ -204,7 +205,7 @@ function UpdatePill() {
   const update = async () => {
     setBusy(true);
     try {
-      await applyAppUpdate(info.downloadUrl);
+      await applyAppUpdate();
       showToast("Downloading update — the installer will open, then Kawma restarts…");
     } catch (e) {
       showToast(`${e}`);
@@ -222,7 +223,7 @@ function UpdatePill() {
           <div className="update-modal surface" onClick={(e) => e.stopPropagation()}>
             <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <div className="eyebrow">Update available</div>
+                <div className="eyebrow">{info.channel === "test" ? "Test build available" : "Update available"}</div>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 22 }}>
                   Kawma Launcher v{info.version}
                 </div>
@@ -269,7 +270,7 @@ function useHero(section: Section, lastInstanceId: string | null, onContinue: (r
           { icon: Icon.clock, label: "Selected instance", value: inst ? (inst.name.includes(inst.version) ? inst.name : `${inst.name} · ${inst.version}`) : "None yet" },
           { icon: Icon.mods, label: "Instances", value: `${instances.length} installed` },
           { icon: Icon.server, label: "Servers", value: `${running} of ${servers.length} running` },
-          { icon: Icon.user, label: "Account", value: acct ? acct.username : "Signed out" },
+          { icon: Icon.user, label: "Minecraft account", value: acct ? acct.username : "None linked" },
         ],
       };
     }
@@ -332,7 +333,7 @@ function useHero(section: Section, lastInstanceId: string | null, onContinue: (r
 }
 
 function Shell() {
-  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, configTarget, closeConfigEditor, playInstance, settings, settingsLoaded, connecting, remoteTarget, disconnectRemote, activeAccount, busy } =
+  const { toast, consoleServerId, closeConsole, contentTarget, closeContent, inventoryTarget, closeInventory, configTarget, closeConfigEditor, playInstance, settings, settingsLoaded, connecting, remoteTarget, disconnectRemote, busy } =
     useLauncher();
   const [activeGame, setActiveGame] = useState<GameKey>("minecraft");
   const [section, setSection] = useState<Section>("home");
@@ -430,7 +431,6 @@ function Shell() {
   // Accounts are Minecraft/Microsoft — only surface the chip there.
   const showAccount = section === "minecraft" || section === "accounts";
   const hero = useHero(section, lastInstanceId, continuePlay, recents[0] ?? null, choice);
-  const acct = activeAccount();
   const funcs = GAME_FUNCS[activeGame];
   const [primary, ...rest] = funcs;
   const fnActive = (t: string) => section === activeGame && currentTab === t;
@@ -538,16 +538,10 @@ function Shell() {
           </div>
         </main>
 
-        {/* Right: your games, plus launcher-wide places (account, network, settings). */}
+        {/* Right: your Kawma account, your games, plus launcher-wide places
+            (Kawma Studio, network, settings). */}
         <aside className="game-rail" aria-label="Games">
-          <button
-            className={`game-me ${section === "accounts" ? "active" : ""}`}
-            onClick={() => setSection("accounts")}
-            title={acct ? acct.username : "Sign in"}
-          >
-            {acct ? <Avatar account={acct} size={40} /> : <Icon.user size={22} />}
-            <span className={`game-me-dot ${acct ? "on" : ""}`} />
-          </button>
+          <KawmaAccountButton active={section === "accounts"} onManage={() => setSection("accounts")} />
           <div className="fn-spacer" />
           <div className="game-group">
             {GAMES.map((g) => (
@@ -558,6 +552,7 @@ function Shell() {
           </div>
           <div className="fn-spacer" />
           <div className="fn-group">
+            <KawmaStudioTile />
             <FnBtn label="Kawma Net" active={section === "network"} onClick={() => setSection("network")}>
               <Icon.globe size={18} />
             </FnBtn>

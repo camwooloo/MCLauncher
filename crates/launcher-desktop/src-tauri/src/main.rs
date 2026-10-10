@@ -6,12 +6,14 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod activity;
 mod commands;
 mod content;
 mod discord;
 mod firewall;
 mod instances;
 mod inventory;
+mod kawma;
 mod netshare;
 mod nexus;
 mod progress;
@@ -200,6 +202,13 @@ fn main() {
             instances::import_mrpack,
             instances::analyze_crash,
             instances::disable_mod,
+            kawma::kawma_sign_in_start,
+            kawma::kawma_sign_in_poll,
+            kawma::kawma_sign_in_cancel,
+            kawma::kawma_profile,
+            kawma::kawma_sign_out,
+            kawma::kawma_studio_status,
+            kawma::open_kawma_studio,
             commands::check_app_update,
             commands::apply_app_update,
             commands::list_releases,
@@ -228,6 +237,7 @@ fn main() {
             // Never leave hosted servers running after the launcher closes.
             if let tauri::RunEvent::ExitRequested { .. } = event {
                 commands::kill_all_servers(app);
+                activity::shutdown();
             }
         });
 }

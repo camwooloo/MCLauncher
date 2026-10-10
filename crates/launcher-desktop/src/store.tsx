@@ -15,6 +15,7 @@ import type {
   ContentTarget,
   GamesStatus,
   InstanceConfig,
+  KawmaProfile,
   LoginPrompt,
   PathsInfo,
   ProgressSnapshot,
@@ -101,6 +102,18 @@ interface Launcher {
   setActive: (uuid: string) => Promise<void>;
   removeAccount: (uuid: string) => Promise<void>;
 
+  /** The Kawma account (optional; everything Minecraft works signed out). */
+  kawma: KawmaProfile | null;
+  kawmaLoaded: boolean;
+  /** A browser sign-in in progress. */
+  kawmaLogin: (api.KawmaLogin & { provider: api.KawmaProvider }) | null;
+  kawmaError: string | null;
+  kawmaSignIn: (provider: api.KawmaProvider) => Promise<void>;
+  kawmaCancel: () => void;
+  kawmaSignOut: () => Promise<void>;
+  /** Whether kawma.app has switched a launcher update on for this account. */
+  kawmaReleased: (id: string) => boolean;
+
   launchSkyrim: (mode: string) => Promise<void>;
   launchEldenRing: (mode: string) => Promise<void>;
   launchCyberpunk: (mode: string) => Promise<void>;
@@ -144,6 +157,11 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
   const [remoteTarget, setRemoteTarget] = useState<api.NetPeer | null>(null);
   const [connecting, setConnecting] = useState<api.NetPeer | null>(null);
   const [paths, setPaths] = useState<PathsInfo | null>(null);
+  const [kawma, setKawma] = useState<KawmaProfile | null>(null);
+  const [kawmaLoaded, setKawmaLoaded] = useState(false);
+  const [kawmaLogin, setKawmaLogin] = useState<Launcher["kawmaLogin"]>(null);
+  const [kawmaError, setKawmaError] = useState<string | null>(null);
+  const kawmaAttempt = useRef(0);
 
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<ProgressSnapshot | null>(null);
@@ -207,6 +225,31 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       api.listen<api.NetPeer[]>("net-peers", setPeers),
     ];
     api.netPeers().then(setPeers).catch(() => {});
+
+    // Kawma account: refresh the profile at startup (a 401 signs out in Rust).
+    api
+      .kawmaProfile()
+      .then(setKawma)
+      .catch(() => {})
+      .finally(() => setKawmaLoaded(true));
+    unlisteners.push(
+      // Rust re-links Minecraft accounts after they change and sends the new profile.
+      api.listen<KawmaProfile | null>("kawma-profile", setKawma),
+      api.listen<{ ok: boolean; name: string; discord?: boolean; twitch?: boolean; error?: string }>(
+        "kawma-community",
+        (p) => {
+          if (!p.ok) {
+            showToast(p.error ?? "Couldn't post to your Kawma community");
+            return;
+          }
+          const where = [p.discord && "Discord", p.twitch && "Twitch"].filter(Boolean).join(" and ");
+          showToast(where ? `Posted “${p.name}” to your community on ${where}` : `Posted “${p.name}” to your Kawma community`);
+        }
+      ),
+      api.listen<{ name: string; user: string; ok: boolean; error?: string | null }>("kawma-community-request", (p) =>
+        showToast(p.ok ? `Whitelisted ${p.name}${p.user ? ` for ${p.user}` : ""}` : `Couldn't whitelist ${p.name}: ${p.error ?? "unknown error"}`)
+      )
+    );
     return () => {
       unlisteners.forEach((u) => u.then((fn) => fn()).catch(() => {}));
     };
@@ -534,6 +577,67 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     [refreshAccounts]
   );
 
+  // While a Kawma sign-in is open in the browser, poll until it's approved
+  // (the server allows one poll every 1.5 s).
+  useEffect(() => {
+    if (!kawmaLogin) return;
+    let stopped = false;
+    let timer: number;
+    const poll = async () => {
+      try {
+        const profile = await api.kawmaSignInPoll();
+        if (stopped) return;
+        if (profile) {
+          setKawma(profile);
+          setKawmaLogin(null);
+          setKawmaError(null);
+          showToast(`Signed in to Kawma as ${profile.displayName}`);
+          return;
+        }
+      } catch (e) {
+        if (!stopped) {
+          setKawmaError(String(e));
+          setKawmaLogin(null);
+        }
+        return;
+      }
+      if (!stopped) timer = window.setTimeout(poll, 2000);
+    };
+    timer = window.setTimeout(poll, 2000);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    };
+  }, [kawmaLogin, showToast]);
+
+  const kawmaSignIn = useCallback(async (provider: api.KawmaProvider) => {
+    const attempt = ++kawmaAttempt.current;
+    setKawmaError(null);
+    try {
+      const login = await api.kawmaSignInStart(provider);
+      if (attempt === kawmaAttempt.current) setKawmaLogin({ ...login, provider });
+    } catch (e) {
+      if (attempt === kawmaAttempt.current) setKawmaError(String(e));
+    }
+  }, []);
+  const kawmaCancel = useCallback(() => {
+    kawmaAttempt.current++;
+    setKawmaLogin(null);
+    api.kawmaSignInCancel().catch(() => {});
+  }, []);
+  const kawmaSignOut = useCallback(async () => {
+    kawmaAttempt.current++;
+    setKawmaLogin(null);
+    try {
+      await api.kawmaSignOut();
+    } catch (e) {
+      showToast(`${e}`);
+    }
+    setKawma(null);
+    showToast("Signed out of Kawma");
+  }, [showToast]);
+  const kawmaReleased = useCallback((id: string) => kawma?.releases?.[id] === true, [kawma]);
+
   const launchSkyrim = useCallback(
     async (mode: string) => {
       try {
@@ -713,6 +817,14 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       microsoftLoginCode,
       setActive,
       removeAccount,
+      kawma,
+      kawmaLoaded,
+      kawmaLogin,
+      kawmaError,
+      kawmaSignIn,
+      kawmaCancel,
+      kawmaSignOut,
+      kawmaReleased,
       launchSkyrim,
       launchEldenRing,
       launchCyberpunk,
@@ -789,6 +901,14 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       microsoftLoginCode,
       setActive,
       removeAccount,
+      kawma,
+      kawmaLoaded,
+      kawmaLogin,
+      kawmaError,
+      kawmaSignIn,
+      kawmaCancel,
+      kawmaSignOut,
+      kawmaReleased,
       launchSkyrim,
       launchEldenRing,
       launchCyberpunk,

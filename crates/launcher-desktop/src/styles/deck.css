@@ -1330,3 +1330,92 @@
   position: relative;
   z-index: 40;
 }
+
+/* ---- Kawma account (top of the right rail) --------------------------------- */
+.kawma-av {
+  border-radius: 50% !important;
+  overflow: hidden;
+  background: linear-gradient(135deg, #8b3dff, #ff7a45 55%, #ffb36b);
+  color: #0b0710;
+}
+.kawma-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Signed out: a neutral face, not the brand gradient. */
+.kawma-av.out {
+  background: var(--card-2);
+  color: var(--text-dim);
+}
+.game-me .kawma-av {
+  width: 100% !important;
+  height: 100% !important;
+}
+/* The menu opens to the left of the rail, level with the avatar. */
+.acct-menu.kawma-menu {
+  top: 0;
+  right: calc(100% + 18px);
+  width: 310px;
+}
+.kawma-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px 10px;
+}
+.menu-label {
+  padding: 8px 12px 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+.kawma-pending {
+  display: grid;
+  gap: 6px;
+  padding: 8px 12px 10px;
+}
+.kawma-code {
+  font-family: var(--font-display);
+  letter-spacing: 2px;
+  color: #ffb36b;
+}
+.kawma-provider {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  display: inline-block;
+}
+.kawma-provider.twitch {
+  background: #9146ff;
+}
+.kawma-provider.discord {
+  background: #5865f2;
+}
+
+/* ---- Kawma Studio tile (bottom of the right rail) ------------------------- */
+.studio-btn img {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.studio-plus {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  color: #0b0710;
+  background: linear-gradient(135deg, #ffb36b, #ff7a45);
+  border: 2px solid #000;
+}
