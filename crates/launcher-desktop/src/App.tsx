@@ -436,15 +436,15 @@ function Shell() {
         <UpdatePill />
         <ServerPill />
         <RemotePill />
-        <button className="win-btn" onClick={() => windowAction("minimize")}>
-          <Icon.min size={16} />
-        </button>
-        <button className="win-btn" onClick={() => windowAction("toggleMaximize")}>
-          <Icon.max size={13} />
-        </button>
-        <button className="win-btn close" onClick={() => windowAction("close")}>
-          <Icon.close size={15} />
-        </button>
+        {/* Just minimise and close: they sit together over the right rail. */}
+        <div className="win-ctrls">
+          <button className="win-btn" onClick={() => windowAction("minimize")} title="Minimise">
+            <Icon.min size={15} />
+          </button>
+          <button className="win-btn close" onClick={() => windowAction("close")} title="Close">
+            <Icon.close size={14} />
+          </button>
+        </div>
       </div>
 
       <div className="deck">
@@ -452,18 +452,18 @@ function Shell() {
         {/* Left: what you can do with the selected game. */}
         <nav className="fn-rail" aria-label={`${GAME_META[activeGame].name} functions`}>
           <button className={`fn-mark ${section === "home" ? "active" : ""}`} onClick={() => setSection("home")} title="Home">
-            <KawmaMark size={46} />
+            <KawmaMark size={38} />
           </button>
           <div className="fn-spacer" />
           <div className="fn-solo">
             <FnBtn label={primary.tab} active={fnActive(primary.tab)} onClick={() => openFunc(primary.tab)}>
-              <primary.icon size={22} />
+              <primary.icon size={19} />
             </FnBtn>
           </div>
           <div className="fn-group">
             {rest.map((f) => (
               <FnBtn key={f.tab} label={f.tab} active={fnActive(f.tab)} onClick={() => openFunc(f.tab)}>
-                <f.icon size={21} />
+                <f.icon size={18} />
               </FnBtn>
             ))}
           </div>
@@ -526,24 +526,24 @@ function Shell() {
             onClick={() => setSection("accounts")}
             title={acct ? acct.username : "Sign in"}
           >
-            {acct ? <Avatar account={acct} size={44} /> : <Icon.user size={22} />}
+            {acct ? <Avatar account={acct} size={40} /> : <Icon.user size={22} />}
             <span className={`game-me-dot ${acct ? "on" : ""}`} />
           </button>
           <div className="fn-spacer" />
           <div className="game-group">
             {GAMES.map((g) => (
               <GameDot key={g} game={g} label={GAME_META[g].name} active={section === g} onClick={() => selectGame(g)}>
-                <GameArt game={g} icons={gameArt} size={48} />
+                <GameArt game={g} icons={gameArt} size={40} />
               </GameDot>
             ))}
           </div>
           <div className="fn-spacer" />
           <div className="fn-group">
             <FnBtn label="Kawma Net" active={section === "network"} onClick={() => setSection("network")}>
-              <Icon.globe size={21} />
+              <Icon.globe size={18} />
             </FnBtn>
             <FnBtn label="Settings" active={section === "settings"} onClick={() => setSection("settings")}>
-              <Icon.gear size={21} />
+              <Icon.gear size={18} />
             </FnBtn>
           </div>
           <div className="rail-foot">Kawma</div>

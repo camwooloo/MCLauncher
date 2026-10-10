@@ -93,6 +93,32 @@
   padding-top: 52px;
 }
 
+/* Minimise + close share one small pill. In the flush frame it is centred
+   over the right rail (same width), so the controls belong to that rail. */
+.win-ctrls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.win-ctrls .win-btn {
+  width: 32px;
+  height: 28px;
+  border-radius: 9px;
+}
+:root:not([data-frame="floating"]) .titlebar {
+  height: 46px;
+  padding-right: 0;
+}
+:root:not([data-frame="floating"]) .win-ctrls {
+  width: 96px;
+}
+@media (max-width: 900px) {
+  :root:not([data-frame="floating"]) .win-ctrls {
+    width: 76px;
+  }
+}
+
 /* ---- Rails (shared) ---------------------------------------------------- */
 .fn-rail,
 .game-rail {
@@ -126,11 +152,11 @@
 
 /* The Aurora logo heads the function rail and doubles as the Home button. */
 .fn-mark {
-  width: 50px;
-  height: 50px;
+  width: 42px;
+  height: 42px;
   padding: 0;
   border: none;
-  border-radius: 15px;
+  border-radius: 13px;
   background: none;
   display: grid;
   place-items: center;
@@ -147,8 +173,8 @@
 /* Function buttons: round, quiet until hovered; the selected one fills. */
 .fn-btn {
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   display: grid;
@@ -176,8 +202,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 9px;
+  gap: 6px;
+  padding: 7px;
   border-radius: 99px;
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid var(--card-edge);
@@ -199,8 +225,8 @@
 /* ---- Game rail -------------------------------------------------------- */
 .game-me {
   position: relative;
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   border: 3px solid rgba(0, 0, 0, 0.75);
   display: grid;
@@ -224,10 +250,10 @@
 }
 .game-me-dot {
   position: absolute;
-  right: 5px;
-  bottom: 5px;
-  width: 10px;
-  height: 10px;
+  right: 3px;
+  bottom: 3px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: var(--text-mute);
   border: 2px solid #000;
@@ -238,8 +264,8 @@
 .game-dot {
   --g: var(--accent-rgb);
   position: relative;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   display: grid;
@@ -286,10 +312,10 @@
 .game-dot.active::before {
   content: "";
   position: absolute;
-  right: -19px;
+  right: -23px;
   top: 50%;
   width: 4px;
-  height: 22px;
+  height: 18px;
   transform: translateY(-50%);
   border-radius: 4px;
   background: rgb(var(--g));
@@ -657,6 +683,6 @@
     padding: 22px 24px 36px;
   }
   .game-dot.active::before {
-    right: -13px;
+    right: -17px;
   }
 }
