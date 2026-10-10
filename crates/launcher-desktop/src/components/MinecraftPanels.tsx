@@ -1,11 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
 import type { InstanceConfig, PackHit, PackVersion, ServerConfig } from "../lib/types";
 import { Field, Progress, Pill, Icon, Select, HostAddress } from "./ui";
 import { MotdEditor } from "./MotdEditor";
+import { Popover } from "./Popover";
 import { AccessModal } from "./AccessModal";
 
 function fmtDl(n: number) {
@@ -108,63 +108,41 @@ function PackAvatar({ icon }: { icon?: string | null }) {
 
 type MenuItem = { label: string; icon?: ReactNode; onClick: () => void; danger?: boolean };
 
-/** A ⋯ overflow menu for secondary row actions.
- *
- *  The menu is rendered in a body portal at fixed coordinates anchored to the
- *  button. Doing it inline broke when the row had a `:hover` transform (which
- *  creates a stacking context) — the menu got trapped behind later siblings
- *  like the host-address panel, so clicks landed on the wrong element. */
+/** A ⋯ overflow menu for secondary row actions. Rendered through <Popover>
+ *  (a body-level portal) so a row's `:hover` transform can't trap it behind
+ *  later siblings, and so it flips up / scrolls instead of running off the
+ *  bottom of the window. */
 function RowMenu({ items }: { items: MenuItem[] }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    const place = () => {
-      const r = btnRef.current?.getBoundingClientRect();
-      if (r) setPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
-    };
-    place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [open]);
 
   return (
     <>
       <button ref={btnRef} className="btn ghost" title="More" onClick={() => setOpen((o) => !o)}>
         <Icon.dots size={18} />
       </button>
-      {open &&
-        pos &&
-        createPortal(
-          <>
-            <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 2000 }} />
-            <div
-              className="row-menu surface"
-              style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 2001, minWidth: 190, padding: 6 }}
-            >
-              {items.map((it, i) => (
-                <button
-                  key={i}
-                  className={`row-menu-item ${it.danger ? "danger" : ""}`}
-                  onClick={() => {
-                    setOpen(false);
-                    it.onClick();
-                  }}
-                >
-                  {it.icon}
-                  {it.label}
-                </button>
-              ))}
-            </div>
-          </>,
-          document.body
-        )}
+      <Popover
+        anchor={btnRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        placement="bottom-end"
+        className="row-menu surface"
+        style={{ minWidth: 190, padding: 6 }}
+      >
+        {items.map((it, i) => (
+          <button
+            key={i}
+            className={`row-menu-item ${it.danger ? "danger" : ""}`}
+            onClick={() => {
+              setOpen(false);
+              it.onClick();
+            }}
+          >
+            {it.icon}
+            {it.label}
+          </button>
+        ))}
+      </Popover>
     </>
   );
 }

@@ -1,7 +1,9 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import * as api from "../lib/api";
 import { useLauncher } from "../store";
+import launcherIcon from "../assets/kawma/launcher.png";
+import { Popover } from "./Popover";
 
 const TEX_BASE =
   "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21.1/assets/minecraft/textures";
@@ -344,40 +346,10 @@ export function Avatar({
   );
 }
 
-/** The Kawma Launcher mark: Kawma's ringed planet, with a play glyph
- *  glowing on its face in place of Kawma's eyes. */
+/** The Kawma Launcher mark (static): the purple Kawma planet on a
+ *  transparent background. The rail's animated version is KawmaLogo. */
 export function KawmaMark({ size = 24 }: { size?: number }) {
-  const id = useId().replace(/:/g, "");
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-label="Kawma Launcher" role="img">
-      <defs>
-        <linearGradient id={`${id}-ring`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#8b3dff" />
-          <stop offset="0.42" stopColor="#ff7a45" />
-          <stop offset="1" stopColor="#ffb36b" />
-        </linearGradient>
-        <linearGradient id={`${id}-arc`} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#8b3dff" stopOpacity="0" />
-          <stop offset="0.3" stopColor="#ff7a45" />
-          <stop offset="1" stopColor="#fff0d8" stopOpacity="0" />
-        </linearGradient>
-        <filter id={`${id}-glow`} x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="1.4" result="b" />
-          <feMerge>
-            <feMergeNode in="b" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
-      <rect width="64" height="64" rx="14" fill="#07070a" />
-      <ellipse cx="32" cy="32" rx="25.5" ry="9.2" transform="rotate(-11 32 32)" fill="none" stroke={`url(#${id}-ring)`} strokeWidth="6.5" />
-      <circle cx="32" cy="32" r="14.5" fill="#040406" />
-      <path d="M 14.6 30.4 A 17.4 17 0 0 1 49.4 30.4" fill="none" stroke={`url(#${id}-arc)`} strokeWidth="3.6" strokeLinecap="round" />
-      <circle cx="32" cy="32" r="14.5" fill="#040406" />
-      <circle cx="32" cy="32" r="15.1" fill="none" stroke="rgba(255,240,216,0.8)" strokeWidth="0.85" />
-      <path d="M28.6 25.6 Q28.6 24.2 29.9 24.9 L38.6 30.6 Q39.8 31.4 38.6 32.2 L29.9 37.9 Q28.6 38.6 28.6 37.2 Z" fill="#ffe9c9" filter={`url(#${id}-glow)`} />
-    </svg>
-  );
+  return <img className="kawma-mark" src={launcherIcon} width={size} height={size} alt="Kawma Launcher" draggable={false} />;
 }
 
 /** Inline markdown: **bold**, `code`, [text](url). */
@@ -639,10 +611,12 @@ export function Select({
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const current = options.find((o) => o.value === value);
   return (
     <div className="select-wrap" style={{ position: "relative", minWidth }}>
       <button
+        ref={btnRef}
         type="button"
         className="select-btn"
         disabled={disabled}
@@ -654,30 +628,30 @@ export function Select({
           <Icon.chevron size={14} />
         </span>
       </button>
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 60 }} />
-          <div
-            className="row-menu surface select-menu"
-            style={{ position: "absolute", left: 0, minWidth: "100%", top: "calc(100% + 6px)", zIndex: 61, maxHeight: 300, overflowY: "auto" }}
+      <Popover
+        anchor={btnRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        placement="bottom-start"
+        offset={8}
+        matchWidth
+        className="row-menu surface select-menu"
+      >
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            className={`row-menu-item ${o.value === value ? "sel" : ""}`}
+            onClick={() => {
+              onChange(o.value);
+              setOpen(false);
+            }}
           >
-            {options.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                className={`row-menu-item ${o.value === value ? "sel" : ""}`}
-                onClick={() => {
-                  onChange(o.value);
-                  setOpen(false);
-                }}
-              >
-                <span className="select-opt">{o.label}</span>
-                {o.value === value && <Icon.check size={14} />}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+            <span className="select-opt">{o.label}</span>
+            {o.value === value && <Icon.check size={14} />}
+          </button>
+        ))}
+      </Popover>
     </div>
   );
 }

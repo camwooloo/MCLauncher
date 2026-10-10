@@ -153,23 +153,148 @@
 }
 
 /* The Aurora logo heads the function rail and doubles as the Home button. */
+/* The Kawma logo: transparent, no tile behind it, so only a soft shadow
+   that follows the planet's shape. */
 .fn-mark {
-  width: 42px;
-  height: 42px;
+  width: 46px;
+  height: 46px;
   padding: 0;
   border: none;
-  border-radius: 13px;
+  border-radius: 50%;
   background: none;
   display: grid;
   place-items: center;
-  box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.9);
   transition: transform 0.2s var(--spring), box-shadow 0.2s;
 }
 .fn-mark:hover {
   transform: scale(1.06);
 }
 .fn-mark.active {
-  box-shadow: 0 0 0 2px var(--pill), 0 12px 28px -14px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 0 0 2px var(--pill);
+}
+.kawma-mark {
+  display: block;
+  object-fit: contain;
+  flex: none;
+  user-select: none;
+}
+
+/* Animated rail logo (components/KawmaLogo.tsx). */
+.kawma-logo {
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.35));
+}
+.kawma-logo > svg {
+  display: block;
+  overflow: visible;
+  animation: kl-float 6s ease-in-out infinite;
+}
+.kawma-logo .kl-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: kl-blink 5.8s ease-in-out infinite;
+}
+.kawma-logo .kl-sparkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: kl-twinkle 3.4s ease-in-out infinite;
+}
+.kawma-logo .kl-glint {
+  opacity: 0.85;
+  animation: kl-orbit 5s linear infinite;
+}
+.kawma-logo.boing {
+  animation: kl-boing 0.7s var(--spring);
+}
+.kawma-logo.paused,
+.kawma-logo.paused * {
+  animation-play-state: paused !important;
+}
+@keyframes kl-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.5px);
+  }
+}
+@keyframes kl-blink {
+  0%,
+  44%,
+  50%,
+  91%,
+  100% {
+    transform: scaleY(1);
+  }
+  47% {
+    transform: scaleY(0.12);
+  }
+  /* …then a quick double blink. */
+  93%,
+  97% {
+    transform: scaleY(0.12);
+  }
+  95% {
+    transform: scaleY(1);
+  }
+}
+@keyframes kl-twinkle {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(0.62) rotate(25deg);
+    opacity: 0.6;
+  }
+  60% {
+    transform: scale(1.18) rotate(45deg);
+    opacity: 1;
+  }
+}
+@keyframes kl-orbit {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes kl-boing {
+  0% {
+    transform: scale(1) rotate(0);
+  }
+  30% {
+    transform: scale(0.84, 1.12) translateY(-3px) rotate(-14deg);
+  }
+  60% {
+    transform: scale(1.12, 0.92) rotate(200deg);
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+  }
+}
+/* Static look: hidden glint, no motion, when motion is off. */
+[data-anim="off"] .kawma-logo,
+[data-anim="off"] .kawma-logo *,
+[data-anim="off"] .kawma-logo > svg {
+  animation: none !important;
+}
+[data-anim="off"] .kawma-logo .kl-glint {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kawma-logo,
+  .kawma-logo *,
+  .kawma-logo > svg {
+    animation: none !important;
+  }
+  .kawma-logo .kl-glint {
+    opacity: 0;
+  }
 }
 
 /* Function buttons: round, quiet until hovered; the selected one fills. */
@@ -708,7 +833,6 @@
   background: rgba(15, 20, 40, 0.06);
 }
 .app .select-menu {
-  top: calc(100% + 8px) !important;
   padding: 6px;
   gap: 2px;
   border-radius: 20px;
@@ -1326,9 +1450,26 @@
 
 /* An open dropdown lifts its row above the rows below it (they can form their
    own stacking contexts), so switches don't show through the menu. */
-.app :is(.row, .sect, .field, .surface, .col):has(.select-menu) {
-  position: relative;
-  z-index: 40;
+/* Menus and dropdowns: portalled, fixed and kept inside the window by
+   <Popover> (components/Popover.tsx), above modals and onboarding. */
+.popover-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3499;
+}
+.popover {
+  z-index: 3500 !important;
+  scrollbar-width: thin;
+}
+/* Opened upward (no room below): grow up from the anchor instead of down. */
+.popover[data-side="top"] {
+  animation-name: popover-up !important;
+}
+@keyframes popover-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
 }
 
 /* ---- Kawma account (top of the right rail) --------------------------------- */

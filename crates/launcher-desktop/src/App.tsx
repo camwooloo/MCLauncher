@@ -4,6 +4,8 @@ import { LauncherProvider, useLauncher } from "./store";
 import { windowAction, checkAppUpdate, applyAppUpdate, playStats, gameIcons, type UpdateInfo, type PlayRecord } from "./lib/api";
 import type { GameKey } from "./lib/types";
 import { Icon, KawmaMark, Markdown } from "./components/ui";
+import { KawmaLogo } from "./components/KawmaLogo";
+import { Popover } from "./components/Popover";
 import { AccountMenu } from "./components/AccountMenu";
 import { KawmaAccountButton, KawmaStudioTile } from "./components/KawmaAccount";
 import { ServerDashboard } from "./components/ServerConsole";
@@ -99,6 +101,7 @@ function ServerPill() {
   const { serverStatuses, openConsole } = useLauncher();
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<number | null>(null);
+  const pillRef = useRef<HTMLDivElement>(null);
   const list = Object.values(serverStatuses);
   if (list.length === 0) return null;
   const totalPlayers = list.reduce((a, s) => a + s.players, 0);
@@ -114,28 +117,26 @@ function ServerPill() {
   };
 
   return (
-    <div style={{ position: "relative" }} onMouseEnter={show} onMouseLeave={hide}>
+    <div ref={pillRef} style={{ position: "relative" }} onMouseEnter={show} onMouseLeave={hide}>
       <button className="server-ind" onClick={() => list[0] && openConsole(list[0].id)}>
         <span className="live" /> {totalPlayers} online · {list.length} server{list.length > 1 ? "s" : ""}
       </button>
-      {open && (
-        <div className="acct-menu surface" style={{ width: 290, top: 40 }} onMouseEnter={show} onMouseLeave={hide}>
-          {list.map((s) => (
-            <button key={s.id} className="menu-item" onClick={() => openConsole(s.id)}>
-              <span className="av" style={{ width: 28, height: 28 }}>
-                <Icon.minecraft size={15} />
-              </span>
-              <span style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 13.5 }}>{s.name}</div>
-                <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>
-                  {s.version} · {s.players}/{s.maxPlayers} · :{s.port}
-                </div>
-              </span>
-              <Icon.terminal size={15} />
-            </button>
-          ))}
-        </div>
-      )}
+      <Popover anchor={pillRef} open={open} placement="bottom-end" offset={6} className="acct-menu surface" style={{ width: 290 }} onMouseEnter={show} onMouseLeave={hide}>
+        {list.map((s) => (
+          <button key={s.id} className="menu-item" onClick={() => openConsole(s.id)}>
+            <span className="av" style={{ width: 28, height: 28 }}>
+              <Icon.minecraft size={15} />
+            </span>
+            <span style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 13.5 }}>{s.name}</div>
+              <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>
+                {s.version} · {s.players}/{s.maxPlayers} · :{s.port}
+              </div>
+            </span>
+            <Icon.terminal size={15} />
+          </button>
+        ))}
+      </Popover>
     </div>
   );
 }
@@ -145,6 +146,7 @@ function RemotePill() {
   const { netPeers, remoteTarget, connecting, connectRemote, disconnectRemote } = useLauncher();
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<number | null>(null);
+  const pillRef = useRef<HTMLDivElement>(null);
   if (netPeers.length === 0 && !remoteTarget) return null;
   const show = () => {
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
@@ -155,34 +157,32 @@ function RemotePill() {
   };
   const label = remoteTarget ? `Controlling ${remoteTarget.name}` : `${netPeers.length} PC${netPeers.length > 1 ? "s" : ""}`;
   return (
-    <div style={{ position: "relative" }} onMouseEnter={show} onMouseLeave={hide}>
+    <div ref={pillRef} style={{ position: "relative" }} onMouseEnter={show} onMouseLeave={hide}>
       <button className={`server-ind ${remoteTarget ? "remote-on" : ""}`} onClick={() => setOpen((o) => !o)}>
         <Icon.coop size={14} /> {label}
       </button>
-      {open && (
-        <div className="acct-menu surface" style={{ width: 280, top: 40 }} onMouseEnter={show} onMouseLeave={hide}>
-          <button className={`menu-item ${!remoteTarget ? "on" : ""}`} onClick={() => { void disconnectRemote(); setOpen(false); }}>
-            <span className="av" style={{ width: 28, height: 28 }}><Icon.host size={15} /></span>
+      <Popover anchor={pillRef} open={open} placement="bottom-end" offset={6} className="acct-menu surface" style={{ width: 280 }} onMouseEnter={show} onMouseLeave={hide}>
+        <button className={`menu-item ${!remoteTarget ? "on" : ""}`} onClick={() => { void disconnectRemote(); setOpen(false); }}>
+          <span className="av" style={{ width: 28, height: 28 }}><Icon.host size={15} /></span>
+          <span style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 13.5 }}>This PC</div>
+            <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>{remoteTarget ? "Return here" : "You're here"}</div>
+          </span>
+          {!remoteTarget && <Icon.check size={15} />}
+        </button>
+        {netPeers.map((p) => (
+          <button key={p.id} className={`menu-item ${remoteTarget?.id === p.id ? "on" : ""}`} onClick={() => { void connectRemote(p); setOpen(false); }}>
+            <span className="av" style={{ width: 28, height: 28 }}><Icon.coop size={15} /></span>
             <span style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 13.5 }}>This PC</div>
-              <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>{remoteTarget ? "Return here" : "You're here"}</div>
+              <div style={{ fontWeight: 600, fontSize: 13.5 }}>{p.name}</div>
+              <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>
+                {p.ip}{connecting?.id === p.id ? " · connecting…" : ""}
+              </div>
             </span>
-            {!remoteTarget && <Icon.check size={15} />}
+            {remoteTarget?.id === p.id && <Icon.check size={15} />}
           </button>
-          {netPeers.map((p) => (
-            <button key={p.id} className={`menu-item ${remoteTarget?.id === p.id ? "on" : ""}`} onClick={() => { void connectRemote(p); setOpen(false); }}>
-              <span className="av" style={{ width: 28, height: 28 }}><Icon.coop size={15} /></span>
-              <span style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 13.5 }}>{p.name}</div>
-                <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>
-                  {p.ip}{connecting?.id === p.id ? " · connecting…" : ""}
-                </div>
-              </span>
-              {remoteTarget?.id === p.id && <Icon.check size={15} />}
-            </button>
-          ))}
-        </div>
-      )}
+        ))}
+      </Popover>
     </div>
   );
 }
@@ -435,6 +435,7 @@ function Shell() {
   const [primary, ...rest] = funcs;
   const fnActive = (t: string) => section === activeGame && currentTab === t;
   const SectionIcon = isGame ? GAME_META[section as GameKey].icon : null;
+  const [logoBounce, setLogoBounce] = useState(0);
 
   return (
     <div className="app">
@@ -463,8 +464,15 @@ function Shell() {
         <div className="stage-art" data-art={isGame ? section : "kawma"} aria-hidden />
         {/* Left: what you can do with the selected game. */}
         <nav className="fn-rail" aria-label={`${GAME_META[activeGame].name} functions`}>
-          <button className={`fn-mark ${section === "home" ? "active" : ""}`} onClick={() => setSection("home")} title="Home">
-            <KawmaMark size={38} />
+          <button
+            className={`fn-mark ${section === "home" ? "active" : ""}`}
+            onClick={() => {
+              setSection("home");
+              setLogoBounce((n) => n + 1);
+            }}
+            title="Home"
+          >
+            <KawmaLogo size={40} bounce={logoBounce} />
           </button>
           <div className="fn-spacer" />
           <div className="fn-solo">
