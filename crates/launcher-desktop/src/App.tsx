@@ -13,6 +13,8 @@ import { BackupsModal } from "./components/BackupsModal";
 import { ConfigEditor } from "./components/ConfigEditor";
 import { CrashModal } from "./components/CrashModal";
 import { Onboarding } from "./components/Onboarding";
+import { GameArt } from "./components/GameArt";
+import { GameHome, loadChoice, saveChoice, pickedMode, type Choice } from "./components/GameHome";
 import {
   HomePanel,
   SkyrimPlay,
@@ -45,21 +47,25 @@ const GAME_META: Record<GameKey, { name: string; short: string; maker: string; i
 const GAME_FUNCS: Record<GameKey, { tab: string; icon: IconFn }[]> = {
   minecraft: [
     { tab: "Play", icon: Icon.gamepad },
+    { tab: "Instances", icon: Icon.mods },
     { tab: "Servers", icon: Icon.server },
     { tab: "Skins", icon: Icon.shirt },
   ],
   skyrim: [
     { tab: "Play", icon: Icon.gamepad },
+    { tab: "Setup", icon: Icon.sliders },
     { tab: "Co-op", icon: Icon.coop },
     { tab: "Mods", icon: Icon.mods },
   ],
   eldenring: [
     { tab: "Play", icon: Icon.gamepad },
+    { tab: "Setup", icon: Icon.sliders },
     { tab: "Co-op", icon: Icon.coop },
     { tab: "Cheats", icon: Icon.sparkles },
   ],
   cyberpunk: [
     { tab: "Play", icon: Icon.gamepad },
+    { tab: "Setup", icon: Icon.sliders },
     { tab: "Co-op", icon: Icon.coop },
     { tab: "Mods", icon: Icon.mods },
   ],
@@ -246,14 +252,14 @@ function UpdatePill() {
 
 
 /* What the hero shows for the current section: title, the Play pill and status chips. */
-function useHero(section: Section, lastInstanceId: string | null, onContinue: (r: PlayRecord) => void, recent: PlayRecord | null): HeroInfo {
+function useHero(section: Section, lastInstanceId: string | null, onContinue: (r: PlayRecord) => void, recent: PlayRecord | null, choice: Choice): HeroInfo {
   const { games, instances, servers, serverStatuses, busy, playInstance, launchSkyrim, launchEldenRing, launchCyberpunk, activeAccount, netPeers } =
     useLauncher();
   const running = Object.values(serverStatuses).filter((s) => s.running).length;
 
   switch (section) {
     case "minecraft": {
-      const inst = instances.find((i) => i.id === lastInstanceId) ?? instances[0];
+      const inst = instances.find((i) => i.id === choice.instance) ?? instances.find((i) => i.id === lastInstanceId) ?? instances[0];
       const acct = activeAccount();
       return {
         title: "Minecraft",
@@ -272,7 +278,7 @@ function useHero(section: Section, lastInstanceId: string | null, onContinue: (r
       return {
         title: "Skyrim Special Edition",
         kicker: GAME_META.skyrim.maker,
-        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchSkyrim("vanilla") },
+        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchSkyrim(pickedMode("skyrim", games, choice)) },
         stats: [
           { icon: Icon.folder, label: "Install", value: g?.installed ? (g.source === "epic" ? "Epic Games" : "Steam") : "Not found" },
           { icon: Icon.mods, label: "SKSE", value: ready(g?.has_skse) },
@@ -285,7 +291,7 @@ function useHero(section: Section, lastInstanceId: string | null, onContinue: (r
       return {
         title: "Elden Ring",
         kicker: GAME_META.eldenring.maker,
-        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchEldenRing("vanilla") },
+        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchEldenRing(pickedMode("eldenring", games, choice)) },
         stats: [
           { icon: Icon.folder, label: "Install", value: g?.installed ? "Steam" : "Not found" },
           { icon: Icon.coop, label: "Seamless Co-op", value: ready(g?.has_seamless_coop) },
@@ -298,7 +304,7 @@ function useHero(section: Section, lastInstanceId: string | null, onContinue: (r
       return {
         title: "Cyberpunk 2077",
         kicker: GAME_META.cyberpunk.maker,
-        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchCyberpunk("vanilla") },
+        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchCyberpunk(pickedMode("cyberpunk", games, choice)) },
         stats: [
           { icon: Icon.folder, label: "Install", value: g?.installed ? (g.source === "epic" ? "Epic Games" : "Steam") : "Not found" },
           { icon: Icon.coop, label: "CyberpunkMP", value: ready(g?.has_mp) },
@@ -338,6 +344,12 @@ function Shell() {
   });
   const [recents, setRecents] = useState<PlayRecord[]>([]);
   const [gameArt, setGameArt] = useState<Record<string, string>>({});
+  // What each game's home page has picked (instance, launch mode); Play uses it.
+  const [choice, setChoiceState] = useState<Choice>(loadChoice);
+  const setChoice = (c: Choice) => {
+    setChoiceState(c);
+    saveChoice(c);
+  };
   useEffect(() => {
     gameIcons().then(setGameArt).catch(() => {});
   }, []);
@@ -417,7 +429,7 @@ function Shell() {
   const currentTab = isGame ? tabs[section as GameKey] : "";
   // Accounts are Minecraft/Microsoft — only surface the chip there.
   const showAccount = section === "minecraft" || section === "accounts";
-  const hero = useHero(section, lastInstanceId, continuePlay, recents[0] ?? null);
+  const hero = useHero(section, lastInstanceId, continuePlay, recents[0] ?? null, choice);
   const acct = activeAccount();
   const funcs = GAME_FUNCS[activeGame];
   const [primary, ...rest] = funcs;
@@ -514,7 +526,14 @@ function Shell() {
             </header>
 
             <div className="view" key={`${section}:${currentTab}`}>
-              <Panel section={section} tab={currentTab} onSelectGame={selectGame} onContinue={continuePlay} onRejoin={rejoin} />
+              <Panel
+                section={section}
+                tab={currentTab}
+                onSelectGame={selectGame}
+                onContinue={continuePlay}
+                onRejoin={rejoin}
+                home={{ icons: gameArt, choice, onChoice: setChoice, onOpen: openFunc }}
+              />
             </div>
           </div>
         </main>
@@ -595,24 +614,6 @@ function FnBtn({
   );
 }
 
-/* Official game icons shipped with the launcher: drop `<game>.png|jpg|webp|svg`
-   into src/assets/games and it is picked up at build time. */
-const BUNDLED_ART: Record<string, string> = Object.fromEntries(
-  Object.entries(import.meta.glob("./assets/games/*.{png,jpg,jpeg,webp,svg}", { eager: true, import: "default" })).map(
-    ([path, url]) => [path.replace(/^.*\/|\.[^.]+$/g, ""), url as string]
-  )
-);
-
-/* A game's real icon: the one bundled with the app, else the icon Steam has
-   cached on this PC, else our own glyph. */
-function GameArt({ game, icons, size }: { game: GameKey; icons: Record<string, string>; size: number }) {
-  const [broken, setBroken] = useState(false);
-  const src = BUNDLED_ART[game] ?? icons[game];
-  if (src && !broken) return <img className="game-art" src={src} alt="" width={size} height={size} onError={() => setBroken(true)} />;
-  const G = GAME_META[game].icon;
-  return <G size={Math.round(size * 0.46)} />;
-}
-
 function GameDot({
   children,
   label,
@@ -639,30 +640,37 @@ function Panel({
   onSelectGame,
   onContinue,
   onRejoin,
+  home,
 }: {
   section: Section;
   tab: string;
   onSelectGame: (g: GameKey) => void;
   onContinue: (r: PlayRecord) => void;
   onRejoin: (s: { id: string; name: string; address: string }) => void;
+  home: { icons: Record<string, string>; choice: Choice; onChoice: (c: Choice) => void; onOpen: (tab: string) => void };
 }) {
+  const gameHome = (g: GameKey) => <GameHome game={g} {...home} />;
   switch (section) {
     case "minecraft":
+      if (tab === "Instances") return <InstancesPanel />;
       if (tab === "Servers") return <MinecraftServers />;
       if (tab === "Skins") return <SkinsPanel />;
-      return <InstancesPanel />;
+      return gameHome("minecraft");
     case "skyrim":
+      if (tab === "Setup") return <SkyrimPlay />;
       if (tab === "Co-op") return <SkyrimCoop />;
       if (tab === "Mods") return <SkyrimMods />;
-      return <SkyrimPlay />;
+      return gameHome("skyrim");
     case "eldenring":
+      if (tab === "Setup") return <EldenRingPlay />;
       if (tab === "Co-op") return <EldenRingCoop />;
       if (tab === "Cheats") return <EldenRingCheats />;
-      return <EldenRingPlay />;
+      return gameHome("eldenring");
     case "cyberpunk":
+      if (tab === "Setup") return <CyberpunkPlay />;
       if (tab === "Co-op") return <CyberpunkCoop />;
       if (tab === "Mods") return <CyberpunkMods />;
-      return <CyberpunkPlay />;
+      return gameHome("cyberpunk");
     case "home":
       return <HomePanel onSelect={onSelectGame} onContinue={onContinue} onRejoin={onRejoin} />;
     case "accounts":

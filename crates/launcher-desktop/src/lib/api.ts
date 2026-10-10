@@ -444,11 +444,19 @@ export interface PlayRecord {
   lastPlayed: number; // unix seconds
   totalSeconds: number;
   launches: number;
+  /** Seconds played per day, keyed by days since the unix epoch (UTC). */
+  days?: Record<string, number>;
 }
+/** Mock per-day playtime: `secs[i]` was played `i` days ago. */
+const mockDays = (...secs: number[]): Record<string, number> => {
+  const today = Math.floor(Date.now() / 86_400_000);
+  return Object.fromEntries(secs.map((s, i) => [String(today - i), s]).filter(([, s]) => s));
+};
 const mockStats: PlayRecord[] = [
-  { key: "instance:modrinth-1KVo5zza", name: "Fabulously Optimized", kind: "instance", icon: "https://cdn.modrinth.com/data/1KVo5zza/d8152911f8fd5d7e9a8c499fe89045af81fe816e_96.webp", lastPlayed: Math.floor(Date.now() / 1000) - 3600, totalSeconds: 3 * 3600 + 25 * 60, launches: 12 },
-  { key: "game:skyrim", name: "Skyrim Special Edition", kind: "skyrim", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 90000, totalSeconds: 8 * 3600, launches: 5 },
-  { key: "game:cyberpunk", name: "Cyberpunk 2077", kind: "cyberpunk", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 400000, totalSeconds: 12 * 3600, launches: 9 },
+  { key: "instance:modrinth-1KVo5zza", name: "Fabulously Optimized", kind: "instance", icon: "https://cdn.modrinth.com/data/1KVo5zza/d8152911f8fd5d7e9a8c499fe89045af81fe816e_96.webp", lastPlayed: Math.floor(Date.now() / 1000) - 3600, totalSeconds: 3 * 3600 + 25 * 60, launches: 12, days: mockDays(5400, 0, 2700, 1800, 0, 4200) },
+  { key: "instance:demo-vanilla", name: "Vanilla 1.21.4", kind: "instance", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 2 * 86400, totalSeconds: 5 * 3600, launches: 7, days: mockDays(0, 0, 3600, 0, 1200) },
+  { key: "game:skyrim", name: "Skyrim Special Edition", kind: "skyrim", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 90000, totalSeconds: 8 * 3600, launches: 5, days: mockDays(0, 7200, 0, 0, 3000) },
+  { key: "game:cyberpunk", name: "Cyberpunk 2077", kind: "cyberpunk", icon: null, lastPlayed: Math.floor(Date.now() / 1000) - 400000, totalSeconds: 12 * 3600, launches: 9, days: mockDays(0, 0, 0, 0, 5400, 3600) },
 ];
 export const playStats = (): Promise<PlayRecord[]> =>
   isTauri ? call<PlayRecord[]>("play_stats") : Promise.resolve(mockStats);

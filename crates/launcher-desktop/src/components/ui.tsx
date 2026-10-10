@@ -231,6 +231,8 @@ export const Icon = {
   sun: ({ size = 24 }: IconProps) =>
     svg(size, <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" /></>),
   moon: ({ size = 24 }: IconProps) => svg(size, <path d="M21 12.8A8 8 0 1 1 11.2 3a6 6 0 0 0 9.8 9.8z" />),
+  sliders: ({ size = 24 }: IconProps) =>
+    svg(size, <><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></>),
   sparkles: ({ size = 24 }: IconProps) =>
     svg(size, <><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" /><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z" /></>),
   dots: ({ size = 24 }: IconProps) =>
