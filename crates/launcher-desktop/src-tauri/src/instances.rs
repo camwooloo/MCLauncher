@@ -989,7 +989,7 @@ pub async fn create_server_from_pack(
         "vanilla" => None,
         other => {
             return Err(format!(
-                "This pack uses {other}, which isn't supported for hosting yet (the mods downloaded to the server folder, but Aurora can only run Vanilla, Fabric or Forge servers)."
+                "This pack uses {other}, which isn't supported for hosting yet (the mods downloaded to the server folder, but Kawma can only run Vanilla, Fabric or Forge servers)."
             ))
         }
     };
@@ -1128,7 +1128,7 @@ pub async fn instance_play(
         let mut options = LaunchOptions {
             max_memory_mb: cfg.max_ram_mb,
             game_directory: Some(inst_dir.clone()),
-            launcher_name: "Aurora Launcher".to_string(),
+            launcher_name: "Kawma Launcher".to_string(),
             ..Default::default()
         };
         if let Some(addr) = server.as_deref().filter(|s| !s.is_empty()) {
@@ -1189,7 +1189,7 @@ pub async fn instance_play(
                 cfg.icon.clone(),
                 pid.unwrap_or(0),
             );
-            crate::discord::set_playing(&format!("Playing {}", cfg.name), "Minecraft · via Aurora");
+            crate::discord::set_playing(&format!("Playing {}", cfg.name), "Minecraft · via Kawma");
             let msg = format!("Launched {}", cfg.name);
             let _ = app.emit("mc-done", serde_json::json!({ "message": msg, "pid": pid }));
             Ok(msg)

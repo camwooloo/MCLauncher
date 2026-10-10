@@ -16,7 +16,7 @@ use reqwest::Client;
 /// endpoints) when the UA looks like a bare script agent (e.g. "MCLauncher/0.1").
 /// A `Mozilla/5.0 …` prefix clears the bot filter while staying identifiable.
 pub const USER_AGENT: &str = concat!(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AuroraLauncher/",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) KawmaLauncher/",
     env!("CARGO_PKG_VERSION")
 );
 

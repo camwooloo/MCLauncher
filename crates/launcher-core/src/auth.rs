@@ -474,7 +474,7 @@ async fn accept_redirect(listener: &tokio::net::TcpListener, expected_state: &st
 
         // Not the redirect (e.g. the browser's favicon probe) — keep waiting.
         if code.is_none() && error.is_none() {
-            let _ = write_page(&mut stream, "Waiting for sign-in…", "You can return to Aurora Launcher.").await;
+            let _ = write_page(&mut stream, "Waiting for sign-in…", "You can return to Kawma Launcher.").await;
             continue;
         }
 
@@ -496,7 +496,7 @@ async fn accept_redirect(listener: &tokio::net::TcpListener, expected_state: &st
         let _ = write_page(
             &mut stream,
             "Signed in ✓",
-            "All set — you can close this tab and return to Aurora Launcher.",
+            "All set — you can close this tab and return to Kawma Launcher.",
         )
         .await;
         let _ = stream.flush().await;
@@ -512,7 +512,7 @@ async fn write_page(
 ) -> std::io::Result<()> {
     use tokio::io::AsyncWriteExt;
     let body = format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><title>Aurora Launcher</title>\
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>Kawma Launcher</title>\
 <style>html{{height:100%}}body{{margin:0;height:100%;display:flex;align-items:center;\
 justify-content:center;font-family:'Segoe UI',system-ui,sans-serif;\
 background:radial-gradient(120% 120% at 30% 0%,#171034,#081226);color:#eef}}\

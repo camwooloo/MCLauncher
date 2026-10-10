@@ -19,7 +19,7 @@ pub struct Settings {
     pub ui_style: String,
     /// Background mode: "static" | "pulsing".
     pub background: String,
-    /// Tailscale API access token for *hosting* on Aurora Net (minting friend
+    /// Tailscale API access token for *hosting* on Kawma Net (minting friend
     /// keys). Stored locally only; never committed.
     #[serde(default)]
     pub tailscale_api_token: String,
@@ -30,7 +30,7 @@ pub struct Settings {
     /// images/descriptions in the Skyrim mod browser. Stored locally only.
     #[serde(default)]
     pub nexus_api_key: String,
-    /// Show "Playing … via Aurora Launcher" in Discord.
+    /// Show "Playing … via Kawma Launcher" in Discord.
     #[serde(default = "default_true")]
     pub discord_rpc: bool,
     /// Which view the launcher opens to: "home", a section ("network",

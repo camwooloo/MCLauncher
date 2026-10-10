@@ -5,9 +5,9 @@
       <stop offset="1" stop-color="#0d1322"/>
     </linearGradient>
     <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#2ee6b0"/>
-      <stop offset="0.55" stop-color="#46d8ff"/>
-      <stop offset="1" stop-color="#8b7bff"/>
+      <stop offset="0" stop-color="#ffb36b"/>
+      <stop offset="0.55" stop-color="#ff7a45"/>
+      <stop offset="1" stop-color="#8b3dff"/>
     </linearGradient>
     <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur stdDeviation="38"/>
@@ -16,59 +16,53 @@
 
   <rect width="1200" height="340" rx="24" fill="url(#bg)"/>
 
-  <!-- aurora ribbons -->
+  <!-- Kawma glow -->
   <g filter="url(#soft)" opacity="0.55">
-    <path d="M-50 250 C 250 120, 450 300, 750 170 S 1150 60, 1280 180 L 1280 360 L -50 360 Z" fill="#1f9d83"/>
-    <path d="M-50 300 C 300 200, 600 360, 900 230 S 1200 150, 1280 250 L 1280 360 L -50 360 Z" fill="#5b46c9"/>
-    <ellipse cx="180" cy="120" rx="220" ry="120" fill="#2ee6b0" opacity="0.25"/>
-    <ellipse cx="980" cy="120" rx="240" ry="130" fill="#8b7bff" opacity="0.25"/>
+    <path d="M-50 250 C 250 120, 450 300, 750 170 S 1150 60, 1280 180 L 1280 360 L -50 360 Z" fill="#ff7a45"/>
+    <path d="M-50 300 C 300 200, 600 360, 900 230 S 1200 150, 1280 250 L 1280 360 L -50 360 Z" fill="#8b3dff"/>
+    <ellipse cx="180" cy="120" rx="220" ry="120" fill="#ffb36b" opacity="0.25"/>
+    <ellipse cx="980" cy="120" rx="240" ry="130" fill="#8b3dff" opacity="0.25"/>
   </g>
 
-  <!-- logo mark: aurora ribbons over a night sky -->
+  <!-- logo mark: the Kawma Launcher planet -->
   <g transform="translate(96,118) scale(1.625)">
     <defs>
-      <linearGradient id="lm-sky" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#171034"/>
-        <stop offset="1" stop-color="#081226"/>
+      <linearGradient id="km-ring" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#8b3dff"/><stop offset="0.42" stop-color="#ff7a45"/><stop offset="1" stop-color="#ffb36b"/>
       </linearGradient>
-      <linearGradient id="lm-r1" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stop-color="#b794f6" stop-opacity="0"/>
-        <stop offset="0.35" stop-color="#b794f6"/>
-        <stop offset="1" stop-color="#7c5cf6" stop-opacity="0.25"/>
+      <linearGradient id="km-arc" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#8b3dff" stop-opacity="0"/><stop offset="0.3" stop-color="#ff7a45"/><stop offset="1" stop-color="#fff0d8" stop-opacity="0"/>
       </linearGradient>
-      <linearGradient id="lm-r2" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stop-color="#34d399" stop-opacity="0"/>
-        <stop offset="0.4" stop-color="#34d399"/>
-        <stop offset="1" stop-color="#22d3ee" stop-opacity="0.3"/>
-      </linearGradient>
+      <filter id="km-glow" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="1.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
     </defs>
-    <rect x="0" y="0" width="64" height="64" rx="16" fill="url(#lm-sky)"/>
-    <rect x="0.5" y="0.5" width="63" height="63" rx="15.5" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-    <path d="M8 50 C 22 44, 28 28, 56 14" stroke="url(#lm-r1)" stroke-width="9" stroke-linecap="round" fill="none" opacity="0.95"/>
-    <path d="M8 56 C 26 52, 36 38, 58 26" stroke="url(#lm-r2)" stroke-width="6.5" stroke-linecap="round" fill="none" opacity="0.9"/>
-    <path d="M10 44 C 22 38, 30 24, 50 13" stroke="rgba(255,255,255,0.55)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
-    <path d="M48 42 l1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6 z" fill="#fff" opacity="0.9"/>
-    <circle cx="16" cy="14" r="1.3" fill="#fff" opacity="0.7"/>
-    <circle cx="26" cy="10" r="0.9" fill="#fff" opacity="0.5"/>
+    <rect width="64" height="64" rx="14" fill="#07070a"/>
+    <ellipse cx="32" cy="32" rx="25.5" ry="9.2" transform="rotate(-11 32 32)" fill="none" stroke="url(#km-ring)" stroke-width="6.5"/>
+    <circle cx="32" cy="32" r="14.5" fill="#040406"/>
+    <path d="M 14.6 30.4 A 17.4 17 0 0 1 49.4 30.4" fill="none" stroke="url(#km-arc)" stroke-width="3.6" stroke-linecap="round"/>
+    <circle cx="32" cy="32" r="14.5" fill="#040406"/>
+    <circle cx="32" cy="32" r="15.1" fill="none" stroke="rgba(255,240,216,0.8)" stroke-width="0.85"/>
+    <path d="M28.6 25.6 Q28.6 24.2 29.9 24.9 L38.6 30.6 Q39.8 31.4 38.6 32.2 L29.9 37.9 Q28.6 38.6 28.6 37.2 Z" fill="#ffe9c9" filter="url(#km-glow)"/>
   </g>
 
   <!-- wordmark -->
-  <text x="232" y="158" font-size="78" font-weight="800" fill="url(#brand)" letter-spacing="-1">Aurora</text>
+  <text x="232" y="158" font-size="78" font-weight="800" fill="url(#brand)" letter-spacing="-1">Kawma</text>
   <text x="236" y="200" font-size="26" font-weight="600" fill="#aeb6cc" letter-spacing="7">LAUNCHER</text>
   <text x="238" y="246" font-size="20" fill="#7e879e">A beautiful liquid-glass launcher for Minecraft · Skyrim · Elden Ring · Cyberpunk 2077</text>
 
   <!-- tag chips -->
   <g font-size="15" font-weight="600">
     <g transform="translate(238,272)">
-      <rect width="92" height="32" rx="16" fill="#10213a" stroke="#2ee6b0" stroke-opacity="0.4"/>
-      <text x="46" y="21" text-anchor="middle" fill="#2ee6b0">Rust</text>
+      <rect width="92" height="32" rx="16" fill="#10213a" stroke="#ffb36b" stroke-opacity="0.4"/>
+      <text x="46" y="21" text-anchor="middle" fill="#ffb36b">Rust</text>
     </g>
     <g transform="translate(340,272)">
       <rect width="100" height="32" rx="16" fill="#10213a" stroke="#46d8ff" stroke-opacity="0.4"/>
       <text x="50" y="21" text-anchor="middle" fill="#46d8ff">Tauri 2</text>
     </g>
     <g transform="translate(450,272)">
-      <rect width="118" height="32" rx="16" fill="#10213a" stroke="#8b7bff" stroke-opacity="0.4"/>
+      <rect width="118" height="32" rx="16" fill="#10213a" stroke="#8b3dff" stroke-opacity="0.4"/>
       <text x="59" y="21" text-anchor="middle" fill="#9b8cff">React + TS</text>
     </g>
   </g>

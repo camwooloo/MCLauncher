@@ -341,64 +341,38 @@ export function Avatar({
   );
 }
 
-/** The Aurora logo: northern-lights ribbons over a night sky, with a star. */
-/** The Aurora mark: a peaked "A" lit like an aurora curtain (green at the
- *  horizon through teal to violet), with a ribbon of light for its crossbar,
- *  on a night-sky squircle. */
-export function AuroraMark({ size = 24 }: { size?: number }) {
+/** The Kawma Launcher mark: Kawma's ringed planet, with a play glyph
+ *  glowing on its face in place of Kawma's eyes. */
+export function KawmaMark({ size = 24 }: { size?: number }) {
   const id = useId().replace(/:/g, "");
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-label="Aurora" role="img">
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-label="Kawma Launcher" role="img">
       <defs>
-        <linearGradient id={`${id}-sky`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#161a2b" />
-          <stop offset="1" stopColor="#06070c" />
+        <linearGradient id={`${id}-ring`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#8b3dff" />
+          <stop offset="0.42" stopColor="#ff7a45" />
+          <stop offset="1" stopColor="#ffb36b" />
         </linearGradient>
-        <linearGradient id={`${id}-a`} x1="0" y1="52" x2="0" y2="12" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#3ddc84" />
-          <stop offset="0.5" stopColor="#22d3ee" />
-          <stop offset="1" stopColor="#b794f6" />
+        <linearGradient id={`${id}-arc`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#8b3dff" stopOpacity="0" />
+          <stop offset="0.3" stopColor="#ff7a45" />
+          <stop offset="1" stopColor="#fff0d8" stopOpacity="0" />
         </linearGradient>
-        <radialGradient id={`${id}-glow`} cx="32" cy="46" r="26" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#34d399" stopOpacity="0.38" />
-          <stop offset="1" stopColor="#34d399" stopOpacity="0" />
-        </radialGradient>
+        <filter id={`${id}-glow`} x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="1.4" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
-      <rect width="64" height="64" rx="18" fill={`url(#${id}-sky)`} />
-      <rect width="64" height="64" rx="18" fill={`url(#${id}-glow)`} />
-      <rect x="0.5" y="0.5" width="63" height="63" rx="17.5" fill="none" stroke="rgba(255,255,255,0.14)" />
-      <path d="M16.5 50 L32 14.5 L47.5 50" fill="none" stroke={`url(#${id}-a)`} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M19.5 38.5 C 25 33.5, 29 42, 34 37.5 S 42 33.5, 46 36" fill="none" stroke="#f4fbff" strokeWidth="3.2" strokeLinecap="round" />
-      <path d="M49 13 l1.2 2.6 2.6 1.2 -2.6 1.2 -1.2 2.6 -1.2 -2.6 -2.6 -1.2 2.6 -1.2 z" fill="#fff" opacity="0.9" />
-    </svg>
-  );
-}
-
-/** Minecraft's grass block, drawn as pixel art (16×16). */
-export function GrassBlock({ size = 24 }: { size?: number }) {
-  // Rows of the face: g = grass, G = dark grass, d = dirt, D = dark dirt, s = stone-ish speck.
-  const rows = [
-    "GgggGgggggGggggG",
-    "ggGgggggGggggGgg",
-    "gggggGgggggGgggg",
-    "gGdggggGddgggGdg",
-    "dgdDgGdddgdGgddg",
-    "ddddgddDdddgdddd",
-    "dDdddddddsddDddd",
-    "dddsdDddddddddDd",
-    "ddddddddDdddsddd",
-    "dDddsdddddDddddd",
-    "dddddddDddddddsd",
-    "ddDdddddddsddDdd",
-    "dddddsddDddddddd",
-    "dDddddddddddDdsd",
-    "ddddDddsdddddddd",
-    "dsddddddddDdddDd",
-  ];
-  const fill: Record<string, string> = { g: "#5fae3b", G: "#4a8f2c", d: "#8b5a34", D: "#6e4426", s: "#a77a52" };
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" shapeRendering="crispEdges" aria-label="Minecraft" role="img">
-      {rows.flatMap((row, y) => [...row].map((c, x) => <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill={fill[c]} />))}
+      <rect width="64" height="64" rx="14" fill="#07070a" />
+      <ellipse cx="32" cy="32" rx="25.5" ry="9.2" transform="rotate(-11 32 32)" fill="none" stroke={`url(#${id}-ring)`} strokeWidth="6.5" />
+      <circle cx="32" cy="32" r="14.5" fill="#040406" />
+      <path d="M 14.6 30.4 A 17.4 17 0 0 1 49.4 30.4" fill="none" stroke={`url(#${id}-arc)`} strokeWidth="3.6" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="14.5" fill="#040406" />
+      <circle cx="32" cy="32" r="15.1" fill="none" stroke="rgba(255,240,216,0.8)" strokeWidth="0.85" />
+      <path d="M28.6 25.6 Q28.6 24.2 29.9 24.9 L38.6 30.6 Q39.8 31.4 38.6 32.2 L29.9 37.9 Q28.6 38.6 28.6 37.2 Z" fill="#ffe9c9" filter={`url(#${id}-glow)`} />
     </svg>
   );
 }
@@ -476,7 +450,7 @@ export function Markdown({ source }: { source: string }) {
 }
 
 /** Shows the address(es) friends use to reach a server hosted on this PC —
- *  the Aurora Net IP (preferred, no port forwarding) and/or the LAN IP. Never
+ *  the Kawma Net IP (preferred, no port forwarding) and/or the LAN IP. Never
  *  shows localhost, which only works for the host themselves. */
 /** One "how friends connect" method row. */
 function AddrRow({ tag, note, addr, onCopy, accent }: { tag: string; note: string; addr: string; onCopy: () => void; accent?: boolean }) {
@@ -497,7 +471,7 @@ function AddrRow({ tag, note, addr, onCopy, accent }: { tag: string; note: strin
 }
 
 /** How friends connect to a hosted server — three methods:
- *  a public bore tunnel (any launcher, no port-forward), Aurora Net (private
+ *  a public bore tunnel (any launcher, no port-forward), Kawma Net (private
  *  VPN), and direct/port-forward. `tunnelKey` scopes the tunnel; `internetTunnel`
  *  is false for UDP games (Skyrim Together) where bore (TCP) can't help. */
 export function HostAddress({
@@ -591,9 +565,9 @@ export function HostAddress({
           </div>
         ))}
 
-      {/* 2 · Aurora Net (private VPN). */}
+      {/* 2 · Kawma Net (private VPN). */}
       {a.aurora && (
-        <AddrRow tag="Aurora Net" note="Private, encrypted — friends need Aurora Net too." addr={`${a.aurora}:${port}`} accent onCopy={() => copy(`${a.aurora}:${port}`)} />
+        <AddrRow tag="Kawma Net" note="Private, encrypted — friends need Kawma Net too." addr={`${a.aurora}:${port}`} accent onCopy={() => copy(`${a.aurora}:${port}`)} />
       )}
 
       {/* 3 · Direct / port-forward. */}

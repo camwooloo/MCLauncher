@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { LauncherProvider, useLauncher } from "./store";
 import { windowAction, checkAppUpdate, applyAppUpdate, playStats, gameIcons, type UpdateInfo, type PlayRecord } from "./lib/api";
 import type { GameKey } from "./lib/types";
-import { Icon, AuroraMark, GrassBlock, Markdown, Avatar } from "./components/ui";
+import { Icon, KawmaMark, Markdown, Avatar } from "./components/ui";
 import { AccountMenu } from "./components/AccountMenu";
 import { ServerDashboard } from "./components/ServerConsole";
 import { InstancesPanel, MinecraftServers, UpgradeModal } from "./components/MinecraftPanels";
@@ -65,7 +65,7 @@ const GAME_FUNCS: Record<GameKey, { tab: string; icon: IconFn }[]> = {
   ],
 };
 
-const SECTION_TITLE: Record<string, string> = { home: "Aurora", accounts: "Accounts", settings: "Settings", network: "Aurora Net" };
+const SECTION_TITLE: Record<string, string> = { home: "Kawma", accounts: "Accounts", settings: "Settings", network: "Kawma Net" };
 const SECTION_KICKER: Record<string, string> = {
   home: "Welcome back",
   accounts: "Minecraft accounts",
@@ -133,7 +133,7 @@ function ServerPill() {
   );
 }
 
-/* Title-bar pill: other Aurora PCs on the LAN; pick one to control it. */
+/* Title-bar pill: other Kawma PCs on the LAN; pick one to control it. */
 function RemotePill() {
   const { netPeers, remoteTarget, connecting, connectRemote, disconnectRemote } = useLauncher();
   const [open, setOpen] = useState(false);
@@ -199,7 +199,7 @@ function UpdatePill() {
     setBusy(true);
     try {
       await applyAppUpdate(info.downloadUrl);
-      showToast("Downloading update — the installer will open, then Aurora restarts…");
+      showToast("Downloading update — the installer will open, then Kawma restarts…");
     } catch (e) {
       showToast(`${e}`);
       setBusy(false);
@@ -218,7 +218,7 @@ function UpdatePill() {
               <div>
                 <div className="eyebrow">Update available</div>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 22 }}>
-                  Aurora Launcher v{info.version}
+                  Kawma Launcher v{info.version}
                 </div>
                 <div className="sub" style={{ color: "var(--text-mute)" }}>You're on v{info.current}</div>
               </div>
@@ -309,7 +309,7 @@ function useHero(section: Section, lastInstanceId: string | null, onContinue: (r
     case "home": {
       const installed = 1 + [games?.skyrim, games?.eldenRing, games?.cyberpunk].filter((g) => g?.installed).length;
       return {
-        title: "Aurora",
+        title: "Kawma Launcher",
         kicker: SECTION_KICKER.home,
         play: recent ? { label: "Continue", disabled: busy, onClick: () => onContinue(recent) } : undefined,
         stats: [
@@ -373,9 +373,9 @@ function Shell() {
   const isGame = (GAMES as string[]).includes(section);
 
   // Games carry their own accent; everything else (home, settings, accounts)
-  // wears the launcher's aurora identity.
+  // wears Kawma's own colours.
   useEffect(() => {
-    document.documentElement.setAttribute("data-game", isGame ? section : "aurora");
+    document.documentElement.setAttribute("data-game", isGame ? section : "kawma");
   }, [section, isGame]);
 
   // Liquid-glass pointer lensing: expose the cursor position to CSS so glass
@@ -428,8 +428,8 @@ function Shell() {
     <div className="app">
       <div className="titlebar" data-tauri-drag-region>
         <div className="brand" data-tauri-drag-region>
-          <AuroraMark size={22} />
-          Aurora
+          <KawmaMark size={22} />
+          Kawma
           <span className="brand-sub">Launcher</span>
         </div>
         <div className="spacer" data-tauri-drag-region />
@@ -448,11 +448,11 @@ function Shell() {
       </div>
 
       <div className="deck">
-        <div className="stage-art" data-art={isGame ? section : "aurora"} aria-hidden />
+        <div className="stage-art" data-art={isGame ? section : "kawma"} aria-hidden />
         {/* Left: what you can do with the selected game. */}
         <nav className="fn-rail" aria-label={`${GAME_META[activeGame].name} functions`}>
           <button className={`fn-mark ${section === "home" ? "active" : ""}`} onClick={() => setSection("home")} title="Home">
-            <AuroraMark size={46} />
+            <KawmaMark size={46} />
           </button>
           <div className="fn-spacer" />
           <div className="fn-solo">
@@ -539,14 +539,14 @@ function Shell() {
           </div>
           <div className="fn-spacer" />
           <div className="fn-group">
-            <FnBtn label="Aurora Net" active={section === "network"} onClick={() => setSection("network")}>
+            <FnBtn label="Kawma Net" active={section === "network"} onClick={() => setSection("network")}>
               <Icon.globe size={21} />
             </FnBtn>
             <FnBtn label="Settings" active={section === "settings"} onClick={() => setSection("settings")}>
               <Icon.gear size={21} />
             </FnBtn>
           </div>
-          <div className="rail-foot">Aurora</div>
+          <div className="rail-foot">Kawma</div>
         </aside>
       </div>
 
@@ -595,12 +595,19 @@ function FnBtn({
   );
 }
 
-/* A game's real icon: Minecraft's grass block, or the icon Steam has cached
-   for the others, falling back to our own glyph when Steam has none. */
+/* Official game icons shipped with the launcher: drop `<game>.png|jpg|webp|svg`
+   into src/assets/games and it is picked up at build time. */
+const BUNDLED_ART: Record<string, string> = Object.fromEntries(
+  Object.entries(import.meta.glob("./assets/games/*.{png,jpg,jpeg,webp,svg}", { eager: true, import: "default" })).map(
+    ([path, url]) => [path.replace(/^.*\/|\.[^.]+$/g, ""), url as string]
+  )
+);
+
+/* A game's real icon: the one bundled with the app, else the icon Steam has
+   cached on this PC, else our own glyph. */
 function GameArt({ game, icons, size }: { game: GameKey; icons: Record<string, string>; size: number }) {
   const [broken, setBroken] = useState(false);
-  if (game === "minecraft") return <GrassBlock size={size} />;
-  const src = icons[game];
+  const src = BUNDLED_ART[game] ?? icons[game];
   if (src && !broken) return <img className="game-art" src={src} alt="" width={size} height={size} onError={() => setBroken(true)} />;
   const G = GAME_META[game].icon;
   return <G size={Math.round(size * 0.46)} />;
@@ -620,7 +627,7 @@ function GameDot({
   onClick: () => void;
 }) {
   return (
-    <button className={`game-dot ${active ? "active" : ""}`} data-g={game ?? "aurora"} onClick={onClick} title={label} aria-label={label}>
+    <button className={`game-dot ${active ? "active" : ""}`} data-g={game ?? "kawma"} onClick={onClick} title={label} aria-label={label}>
       {children}
     </button>
   );
@@ -667,7 +674,7 @@ function Panel({
   }
 }
 
-function Aurora() {
+function Backdrop() {
   return (
     <>
       <div className="aurora">
@@ -684,7 +691,7 @@ function Aurora() {
 export default function App() {
   return (
     <>
-      <Aurora />
+      <Backdrop />
       <LauncherProvider>
         <Shell />
       </LauncherProvider>

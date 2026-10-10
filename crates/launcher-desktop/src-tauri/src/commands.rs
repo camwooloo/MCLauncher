@@ -153,7 +153,7 @@ pub fn set_launch_at_login(enabled: bool) -> Result<(), String> {
 pub struct HostAddresses {
     /// Private LAN IPv4 (same Wi-Fi / router), if found.
     pub lan: Option<String>,
-    /// Aurora Net (Tailscale) IPv4, if connected — works from anywhere with no
+    /// Kawma Net (Tailscale) IPv4, if connected — works from anywhere with no
     /// port forwarding.
     pub aurora: Option<String>,
 }
@@ -222,7 +222,7 @@ pub async fn check_app_update(app: AppHandle) -> Result<Option<UpdateInfo>, Stri
     let current = app.package_info().version.to_string();
     let resp = launcher_core::http::client()
         .get("https://api.github.com/repos/camwooloo/MCLauncher/releases/latest")
-        .header("User-Agent", "Aurora-Launcher")
+        .header("User-Agent", "Kawma-Launcher")
         .header("Accept", "application/vnd.github+json")
         .send()
         .await
@@ -266,7 +266,7 @@ pub async fn check_app_update(app: AppHandle) -> Result<Option<UpdateInfo>, Stri
 pub async fn apply_app_update(app: AppHandle, download_url: String) -> Result<(), String> {
     let bytes = launcher_core::http::client()
         .get(&download_url)
-        .header("User-Agent", "Aurora-Launcher")
+        .header("User-Agent", "Kawma-Launcher")
         .send()
         .await
         .map_err(err)?
@@ -275,7 +275,7 @@ pub async fn apply_app_update(app: AppHandle, download_url: String) -> Result<()
         .bytes()
         .await
         .map_err(err)?;
-    let path = std::env::temp_dir().join("Aurora-Launcher-Update.exe");
+    let path = std::env::temp_dir().join("Kawma-Launcher-Update.exe");
     tokio::fs::write(&path, &bytes).await.map_err(err)?;
 
     // Launch the installer, then exit shortly after so it isn't blocked by our
@@ -314,7 +314,7 @@ pub async fn list_releases(app: AppHandle) -> Result<ReleasesResult, String> {
     let current = app.package_info().version.to_string();
     let resp = launcher_core::http::client()
         .get("https://api.github.com/repos/camwooloo/MCLauncher/releases?per_page=20")
-        .header("User-Agent", "Aurora-Launcher")
+        .header("User-Agent", "Kawma-Launcher")
         .header("Accept", "application/vnd.github+json")
         .send()
         .await
@@ -349,7 +349,7 @@ pub async fn list_releases(app: AppHandle) -> Result<ReleasesResult, String> {
     Ok(ReleasesResult { current, releases })
 }
 
-// --- Aurora Net (built-in Tailscale VPN) ---------------------------------
+// --- Kawma Net (built-in Tailscale VPN) ---------------------------------
 
 #[tauri::command]
 pub async fn vpn_status() -> Result<crate::vpn::VpnStatus, String> {
@@ -374,7 +374,7 @@ pub async fn vpn_disconnect() -> Result<(), String> {
     crate::vpn::down().await
 }
 
-/// Devices on your Aurora Net (friends), with online state.
+/// Devices on your Kawma Net (friends), with online state.
 #[tauri::command]
 pub async fn vpn_peers() -> Result<Vec<crate::vpn::Peer>, String> {
     Ok(crate::vpn::peers().await)
@@ -408,7 +408,7 @@ pub async fn vpn_set_token(state: State<'_, AppState>, token: String) -> Result<
 pub async fn vpn_join(code: String) -> Result<crate::vpn::JoinPayload, String> {
     let payload = crate::vpn::decode_code(&code)?;
     if crate::vpn::tailscale_exe().is_none() {
-        return Err("Install Aurora Net first — it sets up the secure connection.".into());
+        return Err("Install Kawma Net first — it sets up the secure connection.".into());
     }
     crate::vpn::up_with_authkey(&payload.key).await?;
     Ok(payload)
@@ -435,12 +435,12 @@ pub async fn vpn_share(state: State<'_, AppState>, args: ShareArgs) -> Result<St
     let s = Settings::load(&state.paths.settings_file()).await;
     let token = s.tailscale_api_token.trim().to_string();
     if token.is_empty() {
-        return Err("Add your Tailscale access token first (Aurora Net → Hosting).".into());
+        return Err("Add your Tailscale access token first (Kawma Net → Hosting).".into());
     }
     let st = crate::vpn::status().await;
     let ip = st
         .ip
-        .ok_or("Connect to Aurora Net first — you need to be online to share.")?;
+        .ok_or("Connect to Kawma Net first — you need to be online to share.")?;
     if args.configure_access {
         crate::vpn::ensure_access_rules(&token, &ip, &[args.port]).await?;
     }
@@ -457,7 +457,7 @@ pub async fn vpn_share(state: State<'_, AppState>, args: ShareArgs) -> Result<St
     crate::vpn::encode_code(&payload)
 }
 
-/// Get this PC's reusable Aurora Net **friend code**. Share it once and any
+/// Get this PC's reusable Kawma Net **friend code**. Share it once and any
 /// friend can join your network (no per-server lock). Cached in settings;
 /// `regenerate` mints a fresh one (invalidating the old after it expires).
 #[tauri::command]
@@ -473,7 +473,7 @@ pub async fn vpn_friend_code(state: State<'_, AppState>, regenerate: bool) -> Re
     let st = crate::vpn::status().await;
     let ip = st
         .ip
-        .ok_or("Connect to Aurora Net first — you need to be online to make a friend code.")?;
+        .ok_or("Connect to Kawma Net first — you need to be online to make a friend code.")?;
     let key = crate::vpn::mint_friend_key(&token).await?;
     let payload = crate::vpn::JoinPayload {
         v: 1,
@@ -490,7 +490,7 @@ pub async fn vpn_friend_code(state: State<'_, AppState>, regenerate: bool) -> Re
     Ok(code)
 }
 
-/// Manually (re)apply the Aurora Net firewall rule — the "fix connectivity"
+/// Manually (re)apply the Kawma Net firewall rule — the "fix connectivity"
 /// button. Runs on a blocking thread since it may show a UAC consent.
 #[tauri::command]
 pub async fn repair_aurora_net() -> Result<bool, String> {
@@ -813,7 +813,7 @@ pub fn launch_skyrim(state: State<'_, AppState>, mode: String) -> Result<u32, St
 /// Record a launch (stats + playtime tracking) and set Discord Rich Presence.
 fn track_game(state: &State<'_, AppState>, key: &str, name: &str, kind: &str, pid: u32) {
     crate::stats::record_session(&state.paths.data_dir, key, name, kind, None, pid);
-    crate::discord::set_playing(&format!("Playing {name}"), "via Aurora Launcher");
+    crate::discord::set_playing(&format!("Playing {name}"), "via Kawma Launcher");
 }
 
 // --- Skyrim Together hosting (dedicated server) --------------------------
@@ -859,7 +859,7 @@ pub async fn start_skyrim_server(app: AppHandle, state: State<'_, AppState>) -> 
     let cfg = skyrim::read_server_config(&dir);
     let cwd = exe.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| dir.clone());
 
-    // Reachable over Aurora Net (Tailscale lands on the Public firewall profile).
+    // Reachable over Kawma Net (Tailscale lands on the Public firewall profile).
     // One-time; no-op if already set up.
     let _ = tokio::task::spawn_blocking(|| crate::firewall::ensure_aurora_net(false)).await;
 
@@ -1598,7 +1598,7 @@ pub async fn server_start(
         ));
     }
 
-    // Make sure friends can reach this server over Aurora Net (Tailscale), not
+    // Make sure friends can reach this server over Kawma Net (Tailscale), not
     // just the LAN. One-time; no-op if already set up. Off the async runtime
     // since the first run may pop a UAC consent.
     let _ = tokio::task::spawn_blocking(|| crate::firewall::ensure_aurora_net(false)).await;

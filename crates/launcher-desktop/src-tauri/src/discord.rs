@@ -1,4 +1,4 @@
-//! Discord Rich Presence — shows "Playing … via Aurora Launcher" with a button
+//! Discord Rich Presence — shows "Playing … via Kawma Launcher" with a button
 //! linking to the project. Entirely optional: if `secrets::DISCORD_CLIENT_ID`
 //! is empty, or Discord isn't running, this is a no-op.
 
@@ -55,7 +55,7 @@ pub fn set_playing(details: &str, state: &str) {
         let activity = Activity::new()
             .details(details)
             .state(state)
-            .buttons(vec![Button::new("Get Aurora Launcher", GITHUB_URL)]);
+            .buttons(vec![Button::new("Get Kawma Launcher", GITHUB_URL)]);
         if client.set_activity(activity).is_err() {
             // Connection dropped (Discord closed/restarted) — reset so the next
             // call reconnects.

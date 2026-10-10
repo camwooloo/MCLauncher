@@ -1,5 +1,5 @@
 //! Windows Firewall + Tailscale-interface helper so hosted servers are
-//! reachable over **Aurora Net**.
+//! reachable over **Kawma Net**.
 //!
 //! The problem: Windows puts the Tailscale adapter on the **Public** firewall
 //! profile, and the per-app inbound rules games create on first run are usually
@@ -10,7 +10,7 @@
 //! scoped to the Tailscale address range (`100.64.0.0/10`, the CGNAT block every
 //! tailnet IP falls in) on **all profiles**, plus marking the Tailscale adapter
 //! Private. This covers every current and future hosted server (Minecraft,
-//! Skyrim Together, …) over Aurora Net, while only accepting traffic from Aurora
+//! Skyrim Together, …) over Kawma Net, while only accepting traffic from Aurora
 //! Net peers — never the public internet. Only the **host** needs it; joiners
 //! make outbound connections, which Windows already allows.
 //!
@@ -19,7 +19,7 @@
 //! it's in place a returning host is never prompted again. Best-effort: if the
 //! user declines, hosting still proceeds.
 
-/// The display name of our single Aurora Net firewall rule.
+/// The display name of our single Kawma Net firewall rule.
 #[cfg(windows)]
 const RULE_NAME: &str = "Aurora Net (co-op)";
 /// LAN remote-control rule (discovery + control server ports).
@@ -72,11 +72,11 @@ fn run_elevated(script: &str) -> Result<(), String> {
     if status.success() {
         Ok(())
     } else {
-        Err("Couldn't set up the Aurora Net firewall rule (admin approval needed).".into())
+        Err("Couldn't set up the Kawma Net firewall rule (admin approval needed).".into())
     }
 }
 
-/// Ensure Aurora Net traffic can reach servers hosted on this PC. Idempotent —
+/// Ensure Kawma Net traffic can reach servers hosted on this PC. Idempotent —
 /// only prompts (once) if the rule isn't already present. `force` re-applies
 /// even if the rule exists (used by the manual "repair" button).
 ///

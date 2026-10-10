@@ -1,8 +1,10 @@
 <div align="center">
 
-![Aurora Launcher](docs/banner.svg)
+![Kawma Launcher](docs/banner.svg)
 
-# Aurora Launcher
+# Kawma Launcher
+
+_Part of the [Kawma](https://kawma.app) family._
 
 **A beautiful, liquid-glass multi-game launcher** — host & play modded Minecraft, launch Skyrim Together, run Elden Ring Seamless Co-op, and jack into CyberpunkMP, all from one place. With a **built-in VPN** so you and your friends play together with **zero port forwarding**.
 
@@ -16,9 +18,9 @@
 
 ---
 
-## ✨ Why Aurora?
+## ✨ Why Kawma Launcher?
 
-Most launchers are powerful but cluttered, or pretty but limited. Aurora aims for both: a **clean, animated liquid-glass UI** on top of a fast **Rust** core that handles the heavy lifting — Java provisioning, mod-loader installs, server hosting, and authentication — with zero manual setup.
+Most launchers are powerful but cluttered, or pretty but limited. Kawma Launcher aims for both: a **clean, animated liquid-glass UI** on top of a fast **Rust** core that handles the heavy lifting — Java provisioning, mod-loader installs, server hosting, and authentication — with zero manual setup.
 
 > One app to **play**, **host**, and **mod** — across Minecraft, Skyrim, and Elden Ring.
 
@@ -29,8 +31,8 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 | Home — pick a game | Minecraft — instances |
 |:---:|:---:|
 | ![Home](docs/screenshots/07-home.png) | ![Minecraft instances](docs/screenshots/01-minecraft.png) |
-| **Aurora Net — no-port-forward co-op** | **Built-in config & code editor** |
-| ![Aurora Net](docs/screenshots/09-aurora-net.png) | ![Config editor](docs/screenshots/10-config-editor.png) |
+| **Kawma Net — no-port-forward co-op** | **Built-in config & code editor** |
+| ![Kawma Net](docs/screenshots/09-aurora-net.png) | ![Config editor](docs/screenshots/10-config-editor.png) |
 | **Skyrim — SKSE & Skyrim Together** | **Elden Ring — Seamless Co-op** |
 | ![Skyrim](docs/screenshots/02-skyrim.png) | ![Elden Ring](docs/screenshots/03-elden-ring.png) |
 | **Cyberpunk 2077 — CyberpunkMP & CET** | **Themes & settings** |
@@ -38,7 +40,7 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 | **Content browser (per instance)** | **Server hosting — plugin browser** |
 | ![Content browser](docs/screenshots/05-content.png) | ![Server plugins](docs/screenshots/06-plugins.png) |
 
-> The whole UI re-tints to each game — green for Minecraft, blue for Skyrim, gold for Elden Ring, neon yellow for Cyberpunk — with the launcher itself in aurora purple.
+> The whole UI re-tints to each game — green for Minecraft, blue for Skyrim, gold for Elden Ring, neon yellow for Cyberpunk — with the launcher itself in Kawma orange.
 
 ---
 
@@ -61,7 +63,7 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 ### ⚔️ Skyrim
 - Detects your install (**Steam or Epic**), SKSE, Skyrim Together, and Address Library
 - **One-click SKSE install** straight from the official release
-- Guided **Skyrim Together Reborn** setup (incl. its Address Library requirement) — Aurora finds the Nexus downloads and installs them to the right place
+- Guided **Skyrim Together Reborn** setup (incl. its Address Library requirement) — Kawma finds the Nexus downloads and installs them to the right place
 
 ### 🔆 Elden Ring
 - **One-click Seamless Co-op install** (official release) + in-app co-op password editor
@@ -72,18 +74,18 @@ Most launchers are powerful but cluttered, or pretty but limited. Aurora aims fo
 - **CyberpunkMP** one-click install — the experimental multiplayer mod by the Skyrim Together team
 - **Cyber Engine Tweaks** one-click install for modding
 
-### 🌐 Aurora Net — co-op with **no port forwarding**
+### 🌐 Kawma Net — co-op with **no port forwarding**
 The bit no other game launcher has: a **built-in mesh VPN** (powered by [Tailscale](https://tailscale.com/)) so you and your friends share a private, encrypted network — no router config, no port forwarding, no exposing your IP.
 
-- **One-time setup** — Aurora installs the secure-connection client and signs you in from inside the app (opens your browser, you approve). After that it's invisible.
-- **Join a friend** — paste the join code they send you. Aurora drops you onto their network as a throwaway guest and hands back the in-game address (for Minecraft, just add it as a server).
+- **One-time setup** — Kawma installs the secure-connection client and signs you in from inside the app (opens your browser, you approve). After that it's invisible.
+- **Join a friend** — paste the join code they send you. Kawma drops you onto their network as a throwaway guest and hands back the in-game address (for Minecraft, just add it as a server).
 - **Host** — flip on sharing for a server to generate a one-time join code. Guests can be **locked to only that server** (nothing else on your network) via auto-managed access rules.
 - Works for **Minecraft servers, Skyrim Together, Elden Ring Seamless Co-op and CyberpunkMP** alike — anything that listens on a port.
 
 ### 🎨 The whole thing is *gorgeous*
-- A **homepage** with big per-game tiles, in the launcher's own aurora purple/green identity
+- A **homepage** with big per-game tiles, in Kawma's own orange/violet identity
 - **Liquid-glass UI** with three backdrops — Static, Pulsing, or **Liquid** (flowing iridescent chrome)
-- **Light / Dark** themes + an **Aurora / Apple-style Liquid Glass** look with pointer "lensing" that brightens the glass under your cursor
+- **Light / Dark** themes + a **Kawma / Apple-style Liquid Glass** look with pointer "lensing" that brightens the glass under your cursor
 - Everything re-tints to the active game's color; animated tab indicator, spring transitions, custom dropdowns throughout
 
 ---
@@ -133,13 +135,13 @@ Modrinth, FTB, sign-in and server hosting all work without any key.
 
 ## 🔐 Privacy & accounts
 
-Aurora signs you in through the **official Microsoft OAuth flow** — it opens your browser, you sign in and approve, and Aurora captures the result over a temporary local redirect (no code to copy). A **device-code** fallback ("use a sign-in code instead") is available too. No passwords pass through the app, and tokens are stored locally on your machine. Once signed in, your account shows your live **skin portrait**. Offline accounts are supported for testing.
+Kawma Launcher signs you in through the **official Microsoft OAuth flow** — it opens your browser, you sign in and approve, and Kawma captures the result over a temporary local redirect (no code to copy). A **device-code** fallback ("use a sign-in code instead") is available too. No passwords pass through the app, and tokens are stored locally on your machine. Once signed in, your account shows your live **skin portrait**. Offline accounts are supported for testing.
 
 ---
 
 ## 📜 Disclaimer
 
-Aurora Launcher is an independent, fan-made project. It is **not** affiliated with, endorsed by, or associated with Mojang Studios, Microsoft, Bethesda, or FromSoftware. *Minecraft*, *Skyrim*, and *Elden Ring* are trademarks of their respective owners. You must own a legitimate copy of each game to play it.
+Kawma Launcher is an independent, fan-made project. It is **not** affiliated with, endorsed by, or associated with Mojang Studios, Microsoft, Bethesda, or FromSoftware. *Minecraft*, *Skyrim*, and *Elden Ring* are trademarks of their respective owners. You must own a legitimate copy of each game to play it.
 
 ## 📄 License
 

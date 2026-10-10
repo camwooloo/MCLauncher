@@ -41,7 +41,7 @@ pub struct AppState {
     pub paths: Paths,
     /// Running servers keyed by config id.
     pub servers: Mutex<HashMap<String, ServerProc>>,
-    /// LAN presence (discovered Aurora PCs + our identity).
+    /// LAN presence (discovered Kawma PCs + our identity).
     pub net: crate::netshare::NetState,
     /// Active "share to the internet" tunnels (bore), keyed by server id.
     pub tunnels: crate::tunnel::Tunnels,

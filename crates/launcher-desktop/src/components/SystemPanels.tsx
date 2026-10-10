@@ -250,7 +250,7 @@ export function SettingsPanel() {
             onChange={(v) => persistSettings({ uiStyle: v })}
             minWidth={180}
             options={[
-              { value: "aurora", label: "Aurora (default)" },
+              { value: "aurora", label: "Kawma (default)" },
               { value: "liquidglass", label: "Liquid Glass" },
               { value: "compact", label: "Compact (dense)" },
               { value: "cozy", label: "Cozy (big & round)" },
@@ -307,7 +307,7 @@ export function SettingsPanel() {
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 600 }}>Open to</div>
-            <div className="muted">Which screen Aurora shows when it starts.</div>
+            <div className="muted">Which screen Kawma shows when it starts.</div>
           </div>
           <Select
             value={settings.defaultView ?? "home"}
@@ -323,14 +323,14 @@ export function SettingsPanel() {
               { value: "eldenring", label: "Elden Ring — Play" },
               { value: "eldenring:Co-op", label: "Elden Ring — Co-op" },
               { value: "cyberpunk", label: "Cyberpunk — Play" },
-              { value: "network", label: "Aurora Net" },
+              { value: "network", label: "Kawma Net" },
               { value: "settings", label: "Settings" },
             ]}
           />
         </div>
         <div className="divide" />
         <Toggle
-          title="Launch Aurora when Windows starts"
+          title="Launch Kawma when Windows starts"
           note="Great for hosting — your auto-start servers come online with your PC."
           value={settings.launchAtLogin === true}
           onChange={(v) => {
@@ -386,7 +386,7 @@ export function SettingsPanel() {
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 600 }}>Discord Rich Presence</div>
-            <div className="muted">Show "Playing … via Aurora Launcher" on your Discord profile.</div>
+            <div className="muted">Show "Playing … via Kawma Launcher" on your Discord profile.</div>
           </div>
           <div className="seg">
             <button
@@ -414,8 +414,8 @@ export function SettingsPanel() {
           <div>
             <div style={{ fontWeight: 600 }}>Remote control on this network</div>
             <div className="muted">
-              Let other PCs running Aurora on your network find and control this one (manage its servers
-              from your main PC). Run this once on <b>each</b> PC — it allows Aurora through the firewall.
+              Let other PCs running Kawma on your network find and control this one (manage its servers
+              from your main PC). Run this once on <b>each</b> PC — it allows Kawma through the firewall.
             </div>
           </div>
           <button className="btn" disabled={netBusy} onClick={allowRemote}>

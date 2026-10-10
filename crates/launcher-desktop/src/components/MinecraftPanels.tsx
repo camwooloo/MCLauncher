@@ -694,7 +694,7 @@ export function MinecraftServers() {
 
       {servers.length === 0 && !editing && (
         <p className="muted">
-          No servers yet. Create one and Aurora downloads the server, writes server.properties, and
+          No servers yet. Create one and Kawma downloads the server, writes server.properties, and
           runs it — the dashboard opens in-app with a live console.
         </p>
       )}
@@ -889,9 +889,9 @@ function ServerEditor({
       <label className="row" style={{ marginTop: 14, gap: 10, cursor: "pointer", alignItems: "center" }}>
         <input type="checkbox" checked={cfg.autoStart === true} onChange={(e) => set({ autoStart: e.target.checked })} />
         <span>
-          <span style={{ fontWeight: 600 }}>Start automatically when Aurora opens</span>
+          <span style={{ fontWeight: 600 }}>Start automatically when Kawma opens</span>
           <span className="muted" style={{ display: "block", fontSize: 12.5 }}>
-            Ideal with “Launch Aurora when Windows starts” for an always-on server.
+            Ideal with “Launch Kawma when Windows starts” for an always-on server.
           </span>
         </span>
       </label>

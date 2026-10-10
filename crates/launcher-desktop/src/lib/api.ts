@@ -13,7 +13,7 @@ import type {
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 // --- Remote control (LAN) ----
-// When connected to another Aurora PC, the commands in REMOTE_CMDS are sent to
+// When connected to another Kawma PC, the commands in REMOTE_CMDS are sent to
 // that PC's control server instead of run locally — so its servers/games show
 // here. Launcher-chrome commands (settings, accounts, window) always stay local.
 let remoteHost: { ip: string; port: number } | null = null;
@@ -140,7 +140,7 @@ export const minecraftVersions = (): Promise<string[]> =>
 const mockStore: AccountStore = {
   accounts: [
     {
-      username: "AuroraDev",
+      username: "KawmaDev",
       uuid: "9a1f0c5e7b2d4a3c8e6f1b09d4a25c11",
       access_token: "mock",
       xuid: "",
@@ -489,7 +489,7 @@ export interface TogetherServerConfig {
 }
 const mockTogether: TogetherServerConfig = {
   available: true,
-  serverName: "Aurora Together Server",
+  serverName: "Kawma Together Server",
   password: "",
   maxPlayers: 8,
   port: 10578,
@@ -532,14 +532,14 @@ export interface ReleasesResult {
 const mockReleases: ReleasesResult = {
   current: "0.3.2",
   releases: [
-    { version: "0.3.2", name: "Aurora Launcher v0.3.2", date: "2026-06-14", notes: "- Styled Aurora Net dropdowns\n- Built-in updater + patch notes" },
-    { version: "0.3.0", name: "Aurora Launcher v0.3.0 — Aurora Net", date: "2026-06-14", notes: "- Aurora Net: built-in VPN for no-port-forward co-op" },
+    { version: "0.3.2", name: "Kawma Launcher v0.3.2", date: "2026-06-14", notes: "- Styled Kawma Net dropdowns\n- Built-in updater + patch notes" },
+    { version: "0.3.0", name: "Kawma Launcher v0.3.0 — Kawma Net", date: "2026-06-14", notes: "- Kawma Net: built-in VPN for no-port-forward co-op" },
   ],
 };
 export const listReleases = (): Promise<ReleasesResult> =>
   isTauri ? call<ReleasesResult>("list_releases") : Promise.resolve(mockReleases);
 
-// ---- Aurora Net (built-in Tailscale VPN) ----
+// ---- Kawma Net (built-in Tailscale VPN) ----
 export interface VpnStatus {
   installed: boolean;
   running: boolean;
@@ -574,7 +574,7 @@ export const vpnSetToken = (token: string): Promise<void> =>
 export const vpnJoin = (code: string): Promise<JoinPayload> =>
   isTauri
     ? call<JoinPayload>("vpn_join", { code })
-    : Promise.reject(new Error("Aurora Net is only available in the desktop app"));
+    : Promise.reject(new Error("Kawma Net is only available in the desktop app"));
 export interface PackRef {
   source: string;
   projectId: string;
@@ -590,7 +590,7 @@ export const vpnShare = (args: {
 }): Promise<string> =>
   isTauri
     ? call<string>("vpn_share", { args })
-    : Promise.reject(new Error("Aurora Net is only available in the desktop app"));
+    : Promise.reject(new Error("Kawma Net is only available in the desktop app"));
 
 export interface Peer {
   name: string;
@@ -607,7 +607,7 @@ export const vpnPeers = (): Promise<Peer[]> =>
   isTauri ? call<Peer[]>("vpn_peers") : Promise.resolve(mockPeers);
 
 // One-time Windows Firewall allow-rule so friends can reach servers you host
-// over Aurora Net. Returns true if it applied (false = already set up).
+// over Kawma Net. Returns true if it applied (false = already set up).
 export const repairAuroraNet = (): Promise<boolean> =>
   isTauri ? call<boolean>("repair_aurora_net") : Promise.resolve(false);
 

@@ -38,7 +38,7 @@ pub async fn fetch_mod(api_key: &str, id: u32) -> Option<NexusInfo> {
         .get(format!("{BASE}/games/{GAME}/mods/{id}.json"))
         .header("apikey", api_key)
         .header("accept", "application/json")
-        .header("user-agent", "AuroraLauncher")
+        .header("user-agent", "KawmaLauncher")
         .send()
         .await
         .ok()?;
@@ -206,7 +206,7 @@ pub async fn fetch_detail(api_key: &str, id: u32) -> Option<NexusDetail> {
         .get(format!("{BASE}/games/{GAME}/mods/{id}.json"))
         .header("apikey", api_key)
         .header("accept", "application/json")
-        .header("user-agent", "AuroraLauncher")
+        .header("user-agent", "KawmaLauncher")
         .send()
         .await
         .ok()?;
@@ -239,7 +239,7 @@ pub async fn validate_key(api_key: &str) -> bool {
         .get(format!("{BASE}/users/validate.json"))
         .header("apikey", api_key)
         .header("accept", "application/json")
-        .header("user-agent", "AuroraLauncher")
+        .header("user-agent", "KawmaLauncher")
         .send()
         .await
         .map(|r| r.status().is_success())

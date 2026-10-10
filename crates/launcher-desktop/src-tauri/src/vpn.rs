@@ -1,4 +1,4 @@
-//! Built-in **Aurora Net** — a thin, auto-managed wrapper around Tailscale so
+//! Built-in **Kawma Net** — a thin, auto-managed wrapper around Tailscale so
 //! friends can reach each other's game servers (Minecraft, Skyrim Together,
 //! Elden Ring co-op, …) with **no port forwarding**.
 //!
@@ -70,7 +70,7 @@ pub struct VpnStatus {
     pub running: bool,
     /// Has an account (logged in), even if currently stopped.
     pub logged_in: bool,
-    /// This device's Aurora Net (Tailscale) IPv4, e.g. `100.x.y.z`.
+    /// This device's Kawma Net (Tailscale) IPv4, e.g. `100.x.y.z`.
     pub ip: Option<String>,
     pub hostname: Option<String>,
 }
@@ -104,7 +104,7 @@ pub async fn status() -> VpnStatus {
     st
 }
 
-/// A device on your Aurora Net (a "friend"), from `tailscale status`.
+/// A device on your Kawma Net (a "friend"), from `tailscale status`.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Peer {
@@ -245,7 +245,7 @@ pub async fn login() -> Result<Option<String>, String> {
 /// Join a tailnet using a pre-shared auth key (the guest side of a join code).
 ///
 /// Crucially we **log out first**. If the joiner is already signed into their
-/// *own* tailnet (e.g. they connected Aurora Net before being invited), a plain
+/// *own* tailnet (e.g. they connected Kawma Net before being invited), a plain
 /// `up --authkey` does not switch networks — they'd stay on their tailnet and
 /// never see the host. Logging out clears any prior identity so the key joins
 /// the host's tailnet cleanly as a fresh guest. `--reset` drops any leftover
@@ -290,7 +290,7 @@ pub async fn mint_join_key(api_token: &str) -> Result<String, String> {
             "tags": [GUEST_TAG],
         }}},
         "expirySeconds": 86_400, // 24h
-        "description": "Aurora Net guest",
+        "description": "Kawma Net guest",
     });
     let resp = launcher_core::http::client()
         .post(format!("{API_BASE}/tailnet/-/keys"))
@@ -326,7 +326,7 @@ pub async fn mint_friend_key(api_token: &str) -> Result<String, String> {
             "preauthorized": true,
         }}},
         "expirySeconds": 7_776_000, // 90 days (Tailscale max)
-        "description": "Aurora Net friend code",
+        "description": "Kawma Net friend code",
     });
     let resp = launcher_core::http::client()
         .post(format!("{API_BASE}/tailnet/-/keys"))
@@ -457,7 +457,7 @@ pub struct JoinPayload {
     pub v: u8,
     /// Ephemeral Tailscale auth key the guest uses to join.
     pub key: String,
-    /// Host's Aurora Net IP.
+    /// Host's Kawma Net IP.
     pub ip: String,
     pub port: u16,
     pub name: String,
@@ -475,17 +475,18 @@ pub fn encode_code(p: &JoinPayload) -> Result<String, String> {
     Ok(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(json))
 }
 
-/// Decode a join code (tolerates an `aurora-net:` prefix and whitespace).
+/// Decode a join code (tolerates a `kawma-net:` or legacy `aurora-net:` prefix and whitespace).
 pub fn decode_code(code: &str) -> Result<JoinPayload, String> {
     use base64::Engine;
-    let trimmed = code.trim().trim_start_matches("aurora-net:").trim();
+    let trimmed = code.trim();
+    let trimmed = trimmed.strip_prefix("kawma-net:").or_else(|| trimmed.strip_prefix("aurora-net:")).unwrap_or(trimmed).trim();
     let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(trimmed.as_bytes())
         .map_err(|_| "That doesn't look like a valid join code".to_string())?;
     let p: JoinPayload = serde_json::from_slice(&bytes)
         .map_err(|_| "That join code is malformed or from a newer version".to_string())?;
     if p.v != CODE_VERSION {
-        return Err("That join code is from a different version of Aurora".into());
+        return Err("That join code is from a different version of Kawma".into());
     }
     Ok(p)
 }
@@ -512,7 +513,8 @@ mod tests {
         };
         let code = encode_code(&p).unwrap();
         // Survives the user-facing prefix + stray whitespace.
-        let decoded = decode_code(&format!("  aurora-net:{code}\n")).unwrap();
+        let decoded = decode_code(&format!("  kawma-net:{code}\n")).unwrap();
+        assert_eq!(decode_code(&format!("aurora-net:{code}")).unwrap().ip, decoded.ip);
         assert_eq!(decoded.key, p.key);
         assert_eq!(decoded.ip, p.ip);
         assert_eq!(decoded.port, 25565);

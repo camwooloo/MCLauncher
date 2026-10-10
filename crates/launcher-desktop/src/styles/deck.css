@@ -1,5 +1,5 @@
 /* =========================================================================
-   Aurora Launcher — "deck" shell (v3)
+   Kawma Launcher — "deck" shell (v3)
    One rounded window: the selected game's functions on the left, the hero
    + panel in the centre over blurred game art, your games on the right.
    Dark, glassy cards, pale pill buttons, uppercase section labels.
@@ -271,7 +271,7 @@
 .game-dot[data-g="skyrim"] { --g: 158, 197, 255; }
 .game-dot[data-g="eldenring"] { --g: 243, 201, 105; }
 .game-dot[data-g="cyberpunk"] { --g: 252, 238, 10; }
-.game-dot[data-g="aurora"] { --g: 183, 148, 246; }
+.game-dot[data-g="kawma"] { --g: 255, 179, 107; }
 .game-dot:hover {
   transform: scale(1.08);
   color: rgb(var(--g));
@@ -330,7 +330,7 @@
 .stage-art[data-art="skyrim"] { --a2: 200, 210, 230; --a3: 120, 140, 170; }
 .stage-art[data-art="eldenring"] { --a2: 255, 170, 80; --a3: 120, 90, 50; }
 .stage-art[data-art="cyberpunk"] { --a2: 0, 240, 255; --a3: 255, 40, 120; }
-.stage-art[data-art="aurora"] { --a2: 52, 211, 153; --a3: 236, 110, 140; }
+.stage-art[data-art="kawma"] { --a2: 139, 61, 255; --a3: 255, 122, 69; }
 
 .stage-scroll {
   position: absolute;
