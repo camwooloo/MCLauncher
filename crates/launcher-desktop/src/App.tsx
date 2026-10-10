@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { LauncherProvider, useLauncher } from "./store";
-import { windowAction, checkAppUpdate, applyAppUpdate, playStats, gameIcons, type UpdateInfo, type PlayRecord } from "./lib/api";
+import { windowAction, playStats, gameIcons, type PlayRecord } from "./lib/api";
+import { useAppUpdate, checkAtStartup, installUpdate } from "./lib/updates";
 import type { GameKey } from "./lib/types";
 import { Icon, KawmaMark, Markdown } from "./components/ui";
 import { KawmaLogo } from "./components/KawmaLogo";
@@ -191,26 +192,20 @@ function RemotePill() {
 /* Title-bar pill: appears when a newer release exists; opens patch notes + 1-click update. */
 function UpdatePill() {
   const { showToast } = useLauncher();
-  const [info, setInfo] = useState<UpdateInfo | null>(null);
+  // Shared with Settings → Updates, so a manual check there lights this up too.
+  const { info, installing: busy } = useAppUpdate();
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    checkAppUpdate()
-      .then((i) => setInfo(i))
-      .catch(() => {});
-  }, []);
+  useEffect(() => checkAtStartup(), []);
 
   if (!info) return null;
 
   const update = async () => {
-    setBusy(true);
     try {
-      await applyAppUpdate();
+      await installUpdate();
       showToast("Downloading update — the installer will open, then Kawma restarts…");
     } catch (e) {
       showToast(`${e}`);
-      setBusy(false);
     }
   };
 

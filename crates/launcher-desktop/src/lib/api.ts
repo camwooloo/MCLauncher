@@ -528,7 +528,20 @@ export interface UpdateInfo {
   channel: "stable" | "test";
 }
 export const checkAppUpdate = (): Promise<UpdateInfo | null> =>
-  isTauri ? call<UpdateInfo | null>("check_app_update") : Promise.resolve(null);
+  isTauri ? call<UpdateInfo | null>("check_app_update") : new Promise((r) => setTimeout(() => r(mockUpdate()), 700));
+// Browser preview: set localStorage "aurora:mock-update" to a version to be offered it.
+function mockUpdate(): UpdateInfo | null {
+  let v: string | null = null;
+  try {
+    v = localStorage.getItem("aurora:mock-update");
+  } catch {
+    /* no storage */
+  }
+  return v ? { version: v, current: "0.3.2", notes: "- Preview build", downloadUrl: "https://kawma.app/launcher/download", channel: "stable" } : null;
+}
+/** The running launcher's version, as the update check compares it (Tauri's `getVersion`). */
+export const launcherVersion = (): Promise<string> =>
+  isTauri ? import("@tauri-apps/api/app").then((m) => m.getVersion()) : Promise.resolve("0.3.2");
 /** Downloads the update the last check offered, verifies it and runs the installer. */
 export const applyAppUpdate = (): Promise<void> =>
   isTauri ? call<void>("apply_app_update") : Promise.resolve();
