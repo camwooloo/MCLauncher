@@ -388,6 +388,108 @@
 .game-me-dot.on {
   background: #f4f6f5;
 }
+/* The avatar, with the launcher's update button tucked under it. */
+.me-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+/* Shows only when a launcher update is out. Kawma's own colours (not the
+   game accent): it's about the launcher. */
+.rail-update {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #ffd2a6;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 179, 107, 0.32);
+  box-shadow: 0 0 14px -4px rgba(255, 122, 69, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: rail-update-in 0.35s var(--spring) both;
+  transition: transform 0.2s var(--spring), color 0.18s, border-color 0.18s, box-shadow 0.2s;
+}
+.rail-update:hover {
+  color: #fff;
+  border-color: rgba(255, 179, 107, 0.6);
+  box-shadow: 0 0 18px -3px rgba(255, 122, 69, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: scale(1.08);
+}
+.rail-update:active {
+  transform: scale(0.94);
+}
+.rail-update.loading,
+.rail-update.installing {
+  cursor: progress;
+  border-color: transparent;
+}
+[data-theme="light"] .rail-update {
+  color: #c2551f;
+  background: rgba(255, 255, 255, 0.85);
+}
+.rail-update-dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffb36b, #ff7a45);
+  border: 2px solid #000;
+  box-shadow: 0 0 8px rgba(255, 122, 69, 0.85);
+  animation: rail-update-pulse 2.4s ease-in-out infinite;
+}
+.rail-update-ring {
+  position: absolute;
+  inset: -3px;
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+.rail-update-ring circle {
+  fill: none;
+  stroke-width: 2.5;
+}
+.rail-update-ring .track {
+  stroke: rgba(255, 179, 107, 0.18);
+}
+.rail-update-ring .bar {
+  stroke: #ffb36b;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.2s linear;
+}
+.rail-update-ring.spin {
+  animation: rail-update-spin 0.9s linear infinite;
+}
+@keyframes rail-update-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.6);
+  }
+}
+@keyframes rail-update-pulse {
+  50% {
+    box-shadow: 0 0 2px rgba(255, 122, 69, 0.4);
+  }
+}
+@keyframes rail-update-spin {
+  from {
+    transform: rotate(-90deg);
+  }
+  to {
+    transform: rotate(270deg);
+  }
+}
+[data-anim="off"] .rail-update-dot {
+  animation: none;
+}
+/* Progress is status, not decoration: keep it turning with the Static setting. */
+[data-anim="off"] .rail-update-ring.spin {
+  animation-duration: 0.9s !important;
+}
 .game-dot {
   --g: var(--accent-rgb);
   position: relative;

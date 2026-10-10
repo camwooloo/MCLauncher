@@ -35,6 +35,8 @@ export interface Settings {
   nowPlaying?: boolean;
   /** Kawma "Play with your community" default for internet shares. Off by default. */
   community?: boolean;
+  /** Automatic launcher updates. On unless turned off. */
+  autoUpdate?: boolean;
 }
 
 /** A Minecraft account linked to the Kawma account (uuid without dashes). */

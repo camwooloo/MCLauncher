@@ -1226,6 +1226,7 @@ pub async fn instance_play(
                 cfg.icon.clone(),
                 pid.unwrap_or(0),
             );
+            crate::updates::game_launched("minecraft", pid.unwrap_or(0));
             crate::discord::set_playing(&format!("Playing {}", cfg.name), "Minecraft · via Kawma");
             let detail = if cfg.name.contains(&cfg.version) {
                 cfg.name.clone()

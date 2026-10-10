@@ -1107,25 +1107,7 @@ code {
   overflow: hidden;
 }
 
-/* Update-available pill (titlebar) + patch-notes modal */
-.update-ind {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 13px;
-  border-radius: 99px;
-  font-size: 12.5px;
-  font-weight: 600;
-  background: linear-gradient(135deg, rgba(183, 148, 246, 0.18), rgba(52, 211, 153, 0.18));
-  border: 1px solid rgba(183, 148, 246, 0.5);
-  color: #d7c4ff;
-  margin-right: 8px;
-  transition: transform 0.18s var(--spring), filter 0.2s;
-}
-.update-ind:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.12);
-}
+/* Modal card + patch notes (shared by several dialogs) */
 .update-modal {
   width: min(560px, 92vw);
   max-height: 80vh;

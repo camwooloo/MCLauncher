@@ -61,6 +61,11 @@ pub struct Settings {
     /// Kawma community. Needs Kawma sign-in. Off by default.
     #[serde(default)]
     pub community: bool,
+    /// Check for launcher updates on launch and every four hours, download
+    /// them, and install once the launcher has been in the background for a
+    /// minute (never during a game, a hosted server or an install). On by default.
+    #[serde(default = "default_true")]
+    pub auto_update: bool,
 }
 
 fn default_true() -> bool {
@@ -94,6 +99,7 @@ impl Default for Settings {
             window_frame: default_frame(),
             now_playing: false,
             community: false,
+            auto_update: true,
         }
     }
 }

@@ -23,6 +23,7 @@ mod state;
 mod stats;
 mod trainer;
 mod tunnel;
+mod updates;
 mod vpn;
 
 use state::AppState;
@@ -49,6 +50,16 @@ fn main() {
                             let _ = w.hide();
                         }
                     }
+                }
+            }
+            // Reopened by an automatic update: come back the way we were
+            // (in the tray, or minimised) instead of jumping to the front.
+            let args: Vec<String> = std::env::args().skip(1).collect();
+            if let Some(w) = app.get_webview_window("main") {
+                if args.iter().any(|a| a == updates::RELAUNCH_HIDDEN) {
+                    let _ = w.hide();
+                } else if args.iter().any(|a| a == updates::RELAUNCH_MINIMIZED) {
+                    let _ = w.minimize();
                 }
             }
 
@@ -211,8 +222,10 @@ fn main() {
             kawma::open_kawma_studio,
             kawma::kawma_stars_best,
             kawma::kawma_stars_submit,
-            commands::check_app_update,
-            commands::apply_app_update,
+            updates::check_app_update,
+            updates::download_app_update,
+            updates::install_app_update,
+            updates::update_blocker,
             commands::list_releases,
             commands::host_addresses,
             commands::play_stats,
