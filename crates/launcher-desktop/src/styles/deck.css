@@ -124,27 +124,24 @@
   color: var(--text-mute);
 }
 
-/* Game mark at the top of the function rail (the selected game). */
+/* The Aurora logo heads the function rail and doubles as the Home button. */
 .fn-mark {
   width: 50px;
   height: 50px;
-  border-radius: 15px;
+  padding: 0;
   border: none;
+  border-radius: 15px;
+  background: none;
   display: grid;
   place-items: center;
-  color: var(--on-accent);
-  background: linear-gradient(145deg, var(--accent), var(--accent-2));
-  box-shadow: 0 10px 30px -10px rgba(var(--accent-rgb), 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: transform 0.2s var(--spring), background 0.5s var(--ease);
+  box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.9);
+  transition: transform 0.2s var(--spring), box-shadow 0.2s;
 }
-/* On Home/Settings the rail still belongs to a game: keep that game's colour. */
-.fn-mark[data-g="minecraft"] { background: linear-gradient(145deg, #3ddc84, #22d3ee); }
-.fn-mark[data-g="skyrim"] { background: linear-gradient(145deg, #9ec5ff, #6ea8fe); }
-.fn-mark[data-g="eldenring"] { background: linear-gradient(145deg, #f3c969, #e0a13a); }
-.fn-mark[data-g="cyberpunk"] { background: linear-gradient(145deg, #fcee0a, #00f0ff); }
-.fn-mark[data-g] { color: #06120c; }
 .fn-mark:hover {
   transform: scale(1.06);
+}
+.fn-mark.active {
+  box-shadow: 0 0 0 2px var(--pill), 0 12px 28px -14px rgba(0, 0, 0, 0.9);
 }
 
 /* Function buttons: round, quiet until hovered; the selected one fills. */
@@ -173,19 +170,7 @@
   background: var(--pill);
   box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.6);
 }
-/* The primary function (Play) gets the big ringed button. */
-.fn-btn.primary {
-  width: 72px;
-  height: 72px;
-  color: var(--text);
-  background: var(--card);
-  box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-.fn-btn.primary.active {
-  color: var(--pill-ink);
-  background: var(--pill);
-  box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.6), 0 14px 34px -12px rgba(var(--accent-rgb), 0.55);
-}
+.fn-solo,
 .fn-group,
 .game-group {
   display: flex;
@@ -198,9 +183,9 @@
   border: 1px solid var(--card-edge);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
+[data-theme="light"] .fn-solo,
 [data-theme="light"] .fn-group,
-[data-theme="light"] .game-group,
-[data-theme="light"] .fn-btn.primary:not(.active) {
+[data-theme="light"] .game-group {
   background: rgba(255, 255, 255, 0.75);
   box-shadow: 0 0 0 1px var(--card-edge);
 }
@@ -262,6 +247,25 @@
   color: var(--text-dim);
   background: var(--card-2);
   transition: transform 0.2s var(--spring), background 0.2s, color 0.2s, box-shadow 0.25s;
+}
+/* Art fills the circle (clipped on the art, so the selection pip outside
+   the dot stays visible). */
+.game-dot .game-art,
+.game-dot > svg[role="img"] {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  clip-path: circle(50%);
+}
+/* Unselected games sit back a little so the selected one leads. */
+.game-dot:not(.active) .game-art,
+.game-dot:not(.active) > svg[role="img"] {
+  filter: saturate(0.85) brightness(0.85);
+  transition: filter 0.2s;
+}
+.game-dot:hover .game-art,
+.game-dot:hover > svg[role="img"] {
+  filter: none;
 }
 .game-dot[data-g="minecraft"] { --g: 61, 220, 132; }
 .game-dot[data-g="skyrim"] { --g: 158, 197, 255; }
@@ -362,6 +366,7 @@
   font-weight: 700;
 }
 .hero3-badge-ico {
+  overflow: hidden;
   width: 46px;
   height: 46px;
   border-radius: 14px;

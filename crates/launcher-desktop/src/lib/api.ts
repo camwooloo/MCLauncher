@@ -194,6 +194,10 @@ export const playMinecraft = (args: PlayArgs): Promise<string> =>
     ? call("play_minecraft", { args })
     : Promise.reject(new Error("Launching is only available in the desktop app"));
 
+/** Each Steam game's real icon (data URLs keyed by game), from Steam's local cache. */
+export const gameIcons = (): Promise<Record<string, string>> =>
+  isTauri ? call<Record<string, string>>("game_icons") : Promise.resolve({});
+
 export const detectGames = (): Promise<GamesStatus> =>
   isTauri
     ? call("detect_games")

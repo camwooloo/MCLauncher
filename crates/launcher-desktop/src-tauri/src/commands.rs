@@ -765,6 +765,37 @@ pub fn detect_games() -> GamesStatus {
     }
 }
 
+/// Each Steam game's own icon, as the Steam client caches it, keyed by the
+/// UI's game key and encoded as a data URL. Games Steam hasn't cached an icon
+/// for are left out (the UI falls back to its built-in glyph).
+#[tauri::command]
+pub fn game_icons() -> std::collections::HashMap<String, String> {
+    use base64::Engine;
+    use launcher_core::games::GameId;
+
+    let mut icons = std::collections::HashMap::new();
+    for (key, game) in [
+        ("skyrim", GameId::SkyrimSe),
+        ("eldenring", GameId::EldenRing),
+        ("cyberpunk", GameId::Cyberpunk2077),
+    ] {
+        let Some(path) = game.steam_app_id().and_then(launcher_core::steam::library_icon) else {
+            continue;
+        };
+        let Ok(bytes) = std::fs::read(&path) else {
+            continue;
+        };
+        let mime = match path.extension().and_then(|e| e.to_str()) {
+            Some("png") => "image/png",
+            Some("ico") => "image/x-icon",
+            _ => "image/jpeg",
+        };
+        let b64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+        icons.insert(key.to_string(), format!("data:{mime};base64,{b64}"));
+    }
+    icons
+}
+
 #[tauri::command]
 pub fn launch_skyrim(state: State<'_, AppState>, mode: String) -> Result<u32, String> {
     use skyrim::SkyrimLaunch::*;

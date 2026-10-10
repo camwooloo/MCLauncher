@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
 import { LauncherProvider, useLauncher } from "./store";
-import { windowAction, checkAppUpdate, applyAppUpdate, playStats, type UpdateInfo, type PlayRecord } from "./lib/api";
+import { windowAction, checkAppUpdate, applyAppUpdate, playStats, gameIcons, type UpdateInfo, type PlayRecord } from "./lib/api";
 import type { GameKey } from "./lib/types";
-import { Icon, AuroraMark, Markdown, Avatar } from "./components/ui";
+import { Icon, AuroraMark, GrassBlock, Markdown, Avatar } from "./components/ui";
 import { AccountMenu } from "./components/AccountMenu";
 import { ServerDashboard } from "./components/ServerConsole";
 import { InstancesPanel, MinecraftServers, UpgradeModal } from "./components/MinecraftPanels";
@@ -337,6 +337,10 @@ function Shell() {
     cyberpunk: "Play",
   });
   const [recents, setRecents] = useState<PlayRecord[]>([]);
+  const [gameArt, setGameArt] = useState<Record<string, string>>({});
+  useEffect(() => {
+    gameIcons().then(setGameArt).catch(() => {});
+  }, []);
 
   // Play history drives the hero: the Minecraft "selected instance" is the one
   // played most recently, and Home's Continue picks up the last game.
@@ -447,16 +451,15 @@ function Shell() {
         <div className="stage-art" data-art={isGame ? section : "aurora"} aria-hidden />
         {/* Left: what you can do with the selected game. */}
         <nav className="fn-rail" aria-label={`${GAME_META[activeGame].name} functions`}>
-          <button className="fn-mark" data-g={activeGame} onClick={() => selectGame(activeGame)} title={GAME_META[activeGame].name}>
-            {(() => {
-              const G = GAME_META[activeGame].icon;
-              return <G size={24} />;
-            })()}
+          <button className={`fn-mark ${section === "home" ? "active" : ""}`} onClick={() => setSection("home")} title="Home">
+            <AuroraMark size={46} />
           </button>
           <div className="fn-spacer" />
-          <FnBtn primary label={primary.tab} active={fnActive(primary.tab)} onClick={() => openFunc(primary.tab)}>
-            <primary.icon size={26} />
-          </FnBtn>
+          <div className="fn-solo">
+            <FnBtn label={primary.tab} active={fnActive(primary.tab)} onClick={() => openFunc(primary.tab)}>
+              <primary.icon size={22} />
+            </FnBtn>
+          </div>
           <div className="fn-group">
             {rest.map((f) => (
               <FnBtn key={f.tab} label={f.tab} active={fnActive(f.tab)} onClick={() => openFunc(f.tab)}>
@@ -480,7 +483,7 @@ function Shell() {
                     <span className="hero3-badge">
                       <span>{GAME_META[section as GameKey].name}</span>
                       <span className="hero3-badge-ico">
-                        <SectionIcon size={20} />
+                        <GameArt game={section as GameKey} icons={gameArt} size={30} />
                       </span>
                     </span>
                   )}
@@ -528,17 +531,11 @@ function Shell() {
           </button>
           <div className="fn-spacer" />
           <div className="game-group">
-            <GameDot label="Home" active={section === "home"} onClick={() => setSection("home")}>
-              <AuroraMark size={22} />
-            </GameDot>
-            {GAMES.map((g) => {
-              const G = GAME_META[g].icon;
-              return (
-                <GameDot key={g} game={g} label={GAME_META[g].name} active={section === g} onClick={() => selectGame(g)}>
-                  <G size={22} />
-                </GameDot>
-              );
-            })}
+            {GAMES.map((g) => (
+              <GameDot key={g} game={g} label={GAME_META[g].name} active={section === g} onClick={() => selectGame(g)}>
+                <GameArt game={g} icons={gameArt} size={48} />
+              </GameDot>
+            ))}
           </div>
           <div className="fn-spacer" />
           <div className="fn-group">
@@ -584,20 +581,29 @@ function FnBtn({
   children,
   label,
   active,
-  primary,
   onClick,
 }: {
   children: React.ReactNode;
   label: string;
   active: boolean;
-  primary?: boolean;
   onClick: () => void;
 }) {
   return (
-    <button className={`fn-btn ${primary ? "primary" : ""} ${active ? "active" : ""}`} onClick={onClick} title={label} aria-label={label}>
+    <button className={`fn-btn ${active ? "active" : ""}`} onClick={onClick} title={label} aria-label={label}>
       {children}
     </button>
   );
+}
+
+/* A game's real icon: Minecraft's grass block, or the icon Steam has cached
+   for the others, falling back to our own glyph when Steam has none. */
+function GameArt({ game, icons, size }: { game: GameKey; icons: Record<string, string>; size: number }) {
+  const [broken, setBroken] = useState(false);
+  if (game === "minecraft") return <GrassBlock size={size} />;
+  const src = icons[game];
+  if (src && !broken) return <img className="game-art" src={src} alt="" width={size} height={size} onError={() => setBroken(true)} />;
+  const G = GAME_META[game].icon;
+  return <G size={Math.round(size * 0.46)} />;
 }
 
 function GameDot({

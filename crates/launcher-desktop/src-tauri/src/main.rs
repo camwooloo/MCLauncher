@@ -125,6 +125,7 @@ fn main() {
             commands::minecraft_versions,
             commands::play_minecraft,
             commands::detect_games,
+            commands::game_icons,
             commands::launch_skyrim,
             commands::skyrim_server_config,
             commands::save_skyrim_server_config,

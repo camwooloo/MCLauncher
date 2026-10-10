@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import * as api from "../lib/api";
 
@@ -342,35 +342,63 @@ export function Avatar({
 }
 
 /** The Aurora logo: northern-lights ribbons over a night sky, with a star. */
+/** The Aurora mark: a peaked "A" lit like an aurora curtain (green at the
+ *  horizon through teal to violet), with a ribbon of light for its crossbar,
+ *  on a night-sky squircle. */
 export function AuroraMark({ size = 24 }: { size?: number }) {
+  const id = useId().replace(/:/g, "");
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-label="Aurora">
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-label="Aurora" role="img">
       <defs>
-        <linearGradient id="am-sky" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#171034" />
-          <stop offset="1" stopColor="#081226" />
+        <linearGradient id={`${id}-sky`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#161a2b" />
+          <stop offset="1" stopColor="#06070c" />
         </linearGradient>
-        <linearGradient id="am-r1" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stopColor="#b794f6" stopOpacity="0" />
-          <stop offset="0.35" stopColor="#b794f6" />
-          <stop offset="1" stopColor="#7c5cf6" stopOpacity="0.25" />
+        <linearGradient id={`${id}-a`} x1="0" y1="52" x2="0" y2="12" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#3ddc84" />
+          <stop offset="0.5" stopColor="#22d3ee" />
+          <stop offset="1" stopColor="#b794f6" />
         </linearGradient>
-        <linearGradient id="am-r2" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stopColor="#34d399" stopOpacity="0" />
-          <stop offset="0.4" stopColor="#34d399" />
-          <stop offset="1" stopColor="#22d3ee" stopOpacity="0.3" />
-        </linearGradient>
+        <radialGradient id={`${id}-glow`} cx="32" cy="46" r="26" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#34d399" stopOpacity="0.38" />
+          <stop offset="1" stopColor="#34d399" stopOpacity="0" />
+        </radialGradient>
       </defs>
-      <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#am-sky)" />
-      <rect x="2.5" y="2.5" width="59" height="59" rx="15.5" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
-      {/* aurora ribbons */}
-      <path d="M8 50 C 22 44, 28 28, 56 14" stroke="url(#am-r1)" strokeWidth="9" strokeLinecap="round" fill="none" opacity="0.95" />
-      <path d="M8 56 C 26 52, 36 38, 58 26" stroke="url(#am-r2)" strokeWidth="6.5" strokeLinecap="round" fill="none" opacity="0.9" />
-      <path d="M10 44 C 22 38, 30 24, 50 13" stroke="rgba(255,255,255,0.55)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-      {/* star */}
-      <path d="M48 42 l1.6 3.4 3.4 1.6 -3.4 1.6 -1.6 3.4 -1.6 -3.4 -3.4 -1.6 3.4 -1.6 z" fill="#fff" opacity="0.9" />
-      <circle cx="16" cy="14" r="1.3" fill="#fff" opacity="0.7" />
-      <circle cx="26" cy="10" r="0.9" fill="#fff" opacity="0.5" />
+      <rect width="64" height="64" rx="18" fill={`url(#${id}-sky)`} />
+      <rect width="64" height="64" rx="18" fill={`url(#${id}-glow)`} />
+      <rect x="0.5" y="0.5" width="63" height="63" rx="17.5" fill="none" stroke="rgba(255,255,255,0.14)" />
+      <path d="M16.5 50 L32 14.5 L47.5 50" fill="none" stroke={`url(#${id}-a)`} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M19.5 38.5 C 25 33.5, 29 42, 34 37.5 S 42 33.5, 46 36" fill="none" stroke="#f4fbff" strokeWidth="3.2" strokeLinecap="round" />
+      <path d="M49 13 l1.2 2.6 2.6 1.2 -2.6 1.2 -1.2 2.6 -1.2 -2.6 -2.6 -1.2 2.6 -1.2 z" fill="#fff" opacity="0.9" />
+    </svg>
+  );
+}
+
+/** Minecraft's grass block, drawn as pixel art (16×16). */
+export function GrassBlock({ size = 24 }: { size?: number }) {
+  // Rows of the face: g = grass, G = dark grass, d = dirt, D = dark dirt, s = stone-ish speck.
+  const rows = [
+    "GgggGgggggGggggG",
+    "ggGgggggGggggGgg",
+    "gggggGgggggGgggg",
+    "gGdggggGddgggGdg",
+    "dgdDgGdddgdGgddg",
+    "ddddgddDdddgdddd",
+    "dDdddddddsddDddd",
+    "dddsdDddddddddDd",
+    "ddddddddDdddsddd",
+    "dDddsdddddDddddd",
+    "dddddddDddddddsd",
+    "ddDdddddddsddDdd",
+    "dddddsddDddddddd",
+    "dDddddddddddDdsd",
+    "ddddDddsdddddddd",
+    "dsddddddddDdddDd",
+  ];
+  const fill: Record<string, string> = { g: "#5fae3b", G: "#4a8f2c", d: "#8b5a34", D: "#6e4426", s: "#a77a52" };
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" shapeRendering="crispEdges" aria-label="Minecraft" role="img">
+      {rows.flatMap((row, y) => [...row].map((c, x) => <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" fill={fill[c]} />))}
     </svg>
   );
 }
