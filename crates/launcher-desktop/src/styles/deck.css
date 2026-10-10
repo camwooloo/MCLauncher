@@ -55,6 +55,34 @@
   -webkit-backdrop-filter: blur(50px) saturate(140%);
 }
 
+/* Flush frame (default): the deck *is* the window — no inset card, rails run
+   to the window edges and the title bar floats over the top of everything,
+   so it reads as one program. "Floating" keeps the rounded card above. */
+:root:not([data-frame="floating"]) .titlebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: transparent;
+}
+:root:not([data-frame="floating"]) .titlebar .brand {
+  visibility: hidden;
+}
+:root:not([data-frame="floating"]) .deck {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+:root:not([data-frame="floating"]) .fn-rail,
+:root:not([data-frame="floating"]) .game-rail {
+  padding-top: 58px;
+}
+:root:not([data-frame="floating"]) .stage-scroll {
+  padding-top: 52px;
+}
+
 /* ---- Rails (shared) ---------------------------------------------------- */
 .fn-rail,
 .game-rail {

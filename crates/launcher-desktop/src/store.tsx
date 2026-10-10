@@ -219,7 +219,8 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     root.setAttribute("data-style", settings.uiStyle || "aurora");
     root.setAttribute("data-bg", settings.background || "pulsing");
     root.setAttribute("data-anim", settings.background === "static" ? "off" : "on");
-  }, [settings.theme, settings.background, settings.uiStyle]);
+    root.setAttribute("data-frame", settings.windowFrame || "flush");
+  }, [settings.theme, settings.background, settings.uiStyle, settings.windowFrame]);
 
   const activeAccount = useCallback(
     () => store.accounts.find((a) => a.uuid === store.active_uuid) ?? store.accounts[0],

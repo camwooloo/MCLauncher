@@ -30,6 +30,7 @@ export interface Settings {
   startMinimized?: boolean;
   closeToTray?: boolean;
   onboarded?: boolean;
+  windowFrame?: string; // "flush" | "floating"
 }
 
 export interface PackHit {

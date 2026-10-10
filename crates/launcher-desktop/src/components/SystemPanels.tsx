@@ -261,6 +261,22 @@ export function SettingsPanel() {
         <div className="divide" />
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
+            <div style={{ fontWeight: 600 }}>Window</div>
+            <div className="muted">One edge-to-edge surface, or a rounded card floating in the window.</div>
+          </div>
+          <Select
+            value={settings.windowFrame ?? "flush"}
+            onChange={(v) => persistSettings({ windowFrame: v })}
+            minWidth={180}
+            options={[
+              { value: "flush", label: "Flush (default)" },
+              { value: "floating", label: "Floating card" },
+            ]}
+          />
+        </div>
+        <div className="divide" />
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <div>
             <div style={{ fontWeight: 600 }}>Background</div>
             <div className="muted">How the backdrop behaves.</div>
           </div>

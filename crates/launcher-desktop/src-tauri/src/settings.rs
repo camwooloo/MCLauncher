@@ -49,6 +49,10 @@ pub struct Settings {
     /// Whether the first-run onboarding has been completed/skipped.
     #[serde(default)]
     pub onboarded: bool,
+    /// Window frame: "flush" (one edge-to-edge surface) | "floating" (rounded
+    /// card inset in the window).
+    #[serde(default = "default_frame")]
+    pub window_frame: String,
 }
 
 fn default_true() -> bool {
@@ -56,6 +60,9 @@ fn default_true() -> bool {
 }
 fn default_view() -> String {
     "home".to_string()
+}
+fn default_frame() -> String {
+    "flush".to_string()
 }
 
 impl Default for Settings {
@@ -76,6 +83,7 @@ impl Default for Settings {
             start_minimized: false,
             close_to_tray: true,
             onboarded: false,
+            window_frame: default_frame(),
         }
     }
 }
