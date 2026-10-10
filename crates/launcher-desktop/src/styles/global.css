@@ -704,9 +704,43 @@ input {
   padding-right: 6px;
 }
 
-/* View transition on navigation */
+/* View transition on navigation: the new view drops in from just above.
+   (The end state keeps filter: blur(0), as before, so overlays a panel
+   renders stay positioned inside the view.) */
 .view {
-  animation: viewIn 0.4s var(--ease) both;
+  animation: viewDrop 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* The hero's title and Play row when switching game or section. */
+.swap-in {
+  animation: viewDrop 0.26s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@keyframes viewDrop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .view,
+  .swap-in {
+    animation-name: viewFade;
+    animation-duration: 0.16s;
+  }
+}
+@keyframes viewFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
 }
 @keyframes viewIn {
   from {

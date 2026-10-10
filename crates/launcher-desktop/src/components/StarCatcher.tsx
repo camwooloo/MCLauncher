@@ -14,9 +14,9 @@ export const HOLD_MS = 900;
 const ROUND_S = 20;
 const LOCAL_KEY = "kawma:stars-best";
 /** Catch this many in one round to unlock Starfield in Kawma Studio (server side). */
-const UNLOCK_AT = 40;
+export const UNLOCK_AT = 30;
 
-function readLocalBest(): number {
+export function readLocalBest(): number {
   try {
     const n = Number(localStorage.getItem(LOCAL_KEY));
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;

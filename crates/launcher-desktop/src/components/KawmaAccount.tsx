@@ -6,6 +6,50 @@ import type { KawmaProfile, StoredAccount } from "../lib/types";
 import { Avatar, Icon, initials } from "./ui";
 import studioIcon from "../assets/kawma/studio.png";
 import { Popover } from "./Popover";
+import { readLocalBest, UNLOCK_AT } from "./StarCatcher";
+
+/* Brand marks, filled, to sit beside the launcher's line icons. */
+type LogoProps = { size?: number };
+const TwitchLogo = ({ size = 16 }: LogoProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+  </svg>
+);
+const DiscordLogo = ({ size = 16 }: LogoProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+  </svg>
+);
+const KickLogo = ({ size = 16 }: LogoProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M3 3h6v4.5h2V5.25h2.25V3H21v6h-2.25v2.25H16.5v1.5h2.25V15H21v6h-7.75v-2.25H11V16.5H9V21H3V3Z" />
+  </svg>
+);
+const StarIcon = ({ size = 16 }: LogoProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M12 2.6l2.83 5.73 6.33.92-4.58 4.46 1.08 6.3L12 17.03l-5.66 2.98 1.08-6.3L2.84 9.25l6.33-.92z" />
+  </svg>
+);
+const LOGOS = { twitch: TwitchLogo, discord: DiscordLogo, kick: KickLogo };
+type Platform = keyof typeof LOGOS;
+const PLATFORM_NAME: Record<Platform, string> = { twitch: "Twitch", discord: "Discord", kick: "Kick" };
+
+/** One linked platform in the account menu: its logo in brand colour, and the name. */
+function LinkRow({ platform, name, second }: { platform: Platform; name: string; second?: boolean }) {
+  const Logo = LOGOS[platform];
+  return (
+    <div className={`kawma-link ${platform}`} title={second ? `Second ${PLATFORM_NAME[platform]} account, managed on kawma.app` : undefined}>
+      <span className="kawma-link-logo">
+        <Logo size={15} />
+      </span>
+      <span className="kawma-link-text">
+        <span className="kawma-link-platform">{PLATFORM_NAME[platform]}</span>
+        <span className="kawma-link-name">{name}</span>
+      </span>
+      {second && <span className="kawma-link-tag">Second</span>}
+    </div>
+  );
+}
 
 /** The Kawma account's picture (Twitch/Discord avatar), else its initials,
  *  else a neutral "sign in" face when signed out. */
@@ -25,9 +69,11 @@ export function KawmaAvatar({ profile, size = 40 }: { profile: KawmaProfile | nu
   );
 }
 
-/** "Twitch · name · Discord · name" for the signed-in profile. */
+/** "Twitch · name   Discord · name   Kick · name" for the signed-in profile. */
 export function kawmaLinks(p: KawmaProfile) {
-  return [p.twitch && `Twitch · ${p.twitch}`, p.discord && `Discord · ${p.discord}`].filter(Boolean).join("   ");
+  return [p.twitch && `Twitch · ${p.twitch}`, p.discord && `Discord · ${p.discord}`, p.kick && `Kick · ${p.kick}`]
+    .filter(Boolean)
+    .join("   ");
 }
 
 /** Is this Minecraft account linked to the Kawma account? (Microsoft accounts only.) */
@@ -57,19 +103,19 @@ export function KawmaSignIn({ compact = false }: { compact?: boolean }) {
       {compact ? (
         <>
           <button className="menu-item" onClick={() => void kawmaSignIn("twitch")}>
-            <span className="kawma-provider twitch" /> Sign in with Twitch
+            <span className="kawma-provider twitch"><TwitchLogo size={12} /></span> Sign in with Twitch
           </button>
           <button className="menu-item" onClick={() => void kawmaSignIn("discord")}>
-            <span className="kawma-provider discord" /> Sign in with Discord
+            <span className="kawma-provider discord"><DiscordLogo size={12} /></span> Sign in with Discord
           </button>
         </>
       ) : (
         <>
           <button className="btn" onClick={() => void kawmaSignIn("twitch")}>
-            <span className="kawma-provider twitch" /> Sign in with Twitch
+            <span className="kawma-provider twitch"><TwitchLogo size={12} /></span> Sign in with Twitch
           </button>
           <button className="btn" onClick={() => void kawmaSignIn("discord")}>
-            <span className="kawma-provider discord" /> Sign in with Discord
+            <span className="kawma-provider discord"><DiscordLogo size={12} /></span> Sign in with Discord
           </button>
         </>
       )}
@@ -90,6 +136,32 @@ export function KawmaAccountButton({ active, onManage }: { active: boolean; onMa
     if (kawmaLogin) setOpen(true);
   }, [kawmaLogin]);
 
+  // Star catcher best: what kawma.app keeps for the account (refreshed when the
+  // menu opens, a round may have just finished), else the best on this PC.
+  const [serverStars, setServerStars] = useState<{ best: number; unlocked: boolean } | null>(null);
+  const kawmaId = kawma?.id ?? null;
+  useEffect(() => {
+    setServerStars(null);
+  }, [kawmaId]);
+  useEffect(() => {
+    if (!open || !kawmaId) return;
+    let live = true;
+    api
+      .starsBest()
+      .then((r) => {
+        if (live && r) setServerStars({ best: r.best, unlocked: r.unlocked });
+      })
+      .catch(() => {
+        /* keep what the profile says */
+      });
+    return () => {
+      live = false;
+    };
+  }, [open, kawmaId]);
+  const kept = serverStars ?? kawma?.stars ?? null;
+  const localBest = open ? readLocalBest() : 0;
+  const stars = kept ? { best: kept.best, unlocked: kept.unlocked } : localBest > 0 ? { best: localBest, unlocked: false } : null;
+
   return (
     <div style={{ position: "relative" }}>
       <button
@@ -105,16 +177,45 @@ export function KawmaAccountButton({ active, onManage }: { active: boolean; onMa
 
       <Popover anchor={btnRef} open={open} onClose={() => setOpen(false)} placement="left-start" offset={18} className="acct-menu surface kawma-menu">
         <div className="kawma-head">
-          <KawmaAvatar profile={kawma} size={42} />
+          <KawmaAvatar profile={kawma} size={54} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{kawma ? kawma.displayName : "Kawma account"}</div>
-            <div className="muted" style={{ fontSize: 11.5 }}>
-              {kawma ? kawmaLinks(kawma) || "Kawma account" : "Optional · link your Minecraft accounts"}
-            </div>
+            <div className="kawma-eyebrow">{kawma ? "Kawma account" : "One Kawma account"}</div>
+            <div className="kawma-name">{kawma ? kawma.displayName : "Sign in to Kawma"}</div>
+            {!kawma && <div className="muted" style={{ fontSize: 11.5 }}>Optional · link your Minecraft accounts</div>}
           </div>
         </div>
 
+        {kawma && (kawma.twitch || kawma.discord || kawma.kick || kawma.extraTwitch || kawma.extraDiscord) && (
+          <div className="kawma-links">
+            {kawma.twitch && <LinkRow platform="twitch" name={kawma.twitch} />}
+            {kawma.kick && <LinkRow platform="kick" name={kawma.kick} />}
+            {kawma.discord && <LinkRow platform="discord" name={kawma.discord} />}
+            {kawma.extraTwitch && <LinkRow platform="twitch" name={kawma.extraTwitch} second />}
+            {kawma.extraDiscord && <LinkRow platform="discord" name={kawma.extraDiscord} second />}
+          </div>
+        )}
+
         {!kawma && <KawmaSignIn compact />}
+
+        {stars && (
+          <div className="kawma-stars">
+            <span className="kawma-stars-ico">
+              <StarIcon size={15} />
+            </span>
+            <span style={{ minWidth: 0 }}>
+              <div>
+                Star catcher best · <b>{stars.best}</b>
+              </div>
+              <div className="kawma-stars-hint">
+                {stars.unlocked
+                  ? "Unlocked Starfield in Studio"
+                  : kawma
+                    ? `Catch ${UNLOCK_AT} in one round to unlock Starfield in Studio`
+                    : "Sign in to keep it on your Kawma account"}
+              </div>
+            </span>
+          </div>
+        )}
 
         <div className="menu-label">{kawma ? "Linked Minecraft accounts" : "Minecraft accounts"}</div>
         {store.accounts.length === 0 && <div className="muted" style={{ fontSize: 12, padding: "2px 12px 6px" }}>None yet.</div>}

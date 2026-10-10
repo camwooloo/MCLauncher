@@ -349,6 +349,80 @@
   background: var(--card-edge);
 }
 
+/* ---- Sliding selection (components/RailIndicator.tsx) ------------------ */
+/* One marker per rail glides to the selected item; the items themselves go
+   clear when selected and sit above it. */
+.rail-ind-box {
+  position: relative;
+}
+.rail-ind {
+  --slide: cubic-bezier(0.32, 0.72, 0, 1);
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+  transition: transform 0.4s var(--slide), width 0.3s var(--slide), height 0.3s var(--slide), opacity 0.2s ease,
+    background 0.35s ease, box-shadow 0.35s ease;
+}
+.rail-ind.on {
+  opacity: 1;
+}
+.rail-ind.pill {
+  background: var(--pill);
+  box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.6);
+}
+.rail-ind.ring {
+  --g: var(--accent-rgb);
+  background: rgba(var(--g), 0.16);
+  box-shadow: 0 0 0 2px rgba(var(--g), 0.85), 0 0 26px -4px rgba(var(--g), 0.6);
+}
+/* The pip on the rail's outer edge rides along with the ring. */
+.rail-ind.ring::before {
+  content: "";
+  position: absolute;
+  right: -23px;
+  top: 50%;
+  width: 4px;
+  height: 18px;
+  transform: translateY(-50%);
+  border-radius: 4px;
+  background: rgb(var(--g));
+  box-shadow: 0 0 12px rgb(var(--g));
+  transition: background 0.35s ease, box-shadow 0.35s ease;
+}
+.rail-ind-box [data-rail-item] {
+  z-index: 1;
+}
+.rail-ind-box .fn-btn.active,
+.rail-ind-box .fn-btn.active:hover {
+  background: transparent;
+  box-shadow: none;
+}
+.rail-ind-box .game-dot.active,
+.rail-ind-box .game-dot.active:hover {
+  background: transparent;
+  box-shadow: none;
+}
+.rail-ind-box .game-dot.active::before {
+  content: none;
+}
+@media (max-width: 900px) {
+  .rail-ind.ring::before {
+    right: -17px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail-ind {
+    transition: opacity 0.15s ease;
+  }
+}
+
 /* ---- Game rail -------------------------------------------------------- */
 .game-me {
   position: relative;
@@ -1599,13 +1673,145 @@
 .acct-menu.kawma-menu {
   top: 0;
   right: calc(100% + 18px);
-  width: 310px;
+  width: 318px;
 }
+/* Header: the Kawma name large, as Kawma Studio shows it. */
 .kawma-head {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 8px 10px;
+  gap: 14px;
+  padding: 10px 10px 12px;
+  margin-bottom: 4px;
+  border-radius: 15px;
+  background: radial-gradient(120% 140% at 0% 0%, rgba(139, 61, 255, 0.2), transparent 60%),
+    radial-gradient(120% 140% at 100% 100%, rgba(255, 122, 69, 0.14), transparent 60%);
+}
+.kawma-head .kawma-av {
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08), 0 8px 22px -10px rgba(0, 0, 0, 0.7);
+}
+.kawma-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+.kawma-name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Linked platforms: brand logo + the name on each. */
+.kawma-links {
+  display: grid;
+  gap: 5px;
+  padding: 2px 2px 6px;
+}
+.kawma-link {
+  --b: 145, 70, 255;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 12px;
+  background: rgba(var(--b), 0.13);
+  border: 1px solid rgba(var(--b), 0.28);
+  min-width: 0;
+}
+.kawma-link.discord {
+  --b: 88, 101, 242;
+}
+.kawma-link.kick {
+  --b: 83, 252, 24;
+  background: rgba(var(--b), 0.08);
+  border-color: rgba(var(--b), 0.22);
+}
+.kawma-link-logo {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: rgb(var(--b));
+  box-shadow: 0 4px 14px -6px rgba(var(--b), 0.9);
+}
+.kawma-link.kick .kawma-link-logo {
+  color: #0b1a05;
+}
+.kawma-link-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+.kawma-link-platform {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: rgba(var(--b), 1);
+  filter: brightness(1.35);
+}
+.kawma-link-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kawma-link-tag {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+[data-theme="light"] .kawma-link-platform {
+  filter: brightness(0.8);
+}
+/* Star catcher best (the rail logo's easter egg). */
+.kawma-stars {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 2px 4px;
+  padding: 8px 10px 8px 6px;
+  border-radius: 12px;
+  font-size: 13px;
+  background: rgba(255, 179, 107, 0.08);
+  border: 1px solid rgba(255, 179, 107, 0.2);
+}
+.kawma-stars b {
+  color: #ffb36b;
+}
+.kawma-stars-ico {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: #ffb36b;
+  background: rgba(255, 179, 107, 0.14);
+  box-shadow: 0 0 16px -6px rgba(255, 179, 107, 0.8);
+}
+.kawma-stars-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+[data-theme="light"] .kawma-stars b,
+[data-theme="light"] .kawma-stars-ico {
+  color: #c2551f;
 }
 .menu-label {
   padding: 8px 12px 4px;
@@ -1626,11 +1832,13 @@
   color: #ffb36b;
 }
 .kawma-provider {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
   flex: 0 0 auto;
-  display: inline-block;
+  display: inline-grid;
+  place-items: center;
+  color: #fff;
 }
 .kawma-provider.twitch {
   background: #9146ff;

@@ -52,10 +52,17 @@ export interface KawmaProfile {
   avatar: string | null;
   twitch: string | null;
   discord: string | null;
+  /** A second Twitch login / Discord account linked on the website. */
+  extraTwitch?: string | null;
+  extraDiscord?: string | null;
+  /** The Kick channel slug, when Kick is on for the account. */
+  kick?: string | null;
   tester: boolean;
   testMode: boolean;
   releases: Record<string, boolean>;
   minecraft: LinkedMinecraft[];
+  /** The Star catcher best kawma.app keeps; null when it isn't kept for the account. */
+  stars?: { best: number; unlocked: boolean } | null;
 }
 
 export interface PackHit {

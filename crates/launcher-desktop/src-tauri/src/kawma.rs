@@ -44,6 +44,18 @@ pub struct Profile {
     pub twitch: Option<String>,
     #[serde(default)]
     pub discord: Option<String>,
+    /// A second Twitch login linked on the website (shown in the account menu).
+    #[serde(default)]
+    pub extra_twitch: Option<String>,
+    /// A second Discord account linked on the website.
+    #[serde(default)]
+    pub extra_discord: Option<String>,
+    /// The account's Kick channel slug, when Kick is on for it.
+    #[serde(default)]
+    pub kick: Option<String>,
+    /// The Star catcher best kept on kawma.app; null when it isn't kept.
+    #[serde(default)]
+    pub stars: Option<Stars>,
     /// A Kawma tester (admin → People on the website).
     #[serde(default)]
     pub tester: bool,
@@ -507,6 +519,24 @@ mod tests {
         );
         assert_eq!(exe_from_display_icon(r"C:\x\app.exe,0"), PathBuf::from(r"C:\x\app.exe"));
         assert_eq!(exe_from_display_icon(r"C:\x\app.exe"), PathBuf::from(r"C:\x\app.exe"));
+    }
+
+    #[test]
+    fn profile_links_and_stars() {
+        let v = serde_json::json!({
+            "id": "a1", "displayName": "Karmxhh", "avatar": null, "twitch": "karmxhh", "discord": "worm",
+            "extraTwitch": "karm2", "extraDiscord": null, "kick": "karmxhh", "tester": false, "testMode": false,
+            "releases": {}, "minecraft": [], "stars": { "best": 34, "unlocked": true }
+        });
+        let p: Profile = serde_json::from_value(v).unwrap();
+        assert_eq!(p.extra_twitch.as_deref(), Some("karm2"));
+        assert_eq!(p.kick.as_deref(), Some("karmxhh"));
+        assert_eq!(p.stars.as_ref().map(|s| (s.best, s.unlocked)), Some((34, true)));
+        // Older servers leave the new fields out.
+        let p: Profile = serde_json::from_value(serde_json::json!({ "id": "a1", "displayName": "K" })).unwrap();
+        assert!(p.kick.is_none() && p.extra_discord.is_none() && p.stars.is_none());
+        let out = serde_json::to_value(&p).unwrap();
+        assert!(out.get("extraTwitch").is_some() && out.get("kick").is_some());
     }
 
     #[test]
