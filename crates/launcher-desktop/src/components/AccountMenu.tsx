@@ -3,7 +3,8 @@ import { useState } from "react";
 import { useLauncher } from "../store";
 import { Avatar, Icon } from "./ui";
 
-/** Top-right account chip + dropdown — the home for account switching/sign-in. */
+/** The Minecraft account chip on the Minecraft page: switch between the
+ *  Minecraft accounts linked to your Kawma account, or link another. */
 export function AccountMenu({ onManage }: { onManage: () => void }) {
   const { store, activeAccount, microsoftLogin, setActive } = useLauncher();
   const [open, setOpen] = useState(false);
@@ -52,7 +53,7 @@ export function AccountMenu({ onManage }: { onManage: () => void }) {
                 setOpen(false);
               }}
             >
-              <Icon.user size={17} /> Sign in with Microsoft
+              <Icon.user size={17} /> Link a Microsoft account
             </button>
             <button
               className="menu-item"
@@ -61,7 +62,7 @@ export function AccountMenu({ onManage }: { onManage: () => void }) {
                 setOpen(false);
               }}
             >
-              <Icon.gear size={17} /> Manage accounts
+              <Icon.gear size={17} /> Manage Minecraft accounts
             </button>
           </div>
         </>

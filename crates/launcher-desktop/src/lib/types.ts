@@ -31,6 +31,29 @@ export interface Settings {
   closeToTray?: boolean;
   onboarded?: boolean;
   windowFrame?: string; // "flush" | "floating"
+  /** Kawma Now Playing (needs Kawma sign-in). Off by default. */
+  nowPlaying?: boolean;
+  /** Kawma "Play with your community" default for internet shares. Off by default. */
+  community?: boolean;
+}
+
+/** A Minecraft account linked to the Kawma account (uuid without dashes). */
+export interface LinkedMinecraft {
+  uuid: string;
+  name: string;
+}
+
+/** The signed-in Kawma account (kawma.app desktop profile). */
+export interface KawmaProfile {
+  id: string;
+  displayName: string;
+  avatar: string | null;
+  twitch: string | null;
+  discord: string | null;
+  tester: boolean;
+  testMode: boolean;
+  releases: Record<string, boolean>;
+  minecraft: LinkedMinecraft[];
 }
 
 export interface PackHit {

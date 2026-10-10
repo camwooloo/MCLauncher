@@ -1227,6 +1227,12 @@ pub async fn instance_play(
                 pid.unwrap_or(0),
             );
             crate::discord::set_playing(&format!("Playing {}", cfg.name), "Minecraft · via Kawma");
+            let detail = if cfg.name.contains(&cfg.version) {
+                cfg.name.clone()
+            } else {
+                format!("{} · {}", cfg.name, cfg.version)
+            };
+            crate::activity::game_started(&app, "minecraft", "Minecraft", Some(detail), pid.unwrap_or(0));
             let msg = format!("Launched {}", cfg.name);
             let _ = app.emit("mc-done", serde_json::json!({ "message": msg, "pid": pid }));
             Ok(msg)

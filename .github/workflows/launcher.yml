@@ -1,0 +1,116 @@
+# Builds Kawma Launcher on every push to main and publishes the installer to
+# kawma.app's test channel. An admin releases it to everyone from
+# kawma.app admin → Updates. Auth is this workflow's GitHub OIDC token
+# (audience kawma-launcher-builds); no stored upload secret.
+name: Kawma Launcher build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/launcher.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+# One build at a time so version numbers are handed out in order.
+concurrency:
+  group: kawma-launcher-build
+  cancel-in-progress: false
+
+env:
+  KAWMA_URL: ${{ vars.KAWMA_URL || 'https://kawma.app' }}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: crates/launcher-desktop/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # OIDC tokens are short-lived, so each call to kawma.app asks for a fresh one.
+      - name: Helper for kawma.app calls
+        run: |
+          cat > "$RUNNER_TEMP/kawma.sh" <<'SH'
+          # Prints a fresh OIDC token; callers mask it with ::add-mask::.
+          kawma_token() {
+            curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=kawma-launcher-builds" | jq -r .value
+          }
+          SH
+
+      - name: Get the next version from kawma.app
+        run: |
+          source "$RUNNER_TEMP/kawma.sh"
+          FLOOR=$(jq -r .version crates/launcher-desktop/src-tauri/tauri.conf.json)
+          TOKEN=$(kawma_token)
+          echo "::add-mask::$TOKEN"
+          RESPONSE=$(curl -sS --fail-with-body -X POST "$KAWMA_URL/api/launcher-builds" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg floor "$FLOOR" '{floor: $floor}')")
+          VERSION=$(echo "$RESPONSE" | jq -r .version)
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "kawma.app did not return a version: $RESPONSE"
+            exit 1
+          fi
+          echo "Building Kawma Launcher $VERSION (floor $FLOOR)"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      # Only inside this build; nothing is committed.
+      - name: Set the version
+        run: |
+          CONF=crates/launcher-desktop/src-tauri/tauri.conf.json
+          jq --arg v "$VERSION" '.version = $v' "$CONF" > "$RUNNER_TEMP/tauri.conf.json"
+          mv "$RUNNER_TEMP/tauri.conf.json" "$CONF"
+          # The first `version = ` in the workspace Cargo.toml is [workspace.package].
+          sed -i "0,/^version = \".*\"/s//version = \"$VERSION\"/" Cargo.toml
+          grep -m1 '^version = ' Cargo.toml
+
+      - name: Build
+        working-directory: crates/launcher-desktop
+        env:
+          AURORA_CF_KEY: ${{ secrets.AURORA_CF_KEY }}
+        run: |
+          npm ci
+          npx tauri build
+
+      - name: Upload to kawma.app (test channel)
+        run: |
+          source "$RUNNER_TEMP/kawma.sh"
+          INSTALLER=$(ls target/release/bundle/nsis/*-setup.exe | head -n 1)
+          SHA256=$(sha256sum "$INSTALLER" | cut -d ' ' -f 1)
+          echo "Uploading $INSTALLER ($SHA256)"
+          TOKEN=$(kawma_token)
+          echo "::add-mask::$TOKEN"
+          curl -sS --fail-with-body -X PUT "$KAWMA_URL/api/launcher-builds/$VERSION" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            -H "x-kawma-sha256: $SHA256" \
+            --data-binary @"$INSTALLER"
+
+      - name: Tell kawma.app the build failed
+        if: failure() && env.VERSION != ''
+        run: |
+          source "$RUNNER_TEMP/kawma.sh"
+          TOKEN=$(kawma_token)
+          echo "::add-mask::$TOKEN"
+          curl -sS -X POST "$KAWMA_URL/api/launcher-builds/$VERSION/failed" \
+            -H "Authorization: Bearer $TOKEN"

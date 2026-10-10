@@ -30,6 +30,12 @@ open = "5"
 sysinfo = "0.32"
 fastnbt = "2"
 bore-cli = "0.5"
+# Kawma account sign-in (PKCE) and verified updates from kawma.app.
+sha2.workspace = true
+hex.workspace = true
+getrandom.workspace = true
+# The Kawma sign-in token lives in Windows Credential Manager.
+keyring = { version = "3", features = ["windows-native"] }
 
 # Elden Ring trainer (live memory patching) — Windows only.
 [target.'cfg(windows)'.dependencies]
@@ -40,6 +46,8 @@ windows = { version = "0.58", features = [
   "Win32_System_Diagnostics_Debug",
   "Win32_System_Diagnostics_ToolHelp",
 ] }
+# Finding Kawma Studio through its uninstall entry.
+winreg = "0.55"
 
 [features]
 # Enable Tauri's custom-protocol in release (used by the bundler).

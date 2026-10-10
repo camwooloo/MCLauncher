@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import * as api from "../lib/api";
+import { useLauncher } from "../store";
 
 const TEX_BASE =
   "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21.1/assets/minecraft/textures";
@@ -403,7 +404,7 @@ function renderInline(text: string, base: string): ReactNode[] {
   return out;
 }
 
-/** A small, dependency-free Markdown renderer — enough for GitHub release notes
+/** A small, dependency-free Markdown renderer — enough for release notes
  *  (headings, **bold**, `code`, links, and bullet lists). */
 export function Markdown({ source }: { source: string }) {
   const lines = source.replace(/\r\n/g, "\n").split("\n");
@@ -488,6 +489,12 @@ export function HostAddress({
   internetTunnel?: boolean;
 }) {
   const key = tunnelKey ?? `port-${port}`;
+  const { settings, kawma, kawmaReleased } = useLauncher();
+  // "Post to my Kawma community" for this share (Minecraft servers shared to
+  // the internet), defaulting to the Settings choice.
+  const canPost = internetTunnel && !!tunnelKey && !!kawma && kawmaReleased("launcher-community");
+  const [postToCommunity, setPostToCommunity] = useState(settings.community === true);
+  useEffect(() => setPostToCommunity(settings.community === true), [settings.community]);
   const [a, setA] = useState<api.HostAddresses | null>(null);
   const [pub, setPub] = useState<string | null>(null);
   const [tunnel, setTunnel] = useState<api.TunnelInfo | null>(null);
@@ -513,7 +520,7 @@ export function HostAddress({
   const share = async () => {
     setBusy(true);
     try {
-      setTunnel(await api.tunnelStart(key, port));
+      setTunnel(await api.tunnelStart(key, port, canPost ? postToCommunity : false));
       onCopy?.("Sharing to the internet — anyone can join with the address");
     } catch (e) {
       onCopy?.(`${e}`);
@@ -566,6 +573,15 @@ export function HostAddress({
             </button>
           </div>
         ))}
+      {canPost && !tunnel && (
+        <label className="row" style={{ gap: 8, cursor: "pointer", alignItems: "center", fontSize: 12.5 }}>
+          <input type="checkbox" checked={postToCommunity} onChange={(e) => setPostToCommunity(e.target.checked)} />
+          <span>
+            <span style={{ fontWeight: 600 }}>Post to my Kawma community</span>
+            <span className="muted"> · announce it on your Twitch and Discord; viewers ask to join with !server</span>
+          </span>
+        </label>
+      )}
 
       {/* 2 · Kawma Net (private VPN). */}
       {a.aurora && (

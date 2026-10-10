@@ -53,6 +53,14 @@ pub struct Settings {
     /// card inset in the window).
     #[serde(default = "default_frame")]
     pub window_frame: String,
+    /// Kawma "Now Playing": tell Kawma what you launch so your stream and
+    /// community can show it. Needs Kawma sign-in. Off by default.
+    #[serde(default)]
+    pub now_playing: bool,
+    /// Kawma "Play with your community": post internet-shared servers to your
+    /// Kawma community. Needs Kawma sign-in. Off by default.
+    #[serde(default)]
+    pub community: bool,
 }
 
 fn default_true() -> bool {
@@ -84,6 +92,8 @@ impl Default for Settings {
             close_to_tray: true,
             onboarded: false,
             window_frame: default_frame(),
+            now_playing: false,
+            community: false,
         }
     }
 }
@@ -94,6 +104,14 @@ impl Settings {
             Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
             Err(_) => Self::default(),
         }
+    }
+
+    /// Blocking read, for code that runs outside a command (background tasks).
+    pub fn load_sync(path: &Path) -> Self {
+        std::fs::read(path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default()
     }
 
     pub async fn save(&self, path: &Path) -> Result<(), String> {

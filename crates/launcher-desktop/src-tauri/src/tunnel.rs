@@ -39,11 +39,15 @@ pub struct TunnelInfo {
 }
 
 /// Open a public tunnel for `local_port` and return the public `host:port`.
+/// `community` is the share's "Post to my Kawma community" choice (unset =
+/// the Settings default); it only applies to hosted Minecraft servers.
 #[tauri::command]
 pub async fn tunnel_start(
+    app: tauri::AppHandle,
     state: tauri::State<'_, crate::state::AppState>,
     key: String,
     local_port: u16,
+    community: Option<bool>,
 ) -> Result<TunnelInfo, String> {
     {
         let map = state.tunnels.active.lock().await;
@@ -58,7 +62,8 @@ pub async fn tunnel_start(
     let task = tokio::spawn(async move {
         let _ = client.listen().await;
     });
-    state.tunnels.active.lock().await.insert(key, Tunnel { port, task });
+    state.tunnels.active.lock().await.insert(key.clone(), Tunnel { port, task });
+    crate::activity::share_started(&app, key, format!("{RELAY}:{port}"), community);
     Ok(TunnelInfo { host: RELAY.into(), port })
 }
 
@@ -71,6 +76,7 @@ pub async fn tunnel_stop(
     if let Some(t) = state.tunnels.active.lock().await.remove(&key) {
         t.task.abort();
     }
+    crate::activity::share_stopped(&key);
     Ok(())
 }
 

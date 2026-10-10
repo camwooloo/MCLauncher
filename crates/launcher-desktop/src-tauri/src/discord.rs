@@ -1,5 +1,5 @@
 //! Discord Rich Presence — shows "Playing … via Kawma Launcher" with a button
-//! linking to the project. Entirely optional: if `secrets::DISCORD_CLIENT_ID`
+//! to kawma.app/launcher. Entirely optional: if `secrets::DISCORD_CLIENT_ID`
 //! is empty, or Discord isn't running, this is a no-op.
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,7 +10,7 @@ use discord_rich_presence::{
     DiscordIpc, DiscordIpcClient,
 };
 
-use crate::secrets::{DISCORD_CLIENT_ID, GITHUB_URL};
+use crate::secrets::{DISCORD_CLIENT_ID, LAUNCHER_PAGE_URL};
 
 /// Connected client, kept alive so the presence persists. `Mutex::new` is const
 /// so this needs no lazy-init crate.
@@ -55,7 +55,7 @@ pub fn set_playing(details: &str, state: &str) {
         let activity = Activity::new()
             .details(details)
             .state(state)
-            .buttons(vec![Button::new("Get Kawma Launcher", GITHUB_URL)]);
+            .buttons(vec![Button::new("Get Kawma Launcher", LAUNCHER_PAGE_URL)]);
         if client.set_activity(activity).is_err() {
             // Connection dropped (Discord closed/restarted) — reset so the next
             // call reconnects.

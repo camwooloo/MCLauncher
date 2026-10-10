@@ -6,6 +6,7 @@ import type {
   Account,
   AccountStore,
   GamesStatus,
+  KawmaProfile,
   PathsInfo,
   Settings,
 } from "./types";
@@ -474,8 +475,11 @@ export const publicIp = (): Promise<string> =>
 
 // bore internet tunnels — host-only, no port forwarding, any launcher can join.
 export interface TunnelInfo { host: string; port: number }
-export const tunnelStart = (key: string, localPort: number): Promise<TunnelInfo> =>
-  isTauri ? call("tunnel_start", { key, localPort }) : Promise.resolve({ host: "bore.pub", port: 51820 });
+/** `community`: post this share to the Kawma community (unset = the Settings default). */
+export const tunnelStart = (key: string, localPort: number, community?: boolean): Promise<TunnelInfo> =>
+  isTauri
+    ? call("tunnel_start", { key, localPort, community: community ?? null })
+    : Promise.resolve({ host: "bore.pub", port: 51820 });
 export const tunnelStop = (key: string): Promise<void> =>
   isTauri ? call<void>("tunnel_stop", { key }) : Promise.resolve();
 export const tunnelStatus = (): Promise<Record<string, TunnelInfo>> =>
@@ -515,17 +519,19 @@ export const saveSkyrimServerConfig = (config: TogetherServerConfig): Promise<vo
 export const startSkyrimServer = (): Promise<number> =>
   isTauri ? call<number>("start_skyrim_server") : Promise.resolve(0);
 
-// ---- Self-update ----
+// ---- Self-update (from kawma.app) ----
 export interface UpdateInfo {
   version: string;
   current: string;
   notes: string;
   downloadUrl: string;
+  channel: "stable" | "test";
 }
 export const checkAppUpdate = (): Promise<UpdateInfo | null> =>
   isTauri ? call<UpdateInfo | null>("check_app_update") : Promise.resolve(null);
-export const applyAppUpdate = (downloadUrl: string): Promise<void> =>
-  isTauri ? call<void>("apply_app_update", { downloadUrl }) : Promise.resolve();
+/** Downloads the update the last check offered, verifies it and runs the installer. */
+export const applyAppUpdate = (): Promise<void> =>
+  isTauri ? call<void>("apply_app_update") : Promise.resolve();
 
 export interface ReleaseInfo {
   version: string;
@@ -546,6 +552,49 @@ const mockReleases: ReleasesResult = {
 };
 export const listReleases = (): Promise<ReleasesResult> =>
   isTauri ? call<ReleasesResult>("list_releases") : Promise.resolve(mockReleases);
+
+// ---- Kawma account (kawma.app sign-in) ----
+export type KawmaProvider = "twitch" | "discord";
+export interface KawmaLogin {
+  code: string;
+  expiresIn: number;
+}
+const mockKawma: KawmaProfile = {
+  id: "mock",
+  displayName: "vKarmah",
+  avatar: null,
+  twitch: "vkarmah",
+  discord: null,
+  tester: false,
+  testMode: false,
+  releases: { "launcher-now-playing": true, "launcher-community": true },
+  minecraft: [{ uuid: "9a1f0c5e7b2d4a3c8e6f1b09d4a25c11", name: "KawmaDev" }],
+};
+let mockSignedIn = false;
+/** The signed-in profile, refreshed from kawma.app; null when signed out. */
+export const kawmaProfile = (): Promise<KawmaProfile | null> =>
+  isTauri ? call("kawma_profile") : Promise.resolve(mockSignedIn ? mockKawma : null);
+/** Opens the browser to sign in with Twitch or Discord. */
+export const kawmaSignInStart = (provider: KawmaProvider): Promise<KawmaLogin> =>
+  isTauri ? call("kawma_sign_in_start", { provider }) : Promise.resolve({ code: "MOCK", expiresIn: 600 });
+/** null while the browser sign-in is still waiting. */
+export const kawmaSignInPoll = (): Promise<KawmaProfile | null> =>
+  isTauri ? call("kawma_sign_in_poll") : Promise.resolve((mockSignedIn = true) && mockKawma);
+export const kawmaSignInCancel = (): Promise<void> =>
+  isTauri ? call<void>("kawma_sign_in_cancel") : Promise.resolve();
+export const kawmaSignOut = (): Promise<void> =>
+  isTauri ? call<void>("kawma_sign_out") : Promise.resolve(void (mockSignedIn = false));
+
+// ---- Kawma Studio on this PC ----
+export interface StudioStatus {
+  installed: boolean;
+  path: string | null;
+}
+export const kawmaStudioStatus = (): Promise<StudioStatus> =>
+  isTauri ? call("kawma_studio_status") : Promise.resolve({ installed: false, path: null });
+/** Opens Studio when installed (true), else its download page (false). */
+export const openKawmaStudio = (): Promise<boolean> =>
+  isTauri ? call("open_kawma_studio") : Promise.resolve(void window.open("https://kawma.app/studio", "_blank")).then(() => false);
 
 // ---- Kawma Net (built-in Tailscale VPN) ----
 export interface VpnStatus {
