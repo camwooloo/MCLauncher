@@ -209,6 +209,8 @@ fn main() {
             kawma::kawma_sign_out,
             kawma::kawma_studio_status,
             kawma::open_kawma_studio,
+            kawma::kawma_stars_best,
+            kawma::kawma_stars_submit,
             commands::check_app_update,
             commands::apply_app_update,
             commands::list_releases,

@@ -4,6 +4,94 @@ import { useLauncher } from "../store";
 import * as api from "../lib/api";
 import { Field, Pill, Icon, Select, Switch, Avatar, Markdown } from "./ui";
 import { KawmaAvatar, KawmaSignIn, isLinked, kawmaLinks } from "./KawmaAccount";
+import { useAppUpdate, checkForUpdates, installUpdate } from "../lib/updates";
+
+function lastCheckedLabel(at: number | null, now: number): string {
+  if (!at) return "Not checked yet";
+  const mins = Math.floor((now - at) / 60000);
+  if (mins < 1) return "Last checked just now";
+  if (mins < 60) return `Last checked ${mins} min ago`;
+  const d = new Date(at);
+  const sameDay = d.toDateString() === new Date(now).toDateString();
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return `Last checked ${sameDay ? "today" : d.toLocaleDateString()} at ${time}`;
+}
+
+/** Settings → Updates: version, channel and a manual "Check for updates". */
+function UpdatesSection() {
+  const { kawma, showToast } = useLauncher();
+  const { info, checking, error, lastChecked, installing } = useAppUpdate();
+  const [version, setVersion] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  // Same rule as the update check: testers with test mode on get test builds.
+  const channel = kawma?.tester && kawma.testMode ? "Test builds" : "Stable";
+
+  useEffect(() => {
+    api.launcherVersion().then(setVersion).catch(() => {});
+    const t = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  const check = () => {
+    setNow(Date.now());
+    checkForUpdates().catch(() => {});
+  };
+  const install = async () => {
+    try {
+      await installUpdate();
+      showToast("Downloading update — the installer will open, then Kawma restarts…");
+    } catch {
+      /* shown inline */
+    }
+  };
+
+  return (
+    <div className="sect">
+      <div className="sect-head">
+        <div className="sect-title">Updates</div>
+        {version && <Pill>v{version}</Pill>}
+      </div>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontWeight: 600 }}>Kawma Launcher{version ? ` v${version}` : ""}</div>
+          <div className="muted">
+            {channel} · {lastCheckedLabel(lastChecked, now)}
+          </div>
+        </div>
+        <button className="btn" disabled={checking || installing} onClick={check}>
+          <span className={`upd-ico ${checking ? "spin" : ""}`}>
+            <Icon.refresh size={15} />
+          </span>
+          {checking ? "Checking…" : "Check for updates"}
+        </button>
+      </div>
+      {error ? (
+        <div className="upd-status err" role="alert">
+          {error}
+        </div>
+      ) : info ? (
+        <div className="upd-status avail">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600 }}>
+              Version {info.version} is available{info.channel === "test" ? " (test build)" : ""}
+            </div>
+            <div className="muted">You're on v{info.current}</div>
+          </div>
+          <button className="btn-play" disabled={installing} onClick={install}>
+            <Icon.upgrade size={16} /> {installing ? "Installing…" : "Install"}
+          </button>
+        </div>
+      ) : lastChecked && !checking ? (
+        <div className="upd-status ok">
+          <Icon.check size={15} /> You're up to date
+        </div>
+      ) : null}
+      <div className="muted" style={{ fontSize: 12 }}>
+        Every download is verified before installation.
+      </div>
+    </div>
+  );
+}
 
 /** "What's new" — released builds + their patch notes, from kawma.app. */
 function WhatsNew() {
@@ -482,6 +570,8 @@ export function SettingsPanel() {
           </div>
         </div>
       </div>
+
+      <UpdatesSection />
 
       <WhatsNew />
     </div>

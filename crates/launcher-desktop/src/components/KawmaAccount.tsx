@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
 import type { KawmaProfile, StoredAccount } from "../lib/types";
 import { Avatar, Icon, initials } from "./ui";
 import studioIcon from "../assets/kawma/studio.png";
+import { Popover } from "./Popover";
 
 /** The Kawma account's picture (Twitch/Discord avatar), else its initials,
  *  else a neutral "sign in" face when signed out. */
@@ -83,6 +84,7 @@ export function KawmaSignIn({ compact = false }: { compact?: boolean }) {
 export function KawmaAccountButton({ active, onManage }: { active: boolean; onManage: () => void }) {
   const { kawma, store, setActive, kawmaSignOut, kawmaLogin } = useLauncher();
   const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
   // Keep the menu open while a sign-in finishes so the person sees it land.
   useEffect(() => {
     if (kawmaLogin) setOpen(true);
@@ -91,6 +93,7 @@ export function KawmaAccountButton({ active, onManage }: { active: boolean; onMa
   return (
     <div style={{ position: "relative" }}>
       <button
+        ref={btnRef}
         className={`game-me ${active || open ? "active" : ""}`}
         onClick={() => setOpen((o) => !o)}
         title={kawma ? `${kawma.displayName} · Kawma account` : "Sign in to Kawma"}
@@ -100,70 +103,65 @@ export function KawmaAccountButton({ active, onManage }: { active: boolean; onMa
         <span className={`game-me-dot ${kawma ? "on" : ""}`} />
       </button>
 
-      {open && (
-        <>
-          <div className="backdrop" onClick={() => setOpen(false)} />
-          <div className="acct-menu surface kawma-menu">
-            <div className="kawma-head">
-              <KawmaAvatar profile={kawma} size={42} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{kawma ? kawma.displayName : "Kawma account"}</div>
-                <div className="muted" style={{ fontSize: 11.5 }}>
-                  {kawma ? kawmaLinks(kawma) || "Kawma account" : "Optional · link your Minecraft accounts"}
-                </div>
-              </div>
+      <Popover anchor={btnRef} open={open} onClose={() => setOpen(false)} placement="left-start" offset={18} className="acct-menu surface kawma-menu">
+        <div className="kawma-head">
+          <KawmaAvatar profile={kawma} size={42} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{kawma ? kawma.displayName : "Kawma account"}</div>
+            <div className="muted" style={{ fontSize: 11.5 }}>
+              {kawma ? kawmaLinks(kawma) || "Kawma account" : "Optional · link your Minecraft accounts"}
             </div>
+          </div>
+        </div>
 
-            {!kawma && <KawmaSignIn compact />}
+        {!kawma && <KawmaSignIn compact />}
 
-            <div className="menu-label">{kawma ? "Linked Minecraft accounts" : "Minecraft accounts"}</div>
-            {store.accounts.length === 0 && <div className="muted" style={{ fontSize: 12, padding: "2px 12px 6px" }}>None yet.</div>}
-            {store.accounts.map((a) => (
-              <button
-                key={a.uuid}
-                className="menu-item"
-                onClick={() => {
-                  void setActive(a.uuid);
-                  setOpen(false);
-                }}
-              >
-                <Avatar account={a} size={28} />
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13.5 }}>{a.username}</div>
-                  <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>
-                    {a.user_type === "msa" ? (isLinked(kawma, a) ? "Microsoft · linked" : "Microsoft") : "Offline"}
-                  </div>
-                </span>
-                {a.uuid === store.active_uuid && <Icon.check size={16} />}
-              </button>
-            ))}
+        <div className="menu-label">{kawma ? "Linked Minecraft accounts" : "Minecraft accounts"}</div>
+        {store.accounts.length === 0 && <div className="muted" style={{ fontSize: 12, padding: "2px 12px 6px" }}>None yet.</div>}
+        {store.accounts.map((a) => (
+          <button
+            key={a.uuid}
+            className="menu-item"
+            onClick={() => {
+              void setActive(a.uuid);
+              setOpen(false);
+            }}
+          >
+            <Avatar account={a} size={28} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 13.5 }}>{a.username}</div>
+              <div style={{ color: "var(--text-mute)", fontSize: 11.5 }}>
+                {a.user_type === "msa" ? (isLinked(kawma, a) ? "Microsoft · linked" : "Microsoft") : "Offline"}
+              </div>
+            </span>
+            {a.uuid === store.active_uuid && <Icon.check size={16} />}
+          </button>
+        ))}
+        <button
+          className="menu-item"
+          onClick={() => {
+            onManage();
+            setOpen(false);
+          }}
+        >
+          <Icon.link size={17} /> Manage Minecraft accounts
+        </button>
+
+        {kawma && (
+          <>
+            <div className="divide" style={{ margin: "6px 4px" }} />
             <button
               className="menu-item"
               onClick={() => {
-                onManage();
+                void kawmaSignOut();
                 setOpen(false);
               }}
             >
-              <Icon.link size={17} /> Manage Minecraft accounts
+              <Icon.close size={16} /> Sign out of Kawma
             </button>
-
-            {kawma && (
-              <>
-                <div className="divide" style={{ margin: "6px 4px" }} />
-                <button
-                  className="menu-item"
-                  onClick={() => {
-                    void kawmaSignOut();
-                    setOpen(false);
-                  }}
-                >
-                  <Icon.close size={16} /> Sign out of Kawma
-                </button>
-              </>
-            )}
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </Popover>
     </div>
   );
 }

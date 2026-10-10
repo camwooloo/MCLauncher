@@ -528,7 +528,20 @@ export interface UpdateInfo {
   channel: "stable" | "test";
 }
 export const checkAppUpdate = (): Promise<UpdateInfo | null> =>
-  isTauri ? call<UpdateInfo | null>("check_app_update") : Promise.resolve(null);
+  isTauri ? call<UpdateInfo | null>("check_app_update") : new Promise((r) => setTimeout(() => r(mockUpdate()), 700));
+// Browser preview: set localStorage "aurora:mock-update" to a version to be offered it.
+function mockUpdate(): UpdateInfo | null {
+  let v: string | null = null;
+  try {
+    v = localStorage.getItem("aurora:mock-update");
+  } catch {
+    /* no storage */
+  }
+  return v ? { version: v, current: "0.3.2", notes: "- Preview build", downloadUrl: "https://kawma.app/launcher/download", channel: "stable" } : null;
+}
+/** The running launcher's version, as the update check compares it (Tauri's `getVersion`). */
+export const launcherVersion = (): Promise<string> =>
+  isTauri ? import("@tauri-apps/api/app").then((m) => m.getVersion()) : Promise.resolve("0.3.2");
 /** Downloads the update the last check offered, verifies it and runs the installer. */
 export const applyAppUpdate = (): Promise<void> =>
   isTauri ? call<void>("apply_app_update") : Promise.resolve();
@@ -584,6 +597,30 @@ export const kawmaSignInCancel = (): Promise<void> =>
   isTauri ? call<void>("kawma_sign_in_cancel") : Promise.resolve();
 export const kawmaSignOut = (): Promise<void> =>
   isTauri ? call<void>("kawma_sign_out") : Promise.resolve(void (mockSignedIn = false));
+
+// ---- Star catcher (the rail logo's easter egg) ----
+/** A Star catcher best kept by kawma.app. `newBest`/`justUnlocked` only come back from a submit. */
+export interface StarsResult {
+  best: number;
+  unlocked: boolean;
+  newBest?: boolean;
+  justUnlocked?: boolean;
+}
+// Browser preview: pretend kawma.app keeps the best while signed in.
+let mockStars: StarsResult = { best: 34, unlocked: false };
+/** The saved best; null when signed out or not released for this account (use the local best). */
+export const starsBest = (): Promise<StarsResult | null> =>
+  isTauri ? call("kawma_stars_best") : Promise.resolve(mockSignedIn ? { ...mockStars } : null);
+/** Save a finished round (0..500); null when signed out or not released. */
+export const starsSubmit = (score: number): Promise<StarsResult | null> => {
+  const s = Math.max(0, Math.min(500, Math.round(score)));
+  if (isTauri) return call("kawma_stars_submit", { score: s });
+  if (!mockSignedIn) return Promise.resolve(null);
+  const newBest = s > mockStars.best;
+  const justUnlocked = !mockStars.unlocked && s >= 40;
+  mockStars = { best: Math.max(s, mockStars.best), unlocked: mockStars.unlocked || s >= 40 };
+  return Promise.resolve({ ...mockStars, newBest, justUnlocked });
+};
 
 // ---- Kawma Studio on this PC ----
 export interface StudioStatus {

@@ -373,6 +373,58 @@ pub async fn kawma_sign_out() -> Result<(), String> {
     Ok(())
 }
 
+// --- Star catcher (the rail logo's easter egg) -----------------------------
+
+/// The highest score the server accepts.
+const STARS_MAX: u32 = 500;
+
+/// A Star catcher best, as kawma.app keeps it. `new_best`/`just_unlocked`
+/// only come back from a submit.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Stars {
+    #[serde(default)]
+    pub best: u32,
+    /// Starfield is unlocked in Kawma Studio.
+    #[serde(default)]
+    pub unlocked: bool,
+    #[serde(default)]
+    pub new_best: bool,
+    #[serde(default)]
+    pub just_unlocked: bool,
+}
+
+fn stars_reply(reply: Reply) -> Result<Option<Stars>, String> {
+    match reply {
+        Reply::Ok(v) => serde_json::from_value(v)
+            .map(Some)
+            .map_err(|_| "Kawma returned an unexpected response".to_string()),
+        // Signed out (401) or not released for this account (404): the
+        // launcher keeps the best locally instead.
+        Reply::Status(401 | 404) => Ok(None),
+        Reply::Status(s) => Err(format!("Kawma answered {s}")),
+    }
+}
+
+/// The saved Star catcher best. `None` when signed out or not released.
+#[tauri::command]
+pub async fn kawma_stars_best() -> Result<Option<Stars>, String> {
+    if token().is_none() {
+        return Ok(None);
+    }
+    stars_reply(request(reqwest::Method::GET, "/auth/desktop/launcher/stars", None).await?)
+}
+
+/// Save a finished round. `None` when signed out or not released.
+#[tauri::command]
+pub async fn kawma_stars_submit(score: u32) -> Result<Option<Stars>, String> {
+    if token().is_none() {
+        return Ok(None);
+    }
+    let body = serde_json::json!({ "score": score.min(STARS_MAX) });
+    stars_reply(request(reqwest::Method::POST, "/auth/desktop/launcher/stars", Some(&body)).await?)
+}
+
 // --- Kawma Studio on this PC ----------------------------------------------
 
 #[derive(Serialize)]
@@ -455,6 +507,19 @@ mod tests {
         );
         assert_eq!(exe_from_display_icon(r"C:\x\app.exe,0"), PathBuf::from(r"C:\x\app.exe"));
         assert_eq!(exe_from_display_icon(r"C:\x\app.exe"), PathBuf::from(r"C:\x\app.exe"));
+    }
+
+    #[test]
+    fn stars_replies() {
+        let v = serde_json::json!({ "best": 42, "unlocked": true, "newBest": true, "justUnlocked": false });
+        let s = stars_reply(Reply::Ok(v)).unwrap().unwrap();
+        assert_eq!(s, Stars { best: 42, unlocked: true, new_best: true, just_unlocked: false });
+        let s = stars_reply(Reply::Ok(serde_json::json!({ "best": 7, "unlocked": false }))).unwrap().unwrap();
+        assert_eq!(s.best, 7);
+        assert!(!s.new_best);
+        assert_eq!(stars_reply(Reply::Status(404)).unwrap(), None);
+        assert_eq!(stars_reply(Reply::Status(401)).unwrap(), None);
+        assert!(stars_reply(Reply::Status(500)).is_err());
     }
 
     #[test]
