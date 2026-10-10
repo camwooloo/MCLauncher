@@ -42,6 +42,7 @@
   height: 46px;
 }
 .deck {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -78,6 +79,15 @@
 :root:not([data-frame="floating"]) .fn-rail,
 :root:not([data-frame="floating"]) .game-rail {
   padding-top: 58px;
+  /* Barely-there tint: the art and backdrop run straight through, so the
+     rails and the window buttons sit on the same surface. */
+  background: rgba(0, 0, 0, 0.14);
+  border-color: rgba(255, 255, 255, 0.035);
+}
+[data-theme="light"]:not([data-frame="floating"]) .fn-rail,
+[data-theme="light"]:not([data-frame="floating"]) .game-rail {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(15, 20, 40, 0.05);
 }
 :root:not([data-frame="floating"]) .stage-scroll {
   padding-top: 52px;
@@ -285,6 +295,7 @@
 /* ---- Stage ------------------------------------------------------------- */
 .stage {
   position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
   overflow: hidden;

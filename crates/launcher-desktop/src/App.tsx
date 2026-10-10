@@ -444,6 +444,7 @@ function Shell() {
       </div>
 
       <div className="deck">
+        <div className="stage-art" data-art={isGame ? section : "aurora"} aria-hidden />
         {/* Left: what you can do with the selected game. */}
         <nav className="fn-rail" aria-label={`${GAME_META[activeGame].name} functions`}>
           <button className="fn-mark" data-g={activeGame} onClick={() => selectGame(activeGame)} title={GAME_META[activeGame].name}>
@@ -462,16 +463,6 @@ function Shell() {
                 <f.icon size={21} />
               </FnBtn>
             ))}
-            <span className="fn-sep" />
-            <FnBtn label="Aurora Net" active={section === "network"} onClick={() => setSection("network")}>
-              <Icon.globe size={21} />
-            </FnBtn>
-            <FnBtn label="Accounts" active={section === "accounts"} onClick={() => setSection("accounts")}>
-              <Icon.user size={21} />
-            </FnBtn>
-            <FnBtn label="Settings" active={section === "settings"} onClick={() => setSection("settings")}>
-              <Icon.gear size={21} />
-            </FnBtn>
           </div>
           <div className="fn-spacer" />
           <div className="rail-foot">{GAME_META[activeGame].short}</div>
@@ -479,7 +470,6 @@ function Shell() {
 
         {/* Centre: hero + the selected function. */}
         <main className="stage">
-          <div className="stage-art" data-art={isGame ? section : "aurora"} aria-hidden />
           <div className="stage-scroll">
             <header className="hero3">
               <div className="hero3-top">
@@ -526,7 +516,7 @@ function Shell() {
           </div>
         </main>
 
-        {/* Right: your games. */}
+        {/* Right: your games, plus launcher-wide places (account, network, settings). */}
         <aside className="game-rail" aria-label="Games">
           <button
             className={`game-me ${section === "accounts" ? "active" : ""}`}
@@ -551,6 +541,14 @@ function Shell() {
             })}
           </div>
           <div className="fn-spacer" />
+          <div className="fn-group">
+            <FnBtn label="Aurora Net" active={section === "network"} onClick={() => setSection("network")}>
+              <Icon.globe size={21} />
+            </FnBtn>
+            <FnBtn label="Settings" active={section === "settings"} onClick={() => setSection("settings")}>
+              <Icon.gear size={21} />
+            </FnBtn>
+          </div>
           <div className="rail-foot">Aurora</div>
         </aside>
       </div>
