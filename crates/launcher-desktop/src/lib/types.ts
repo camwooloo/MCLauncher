@@ -262,6 +262,16 @@ export interface DlLibrary {
   unmanaged: string[];
   slotsUsed: number;
   syncError: string | null;
+  /** Mods the launcher switched off on its own after a bad start. */
+  autoFix: DlAutoFix | null;
+}
+
+export interface DlAutoFix {
+  at: number;
+  /** "update": before a launch on a new game build; "crash": after the game died on start. */
+  trigger: "update" | "crash";
+  disabled: { id: string; name: string; risk: "config" | "ui" | null }[];
+  note: string | null;
 }
 
 export interface DlExtras {

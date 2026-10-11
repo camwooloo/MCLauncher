@@ -180,6 +180,237 @@ pub fn reset_gameinfo(info: &DeadlockInfo, backup_dir: &Path) -> Result<String> 
     Ok("Mod paths removed from gameinfo.gi".into())
 }
 
+/* ------------------------------- auto fix -------------------------------- */
+//
+// After a major Deadlock update, an outdated mod that ships its own copy of a
+// game config (the classic one replaces `cfg/user_keys_default.vcfg`) stops
+// the game at start with "Unable to read default keybinding configuration
+// (user_keys_default)!". Before a modded launch on a new build the launcher
+// switches off mods that override configs; if the game still dies on start,
+// it switches off the next likely culprits and says which.
+
+/// What a mod's files override, worst first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Risk {
+    /// Replaces game config files (`cfg/`, `*.vcfg`): breaks on updates.
+    Config,
+    /// Replaces UI or gameplay scripts (`panorama/`, `scripts/`).
+    Ui,
+}
+
+/// File paths inside a VPK (`dir/name.ext`, lower case), read from its
+/// directory tree only.
+pub fn vpk_paths(path: &Path) -> Result<Vec<String>> {
+    use std::io::Read;
+    let mut f = std::fs::File::open(path).map_err(|e| Error::io(path, e))?;
+    let mut head = [0u8; 28];
+    f.read_exact(&mut head[..12]).map_err(|e| Error::io(path, e))?;
+    let u32_at = |b: &[u8], i: usize| u32::from_le_bytes([b[i], b[i + 1], b[i + 2], b[i + 3]]);
+    if u32_at(&head, 0) != 0x55AA_1234 {
+        return Err(Error::other("not a VPK directory file"));
+    }
+    if u32_at(&head, 4) == 2 {
+        f.read_exact(&mut head[12..28]).map_err(|e| Error::io(path, e))?;
+    }
+    let size = u32_at(&head, 8) as usize;
+    if size > 64 << 20 {
+        return Err(Error::other("VPK directory is implausibly large"));
+    }
+    let mut tree = vec![0u8; size];
+    f.read_exact(&mut tree).map_err(|e| Error::io(path, e))?;
+    Ok(parse_vpk_tree(&tree))
+}
+
+fn parse_vpk_tree(tree: &[u8]) -> Vec<String> {
+    let mut pos = 0usize;
+    let cstr = |pos: &mut usize| -> Option<String> {
+        let end = tree.get(*pos..)?.iter().position(|&b| b == 0)? + *pos;
+        let s = String::from_utf8_lossy(&tree[*pos..end]).to_ascii_lowercase();
+        *pos = end + 1;
+        Some(s)
+    };
+    let mut out = Vec::new();
+    'ext: while let Some(ext) = cstr(&mut pos) {
+        if ext.is_empty() {
+            break;
+        }
+        while let Some(dir) = cstr(&mut pos) {
+            if dir.is_empty() {
+                continue 'ext;
+            }
+            while let Some(name) = cstr(&mut pos) {
+                if name.is_empty() {
+                    break;
+                }
+                // crc(4) preload(2) archive(2) offset(4) length(4) end(2)
+                let Some(meta) = tree.get(pos..pos + 18) else { return out };
+                let preload = u16::from_le_bytes([meta[4], meta[5]]) as usize;
+                pos += 18 + preload;
+                let dir = dir.trim();
+                let file = if ext.trim().is_empty() { name.clone() } else { format!("{name}.{ext}") };
+                out.push(if dir.is_empty() { file } else { format!("{dir}/{file}") });
+            }
+        }
+        break;
+    }
+    out
+}
+
+/// How risky a VPK's contents are across a game update.
+pub fn classify(paths: &[String]) -> Option<Risk> {
+    let config = paths.iter().any(|p| p.starts_with("cfg/") || p.ends_with(".vcfg") || p.contains("user_keys"));
+    if config {
+        return Some(Risk::Config);
+    }
+    let ui = paths.iter().any(|p| p.starts_with("panorama/") || p.starts_with("scripts/"));
+    ui.then_some(Risk::Ui)
+}
+
+/// The Steam build id of the installed game.
+pub fn game_build() -> Option<String> {
+    steam::app_build_id(APP_ID)
+}
+
+/// Crash dumps Deadlock wrote at or after `since` (they land next to
+/// `deadlock.exe`; a fatal error at start writes one too).
+pub fn crash_dumps_since(info: &DeadlockInfo, since: std::time::SystemTime) -> usize {
+    let Some(dir) = info.install_dir.as_ref().map(|d| d.join("game").join("bin").join("win64")) else {
+        return 0;
+    };
+    std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().to_ascii_lowercase().ends_with(".mdmp"))
+        .filter(|e| e.metadata().and_then(|m| m.modified()).is_ok_and(|t| t >= since))
+        .count()
+}
+
+/// A mod the auto fix switched off.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FixedMod {
+    pub id: String,
+    pub name: String,
+    pub risk: Option<Risk>,
+}
+
+/// What the launcher did on its own, for the home page.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoFix {
+    pub at: i64,
+    /// "update": before launching on a new game build. "crash": after the
+    /// game died on start with mods.
+    pub trigger: String,
+    pub disabled: Vec<FixedMod>,
+    /// Set when nothing could be blamed on mods.
+    pub note: Option<String>,
+}
+
+impl ModLibrary {
+    /// The worst risk among a mod's enabled VPKs (unreadable files count as
+    /// harmless).
+    fn risk_of(&self, m: &LibraryMod) -> Option<Risk> {
+        m.files
+            .iter()
+            .filter(|f| f.enabled)
+            .filter_map(|f| vpk_paths(&self.mods_dir().join(&m.id).join(&f.name)).ok())
+            .filter_map(|p| classify(&p))
+            .min()
+    }
+
+    pub fn last_good_build(&self) -> Option<String> {
+        self.load().last_good_build
+    }
+
+    pub fn set_last_good_build(&self, build: Option<String>) -> Result<()> {
+        let mut lib = self.load();
+        if lib.last_good_build == build {
+            return Ok(());
+        }
+        lib.last_good_build = build;
+        self.save(&lib)
+    }
+
+    pub fn auto_fix(&self) -> Option<AutoFix> {
+        self.load().auto_fix
+    }
+
+    pub fn dismiss_fix(&self) -> Result<()> {
+        let mut lib = self.load();
+        lib.auto_fix = None;
+        self.save(&lib)
+    }
+
+    /// Switch the mods the last fix turned off back on.
+    pub fn undo_fix(&self) -> Result<()> {
+        let mut lib = self.load();
+        if let Some(fix) = lib.auto_fix.take() {
+            for m in lib.mods.iter_mut().filter(|m| fix.disabled.iter().any(|d| d.id == m.id)) {
+                m.enabled = true;
+            }
+        }
+        self.save(&lib)
+    }
+
+    /// Switch off the mods most likely to stop Deadlock starting.
+    ///
+    /// `crashed` = the game already died on start: then UI mods go too, and
+    /// with nothing risky found every mod is switched off so the next modded
+    /// launch works and mods can be turned back on one at a time. Before a
+    /// launch (`crashed` false) only config overrides are touched. Hand-placed
+    /// addon files are taken into the library first so they can be switched
+    /// off like the rest. Returns `None` when nothing was changed.
+    pub fn repair(&self, addons_dir: Option<&Path>, crashed: bool) -> Result<Option<AutoFix>> {
+        if let Some(addons) = addons_dir {
+            let risky_unmanaged = self.unmanaged(addons).iter().any(|n| {
+                vpk_paths(&addons.join(n)).ok().and_then(|p| classify(&p)).is_some_and(|r| crashed || r == Risk::Config)
+            });
+            if risky_unmanaged {
+                self.adopt_unmanaged(addons)?;
+            }
+        }
+        let mut lib = self.load();
+        let rated: Vec<(usize, Option<Risk>)> = lib
+            .mods
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| m.enabled)
+            .map(|(i, m)| (i, self.risk_of(m)))
+            .collect();
+        let pick = |want: Risk| rated.iter().filter(|(_, r)| *r == Some(want)).map(|(i, r)| (*i, *r)).collect::<Vec<_>>();
+        let mut chosen = pick(Risk::Config);
+        if chosen.is_empty() && crashed {
+            chosen = pick(Risk::Ui);
+        }
+        if chosen.is_empty() && crashed {
+            chosen = rated.clone();
+        }
+        let note = if chosen.is_empty() && crashed {
+            Some("Deadlock didn't start, but no mods were on. Verify the game's files in Steam.".to_string())
+        } else {
+            None
+        };
+        if chosen.is_empty() && note.is_none() {
+            return Ok(None);
+        }
+        let disabled = chosen
+            .iter()
+            .map(|&(i, risk)| {
+                let m = &mut lib.mods[i];
+                m.enabled = false;
+                FixedMod { id: m.id.clone(), name: m.name.clone(), risk }
+            })
+            .collect();
+        let fix = AutoFix { at: now(), trigger: if crashed { "crash" } else { "update" }.into(), disabled, note };
+        lib.auto_fix = Some(fix.clone());
+        self.save(&lib)?;
+        Ok(Some(fix))
+    }
+}
+
 /* ------------------------------- autoexec -------------------------------- */
 
 pub fn autoexec_path(info: &DeadlockInfo) -> Result<PathBuf> {
@@ -307,6 +538,12 @@ struct LibraryFile {
     mods: Vec<LibraryMod>,
     #[serde(default)]
     launch_options: String,
+    /// The Steam build that last ran with mods without crashing on start.
+    #[serde(default)]
+    last_good_build: Option<String>,
+    /// The last automatic fix, shown on the home page until dismissed.
+    #[serde(default)]
+    auto_fix: Option<AutoFix>,
 }
 
 /// What a sync left in `addons/`.
@@ -924,6 +1161,98 @@ mod tests {
         let m = lib.add_from_staging(entry("v", None), &staging).unwrap();
         assert_eq!(m.files.len(), 2);
         assert!(m.files[0].enabled && !m.files[1].enabled);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// A minimal VPK v2 directory file holding `files` (`dir/name.ext`).
+    fn vpk(files: &[&str]) -> Vec<u8> {
+        let mut tree = Vec::new();
+        for f in files {
+            let (dir, file) = f.rsplit_once('/').unwrap_or((" ", f));
+            let (name, ext) = file.rsplit_once('.').unwrap();
+            for part in [ext, dir, name] {
+                tree.extend_from_slice(part.as_bytes());
+                tree.push(0);
+            }
+            // crc, preload, archive, offset, length, then the 0xffff end.
+            tree.extend_from_slice(&[0u8; 16]);
+            tree.extend_from_slice(&[0xff, 0xff]);
+            tree.push(0); // end of names in this dir
+            tree.push(0); // end of dirs for this ext
+        }
+        tree.push(0); // end of exts
+        let mut out = Vec::new();
+        for v in [0x55AA_1234u32, 2, tree.len() as u32, 0, 0, 0, 0] {
+            out.extend_from_slice(&v.to_le_bytes());
+        }
+        out.extend_from_slice(&tree);
+        out
+    }
+
+    #[test]
+    fn reads_vpk_paths_and_rates_them() {
+        let base = std::env::temp_dir().join(format!("kawma-vpk-{}", std::process::id()));
+        std::fs::create_dir_all(&base).unwrap();
+        let p = base.join("pak01_dir.vpk");
+        std::fs::write(&p, vpk(&["cfg/user_keys_default.vcfg", "models/heroes/lash.vmdl_c"])).unwrap();
+        let paths = vpk_paths(&p).unwrap();
+        assert_eq!(paths, ["cfg/user_keys_default.vcfg", "models/heroes/lash.vmdl_c"]);
+        assert_eq!(classify(&paths), Some(Risk::Config));
+        assert_eq!(classify(&["panorama/layout/hud.vxml_c".into()]), Some(Risk::Ui));
+        assert_eq!(classify(&["models/heroes/lash.vmdl_c".into()]), None);
+        std::fs::write(&p, b"not a vpk").unwrap();
+        assert!(vpk_paths(&p).is_err());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn repair_switches_off_the_likely_culprits() {
+        let base = std::env::temp_dir().join(format!("kawma-fix-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let lib = ModLibrary::new(&base.join("data"));
+        let addons = base.join("addons");
+        std::fs::create_dir_all(&addons).unwrap();
+        for (id, files) in [
+            ("skin", &["models/heroes/lash.vmdl_c"][..]),
+            ("hud", &["panorama/layout/hud.vxml_c"][..]),
+            ("keys", &["cfg/user_keys_default.vcfg"][..]),
+        ] {
+            let staging = base.join(format!("stage-{id}"));
+            std::fs::create_dir_all(&staging).unwrap();
+            std::fs::write(staging.join("pak01_dir.vpk"), vpk(files)).unwrap();
+            lib.add_from_staging(entry(id, None), &staging).unwrap();
+        }
+        let on = |lib: &ModLibrary| lib.mods().iter().filter(|m| m.enabled).map(|m| m.id.clone()).collect::<Vec<_>>();
+
+        // Before launching on a new build: only the config override goes.
+        let fix = lib.repair(Some(&addons), false).unwrap().unwrap();
+        assert_eq!(fix.disabled.len(), 1);
+        assert_eq!(fix.disabled[0].id, "keys");
+        assert_eq!(on(&lib), ["skin", "hud"]);
+        assert!(lib.repair(Some(&addons), false).unwrap().is_none());
+
+        // Still crashing: UI mods next, then everything.
+        lib.repair(Some(&addons), true).unwrap().unwrap();
+        assert_eq!(on(&lib), ["skin"]);
+        lib.repair(Some(&addons), true).unwrap().unwrap();
+        assert!(on(&lib).is_empty());
+        let fix = lib.repair(Some(&addons), true).unwrap().unwrap();
+        assert!(fix.disabled.is_empty() && fix.note.is_some());
+
+        // Undo brings back what the last fix turned off.
+        lib.set_enabled("hud", false).unwrap();
+        lib.repair(Some(&addons), false).unwrap();
+        lib.set_enabled("keys", true).unwrap();
+        lib.repair(Some(&addons), false).unwrap();
+        lib.undo_fix().unwrap();
+        assert!(on(&lib).contains(&"keys".to_string()) && lib.auto_fix().is_none());
+
+        // A hand-placed config override is taken in and switched off.
+        lib.set_enabled("keys", false).unwrap();
+        std::fs::write(addons.join("pak50_dir.vpk"), vpk(&["cfg/user_keys_default.vcfg"])).unwrap();
+        let fix = lib.repair(Some(&addons), false).unwrap().unwrap();
+        assert_eq!(fix.disabled.len(), 1);
+        assert!(!addons.join("pak50_dir.vpk").exists());
         let _ = std::fs::remove_dir_all(&base);
     }
 }

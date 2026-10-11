@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { useLauncher } from "../store";
 import * as api from "../lib/api";
 import * as dl from "../lib/deadlock";
-import type { DlCategory, DlExtras, DlLibrary, DlLibraryMod, DlModDetail, DlSort, DlStoreMod } from "../lib/types";
+import type { DlAutoFix, DlCategory, DlExtras, DlLibrary, DlLibraryMod, DlModDetail, DlSort, DlStoreMod } from "../lib/types";
 import { Icon, Select, Switch } from "./ui";
 import { Popover } from "./Popover";
 
@@ -319,6 +319,39 @@ function Shelf({ accent, mods, lib, onSeeAll }: { accent: string; mods: DlStoreM
 
 let trendingCache: DlStoreMod[] | null = null;
 
+/** What the launcher switched off on its own after a bad start. */
+function AutoFixBanner({ fix }: { fix: DlAutoFix }) {
+  const { run } = useLibraryActions();
+  const names = fix.disabled.map((m) => m.name);
+  const list = names.length > 3 ? `${names.slice(0, 3).join(", ")} and ${names.length - 3} more` : names.join(", ");
+  const why = fix.disabled.some((m) => m.risk === "config")
+    ? "They replace game config files, which breaks after Deadlock updates (the keybinding error)."
+    : fix.disabled.some((m) => m.risk === "ui")
+      ? "They change the game's UI or scripts, which often breaks after Deadlock updates."
+      : "Nothing stood out, so every mod is off. Turn them back on one at a time to find the one that breaks.";
+  const title =
+    fix.trigger === "update"
+      ? `Deadlock updated, so ${names.length === 1 ? "1 mod was" : `${names.length} mods were`} switched off`
+      : `Deadlock didn't start with mods, so ${names.length === 1 ? "1 mod was" : `${names.length} mods were`} switched off`;
+  return (
+    <div className="dl-banner warn">
+      <Icon.warn size={18} />
+      <span className="grow">
+        <b>{fix.note && !names.length ? "Deadlock didn't start" : title}</b>
+        <span className="muted">{fix.note && !names.length ? fix.note : `${list}. ${why}`}</span>
+      </span>
+      {!!names.length && (
+        <button className="btn ghost" onClick={() => void run(dl.undoFix(), "Mods switched back on")}>
+          Turn back on
+        </button>
+      )}
+      <button className="dl-icon-btn ghost" onClick={() => void run(dl.dismissFix())} aria-label="Dismiss">
+        <Icon.close size={14} />
+      </button>
+    </div>
+  );
+}
+
 export function DeadlockHome({ onOpen, onPlay }: { onOpen: Open; onPlay: (modded: boolean) => void }) {
   const { games } = useLauncher();
   const info = games?.deadlock;
@@ -343,6 +376,7 @@ export function DeadlockHome({ onOpen, onPlay }: { onOpen: Open; onPlay: (modded
 
   return (
     <div className="dl-home">
+      {lib?.autoFix && <AutoFixBanner fix={lib.autoFix} />}
       <div className="dl-play-grid">
         <button className="dl-play modded" disabled={!info?.installed} onClick={() => onPlay(true)}>
           <span className="dl-play-ico">

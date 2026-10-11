@@ -168,6 +168,8 @@ fn main() {
             deadlock::deadlock_reset_gameinfo,
             deadlock::deadlock_set_mods_active,
             deadlock::deadlock_clear_addons,
+            deadlock::deadlock_dismiss_fix,
+            deadlock::deadlock_undo_fix,
             commands::install_game_tool,
             commands::install_skyrim_together,
             commands::install_skyrim_mod,
