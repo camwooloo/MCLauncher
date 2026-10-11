@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import * as api from "./lib/api";
+import { launch as launchDeadlockApi } from "./lib/deadlock";
 import type {
   AccountStore,
   ContentTarget,
@@ -117,6 +118,7 @@ interface Launcher {
   launchSkyrim: (mode: string) => Promise<void>;
   launchEldenRing: (mode: string) => Promise<void>;
   launchCyberpunk: (mode: string) => Promise<void>;
+  launchDeadlock: (modded: boolean) => Promise<void>;
   setEldenRingPassword: (pw: string) => Promise<void>;
   installTool: (tool: string) => Promise<void>;
   installTogether: () => Promise<void>;
@@ -683,6 +685,18 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
     },
     [showToast]
   );
+  const launchDeadlock = useCallback(
+    async (modded: boolean) => {
+      try {
+        await launchDeadlockApi(modded);
+        showToast(modded ? "Launching Deadlock with mods…" : "Launching Deadlock without mods…");
+        void refreshGames();
+      } catch (e) {
+        showToast(`Error: ${e}`);
+      }
+    },
+    [refreshGames, showToast]
+  );
   /** One-click install of a game tool (Seamless, SKSE, ME2, CET, CyberpunkMP). */
   const installTool = useCallback(
     async (tool: string) => {
@@ -828,6 +842,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       launchSkyrim,
       launchEldenRing,
       launchCyberpunk,
+      launchDeadlock,
       setEldenRingPassword,
       installTool,
       installTogether,
@@ -912,6 +927,7 @@ export function LauncherProvider({ children }: { children: ReactNode }) {
       launchSkyrim,
       launchEldenRing,
       launchCyberpunk,
+      launchDeadlock,
       setEldenRingPassword,
       installTool,
       installTogether,

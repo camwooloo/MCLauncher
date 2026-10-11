@@ -22,6 +22,7 @@ const GAMES = [
   { key: "skyrim", label: "Skyrim", rgb: "150, 170, 200" },
   { key: "eldenring", label: "Elden Ring", rgb: "212, 175, 95" },
   { key: "cyberpunk", label: "Cyberpunk", rgb: "245, 224, 80" },
+  { key: "deadlock", label: "Deadlock", rgb: "255, 90, 95" },
 ];
 
 function GamesArt() {
@@ -83,7 +84,7 @@ type Slide = { art: ReactNode; title: string; line: string };
 
 const SLIDES: Slide[] = [
   { art: <WelcomeArt />, title: "Welcome to Kawma Launcher", line: "Play, mod and host — beautifully, together." },
-  { art: <GamesArt />, title: "Every game, one launcher", line: "Minecraft, Skyrim, Elden Ring & Cyberpunk." },
+  { art: <GamesArt />, title: "Every game, one launcher", line: "Minecraft, Skyrim, Elden Ring, Cyberpunk & Deadlock." },
   { art: <NetArt />, title: "Play together, instantly", line: "Host a server, share a link — friends just join." },
   { art: <ThemeArt />, title: "Make it yours", line: "Themes, backgrounds and layouts to match your vibe." },
 ];

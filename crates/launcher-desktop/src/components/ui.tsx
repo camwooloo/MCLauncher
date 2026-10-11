@@ -170,6 +170,17 @@ export const Icon = {
         <path d="M12 6.5 9 4M12 6.5 15 4M12 9 8.5 6.5M12 9l3.5-2.5" />
       </>
     ),
+  // Shackled padlock — Deadlock.
+  deadlock: ({ size = 24 }: IconProps) =>
+    svg(
+      size,
+      <>
+        <path d="M7.5 10V7.5a4.5 4.5 0 0 1 9 0V10" />
+        <rect x="4.5" y="10" width="15" height="11" rx="2.5" />
+        <path d="M12 14.2v2.6" />
+        <circle cx="12" cy="14" r="0.6" fill="currentColor" />
+      </>
+    ),
   play: ({ size = 24 }: IconProps) => svg(size, <path d="M7 4v16l13-8z" fill="currentColor" stroke="none" />),
   user: ({ size = 24 }: IconProps) =>
     svg(size, <><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></>),
@@ -268,6 +279,24 @@ export const Icon = {
     svg(size, <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>),
   clock: ({ size = 24 }: IconProps) =>
     svg(size, <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
+  download: ({ size = 24 }: IconProps) =>
+    svg(size, <><path d="M12 4v11" /><path d="M7 10.5l5 5 5-5" /><path d="M5 20h14" /></>),
+  search: ({ size = 24 }: IconProps) =>
+    svg(size, <><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4.2-4.2" /></>),
+  heart: ({ size = 24 }: IconProps) =>
+    svg(size, <path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z" />),
+  music: ({ size = 24 }: IconProps) =>
+    svg(size, <><path d="M9 18V5l11-2v13" /><circle cx="6.5" cy="18" r="2.5" /><circle cx="17.5" cy="16" r="2.5" /></>),
+  bag: ({ size = 24 }: IconProps) =>
+    svg(size, <><path d="M5 8h14l-1.2 12H6.2z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></>),
+  arrowUp: ({ size = 24 }: IconProps) => svg(size, <path d="M12 19V5M6 11l6-6 6 6" />),
+  arrowDown: ({ size = 24 }: IconProps) => svg(size, <path d="M12 5v14M6 13l6 6 6-6" />),
+  arrowRight: ({ size = 24 }: IconProps) => svg(size, <path d="M5 12h14M13 6l6 6-6 6" />),
+  arrowLeft: ({ size = 24 }: IconProps) => svg(size, <path d="M19 12H5M11 6l-6 6 6 6" />),
+  warn: ({ size = 24 }: IconProps) =>
+    svg(size, <><path d="M12 3.5 2.5 20h19z" /><path d="M12 10v4.5M12 17.5h.01" /></>),
+  file: ({ size = 24 }: IconProps) =>
+    svg(size, <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4M9 13h6M9 17h6" /></>),
 };
 
 export function initials(name: string) {

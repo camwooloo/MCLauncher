@@ -461,7 +461,7 @@ pub struct JoinPayload {
     pub ip: String,
     pub port: u16,
     pub name: String,
-    /// "minecraft" | "skyrim" | "eldenring" | "cyberpunk".
+    /// "minecraft" | "skyrim" | "eldenring" | "cyberpunk" | "deadlock".
     pub game: String,
     /// Optional modpack to auto-install on the guest (Minecraft co-op).
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -33,6 +33,7 @@ base64 = "0.22"
 # All common zip compression methods — Nexus/mod zips use deflate64/bzip2/zstd/lzma too.
 zip = { version = "2.2", default-features = false, features = ["deflate", "deflate64", "bzip2", "zstd", "lzma"] }
 sevenz-rust = "0.6"
+unrar = "0.5"
 flate2 = "1"
 tar = "0.4"
 

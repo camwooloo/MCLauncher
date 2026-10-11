@@ -53,6 +53,7 @@ pub(crate) fn game_processes(game: &str) -> &'static [&'static str] {
         "skyrim" => &["SkyrimSE.exe"],
         "eldenring" => &["eldenring.exe"],
         "cyberpunk" => &["Cyberpunk2077.exe"],
+        "deadlock" => &["deadlock.exe"],
         _ => &[],
     }
 }
@@ -92,7 +93,7 @@ async fn clear_activity() {
 }
 
 /// A game launched through the launcher. `game` is the Kawma game id
-/// ("minecraft" | "skyrim" | "eldenring" | "cyberpunk"); `pid` may be 0 when
+/// ("minecraft" | "skyrim" | "eldenring" | "cyberpunk" | "deadlock"); `pid` may be 0 when
 /// Steam started it.
 pub fn game_started(app: &AppHandle, game: &'static str, title: &str, detail: Option<String>, pid: u32) {
     if !settings(app).now_playing || !kawma::released(NOW_PLAYING_RELEASE) || kawma::token().is_none() {

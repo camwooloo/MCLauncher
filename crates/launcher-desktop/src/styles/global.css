@@ -84,6 +84,11 @@
   --accent-2: #00f0ff;
   --accent-rgb: 252, 238, 10;
 }
+[data-game="deadlock"] {
+  --accent: #ff5a5f;
+  --accent-2: #ff9a6b;
+  --accent-rgb: 255, 90, 95;
+}
 /* The launcher's own identity (home, settings, accounts): Kawma's peach
    orange, with Kawma violet as the secondary accent. */
 [data-game="kawma"] {
@@ -2266,6 +2271,7 @@ input[type="range"]::-webkit-slider-thumb:active {
 
 /* Slide 2 — game chips */
 .onb-games { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.onb-games > .onb-game:last-child:nth-child(odd) { grid-column: span 2; justify-self: center; }
 .onb-game {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 16px;

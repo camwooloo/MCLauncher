@@ -18,6 +18,7 @@ const GAME_TILES: {
   { id: "skyrim", name: "Skyrim", tag: "SKSE · Skyrim Together co-op", rgb: "158, 197, 255", icon: Icon.skyrim },
   { id: "eldenring", name: "Elden Ring", tag: "Seamless Co-op · Mod Engine 2", rgb: "243, 201, 105", icon: Icon.elden },
   { id: "cyberpunk", name: "Cyberpunk 2077", tag: "CyberpunkMP · Cyber Engine Tweaks", rgb: "252, 238, 10", icon: Icon.cyberpunk },
+  { id: "deadlock", name: "Deadlock", tag: "Mod store · hero skins · autoexec", rgb: "255, 90, 95", icon: Icon.deadlock },
 ];
 
 /** Landing page — big game tiles in the launcher's own aurora palette. */
@@ -43,6 +44,7 @@ const KIND_ICON: Record<string, (p: { size?: number }) => JSX.Element> = {
   skyrim: Icon.skyrim,
   eldenring: Icon.elden,
   cyberpunk: Icon.cyberpunk,
+  deadlock: Icon.deadlock,
 };
 
 /** "Continue playing" — recently played instances & games with playtime. */
