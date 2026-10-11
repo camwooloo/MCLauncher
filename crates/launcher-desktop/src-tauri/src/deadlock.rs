@@ -203,10 +203,11 @@ pub fn deadlock_adopt(state: State<'_, AppState>) -> Result<LibraryState, String
 /// Launch Deadlock with the library's mods, or vanilla. Vanilla only takes
 /// the addons path out of `gameinfo.gi`; every mod stays installed.
 ///
-/// A modded launch on a new game build first switches off mods that replace
-/// game configs (they stop the game at start after big updates), then the
-/// launch is watched: if Deadlock dies on start, the next likely culprits go
-/// and the home page says which (`deadlock-library` carries the new state).
+/// A modded launch also writes the `Mod`/`Write` search paths the game needs
+/// to boot with addons first (see `deadlock::add_addons_path`). The launch is
+/// then watched: if Deadlock dies on start, mods that override game configs
+/// (or failing that, the UI) are switched off and the home page says which
+/// (`deadlock-library` carries the new state).
 #[tauri::command]
 pub fn deadlock_launch(app: AppHandle, state: State<'_, AppState>, modded: bool) -> Result<u32, String> {
     let info = deadlock::detect();
@@ -216,14 +217,9 @@ pub fn deadlock_launch(app: AppHandle, state: State<'_, AppState>, modded: bool)
     let lib = library(&state);
     let build = deadlock::game_build();
     if modded {
-        // A build that hasn't run cleanly with mods yet (or a first launch
-        // since this check existed) gets the check too.
-        if lib.last_good_build() != build || build.is_none() {
+        if lib.last_good_build().is_some_and(|good| Some(good) != build) {
             // The gameinfo.gi backup belongs to the old build.
             let _ = std::fs::remove_file(lib.root().join("backup").join("gameinfo.gi.original"));
-            if let Err(e) = lib.repair(info.addons_dir.as_deref(), false) {
-                eprintln!("[deadlock] update check: {e}");
-            }
         }
         if let Some(addons) = info.addons_dir.as_deref() {
             lib.sync(addons).map_err(err)?;

@@ -328,7 +328,7 @@ function AutoFixBanner({ fix }: { fix: DlAutoFix }) {
     ? "They replace game config files, which breaks after Deadlock updates (the keybinding error)."
     : fix.disabled.some((m) => m.risk === "ui")
       ? "They change the game's UI or scripts, which often breaks after Deadlock updates."
-      : "Nothing stood out, so every mod is off. Turn them back on one at a time to find the one that breaks.";
+      : "They were the most likely cause.";
   const title =
     fix.trigger === "update"
       ? `Deadlock updated, so ${names.length === 1 ? "1 mod was" : `${names.length} mods were`} switched off`

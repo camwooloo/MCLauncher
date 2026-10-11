@@ -96,36 +96,89 @@ fn newline(text: &str) -> &'static str {
     }
 }
 
-/// Add `Game citadel/addons` as the first search path (after the language
-/// path), so addons override the base game. Unchanged if already present or
-/// there is no `SearchPaths` block.
-pub fn add_addons_path(gameinfo: &str) -> String {
-    if has_addons_path(gameinfo) {
-        return gameinfo.to_string();
+/// Search paths the engine needs once anything else leads the block. Valve's
+/// stock `gameinfo.gi` (since the 2026-09-29 update) has no `Mod`/`Write`
+/// lines, so the engine takes the first `Game` path as the mod folder; with
+/// `citadel/addons` first it then looks for `cfg/user_keys_default.vcfg` in
+/// the addons folder and stops with "Unable to read default keybinding
+/// configuration". Naming them keeps `citadel` the mod and write folder.
+const BOOT_PATHS: [(&str, &str); 4] = [("mod", "citadel"), ("write", "citadel"), ("mod", "core"), ("write", "core")];
+
+fn is_path_line(line: &str, key: &str, path: &str) -> bool {
+    let t = tokens(line);
+    t.len() >= 2 && t[0] == key && t[1].replace('\\', "/").trim_end_matches('/') == path
+}
+
+/// The `SearchPaths` block as line indexes: its `{` and matching `}`.
+fn search_paths_block(lines: &[&str]) -> Option<(usize, usize)> {
+    let sp = lines.iter().position(|l| tokens(l).first().is_some_and(|t| t == "searchpaths"))?;
+    let open = lines.iter().skip(sp).position(|l| l.trim_start().starts_with('{'))? + sp;
+    let mut depth = 0i32;
+    for (i, l) in lines.iter().enumerate().skip(open) {
+        let t = l.trim_start();
+        if t.starts_with('{') {
+            depth += 1;
+        } else if t.starts_with('}') {
+            depth -= 1;
+            if depth == 0 {
+                return Some((open, i));
+            }
+        }
     }
+    None
+}
+
+/// Whether `gameinfo.gi` loads the addons folder but is missing a search
+/// path the game needs to boot that way.
+pub fn needs_boot_paths(gameinfo: &str) -> bool {
+    has_addons_path(gameinfo)
+        && BOOT_PATHS
+            .iter()
+            .any(|(k, p)| !gameinfo.lines().any(|l| is_path_line(l, k, p)))
+}
+
+/// Add `Game citadel/addons` as the first search path (after the language
+/// path), so addons override the base game, plus the `Mod`/`Write` paths the
+/// game needs to still boot with it there (see [`BOOT_PATHS`]). Unchanged
+/// if all present or there is no `SearchPaths` block.
+pub fn add_addons_path(gameinfo: &str) -> String {
     let nl = newline(gameinfo);
     let lines: Vec<&str> = gameinfo.split(nl).collect();
-    let Some(sp) = lines.iter().position(|l| tokens(l).first().is_some_and(|t| t == "searchpaths")) else {
+    let Some((open, close)) = search_paths_block(&lines) else {
         return gameinfo.to_string();
     };
-    let Some(open) = lines.iter().skip(sp).position(|l| l.trim_start().starts_with('{')).map(|i| i + sp) else {
-        return gameinfo.to_string();
-    };
-    // Insert after Game_Language when it leads the block, else after `{`.
-    let mut at = open + 1;
-    if lines.get(at).is_some_and(|l| tokens(l).first().is_some_and(|t| t == "game_language")) {
-        at += 1;
-    }
-    let indent: String = lines
-        .get(at)
-        .filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with('}'))
+    let indent: String = lines[open + 1..close]
+        .iter()
+        .find(|l| !l.trim().is_empty())
         .map(|l| l.chars().take_while(|c| c.is_whitespace()).collect())
         .unwrap_or_else(|| {
             let base: String = lines[open].chars().take_while(|c| c.is_whitespace()).collect();
             format!("{base}\t")
         });
     let mut out: Vec<String> = lines.iter().map(|s| s.to_string()).collect();
-    out.insert(at, format!("{indent}Game\t\t\t\t{ADDONS_PATH}"));
+    // Missing boot paths go at the end of the block, in order.
+    let missing: Vec<String> = BOOT_PATHS
+        .iter()
+        .filter(|(k, p)| !lines.iter().any(|l| is_path_line(l, k, p)))
+        .map(|(k, p)| {
+            let key = if *k == "mod" { "Mod\t\t\t\t\t" } else { "Write\t\t\t\t" };
+            format!("{indent}{key}{p}")
+        })
+        .collect();
+    for (n, line) in missing.into_iter().enumerate() {
+        out.insert(close + n, line);
+    }
+    if !has_addons_path(gameinfo) {
+        // Insert after Game_Language when it leads the block, else after `{`.
+        let mut at = open + 1;
+        if lines
+            .get(at)
+            .is_some_and(|l| tokens(l).first().is_some_and(|t| t == "game_language" || t == "game_uilanguage"))
+        {
+            at += 1;
+        }
+        out.insert(at, format!("{indent}Game\t\t\t\t{ADDONS_PATH}"));
+    }
     out.join(nl)
 }
 
@@ -160,6 +213,15 @@ pub fn set_mods_active(info: &DeadlockInfo, active: bool, backup_dir: &Path) -> 
     Ok(true)
 }
 
+/// `gameinfo.gi` without the lines the launcher may add, for comparing.
+fn strip_ours(gameinfo: &str) -> String {
+    remove_addons_path(gameinfo)
+        .lines()
+        .filter(|l| !BOOT_PATHS.iter().any(|(k, p)| is_path_line(l, k, p)))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Put `gameinfo.gi` back the way it was before the launcher touched it (or,
 /// without a backup, just strip the addons path).
 pub fn reset_gameinfo(info: &DeadlockInfo, backup_dir: &Path) -> Result<String> {
@@ -170,7 +232,7 @@ pub fn reset_gameinfo(info: &DeadlockInfo, backup_dir: &Path) -> Result<String> 
         // taken; the backup is only right if it still matches apart from
         // our line.
         let current = std::fs::read_to_string(&path).unwrap_or_default();
-        if remove_addons_path(&current) == remove_addons_path(&original) {
+        if strip_ours(&current) == strip_ours(&original) {
             std::fs::write(&path, &original).map_err(|e| Error::io(&path, e))?;
             return Ok("gameinfo.gi restored from the backup".into());
         }
@@ -357,10 +419,9 @@ impl ModLibrary {
 
     /// Switch off the mods most likely to stop Deadlock starting.
     ///
-    /// `crashed` = the game already died on start: then UI mods go too, and
-    /// with nothing risky found every mod is switched off so the next modded
-    /// launch works and mods can be turned back on one at a time. Before a
-    /// launch (`crashed` false) only config overrides are touched. Hand-placed
+    /// `crashed` = the game already died on start: UI mods go too when no
+    /// config override is on. Mods that look fine are never switched off.
+    /// Without `crashed` only config overrides are touched. Hand-placed
     /// addon files are taken into the library first so they can be switched
     /// off like the rest. Returns `None` when nothing was changed.
     pub fn repair(&self, addons_dir: Option<&Path>, crashed: bool) -> Result<Option<AutoFix>> {
@@ -385,11 +446,12 @@ impl ModLibrary {
         if chosen.is_empty() && crashed {
             chosen = pick(Risk::Ui);
         }
-        if chosen.is_empty() && crashed {
-            chosen = rated.clone();
-        }
         let note = if chosen.is_empty() && crashed {
-            Some("Deadlock didn't start, but no mods were on. Verify the game's files in Steam.".to_string())
+            Some(
+                "None of your mods look outdated, so they were left on. If it keeps happening, \
+                 try Reset gameinfo in Extras or verify Deadlock's files in Steam."
+                    .to_string(),
+            )
         } else {
             None
         };
@@ -1062,7 +1124,37 @@ mod tests {
         assert!(on.contains("citadel_*LANGUAGE*\r\n\t\t\tGame\t\t\t\tcitadel/addons\r\n\t\t\tMod"));
         // Idempotent.
         assert_eq!(add_addons_path(&on), on);
-        assert_eq!(remove_addons_path(&on), GAMEINFO);
+        // Older files already name citadel; only the core paths are added.
+        let with_core = GAMEINFO.replace(
+            "\t\t}\r\n\t}",
+            "\t\t\tMod\t\t\t\t\tcore\r\n\t\t\tWrite\t\t\t\tcore\r\n\t\t}\r\n\t}",
+        );
+        assert_eq!(remove_addons_path(&on), with_core);
+    }
+
+    #[test]
+    fn gameinfo_since_the_september_update_gets_boot_paths() {
+        // Valve's stock block since 2026-09-29: no Mod or Write lines.
+        let stock = "\"GameInfo\"\r\n{\r\n\tFileSystem\r\n\t{\r\n\t\tSearchPaths\r\n\t\t{\r\n\t\t\tGame_Language\t\tcitadel_*LANGUAGE*\r\n\t\t\tGame_LowViolence\tcitadel_lv\r\n\t\t\tGame\t\t\t\tcitadel\r\n\t\t\tGame\t\t\t\tcore\r\n\t\t}\r\n\t}\r\n}\r\n";
+        assert!(!needs_boot_paths(stock));
+        let on = add_addons_path(stock);
+        assert!(on.contains("citadel_*LANGUAGE*\r\n\t\t\tGame\t\t\t\tcitadel/addons\r\n"));
+        assert!(on.contains(
+            "Game\t\t\t\tcore\r\n\t\t\tMod\t\t\t\t\tcitadel\r\n\t\t\tWrite\t\t\t\tcitadel\r\n\t\t\tMod\t\t\t\t\tcore\r\n\t\t\tWrite\t\t\t\tcore\r\n\t\t}"
+        ));
+        assert!(!needs_boot_paths(&on));
+        assert_eq!(add_addons_path(&on), on);
+
+        // A file an older launcher already pointed at addons gets repaired.
+        let old = remove_addons_path(&on)
+            .split("\r\n")
+            .filter(|l| !(l.contains("Mod\t") || l.contains("Write\t")))
+            .collect::<Vec<_>>()
+            .join("\r\n");
+        assert_eq!(old, stock);
+        let broken = old.replace("citadel_*LANGUAGE*\r\n", "citadel_*LANGUAGE*\r\n\t\t\tGame\t\t\t\tcitadel/addons\r\n");
+        assert!(needs_boot_paths(&broken));
+        assert_eq!(add_addons_path(&broken), on);
     }
 
     #[test]
@@ -1231,13 +1323,13 @@ mod tests {
         assert_eq!(on(&lib), ["skin", "hud"]);
         assert!(lib.repair(Some(&addons), false).unwrap().is_none());
 
-        // Still crashing: UI mods next, then everything.
+        // Still crashing: UI mods next.
         lib.repair(Some(&addons), true).unwrap().unwrap();
         assert_eq!(on(&lib), ["skin"]);
-        lib.repair(Some(&addons), true).unwrap().unwrap();
-        assert!(on(&lib).is_empty());
+        // Nothing risky left: the skin stays on and the fix says so.
         let fix = lib.repair(Some(&addons), true).unwrap().unwrap();
         assert!(fix.disabled.is_empty() && fix.note.is_some());
+        assert_eq!(on(&lib), ["skin"]);
 
         // Undo brings back what the last fix turned off.
         lib.set_enabled("hud", false).unwrap();
