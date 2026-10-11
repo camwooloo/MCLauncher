@@ -97,6 +97,16 @@ pub fn find_app_install_dir(app_id: u32) -> Option<PathBuf> {
     None
 }
 
+/// The installed build of a Steam app (`buildid` in its app manifest); it
+/// changes with every game update.
+pub fn app_build_id(app_id: u32) -> Option<String> {
+    steam_libraries().into_iter().find_map(|library| {
+        let manifest = library.join("steamapps").join(format!("appmanifest_{app_id}.acf"));
+        let content = std::fs::read_to_string(manifest).ok()?;
+        vdf_values(&content, "buildid").into_iter().next()
+    })
+}
+
 /// The game's own icon as the Steam client caches it, if Steam has shown it.
 ///
 /// Newer clients keep per-app art in `appcache/librarycache/<appid>/`, where

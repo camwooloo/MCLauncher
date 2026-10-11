@@ -4,7 +4,7 @@
 //! Every library change is applied to the game's `addons/` folder straight
 //! away (when Deadlock is installed), like Deadlock Mod Manager does.
 
-use launcher_core::games::deadlock::{self, DeadlockInfo, LibraryMod, ModLibrary};
+use launcher_core::games::deadlock::{self, AutoFix, DeadlockInfo, LibraryMod, ModLibrary};
 use launcher_core::games::gamebanana::{self, Category, ModDetail, Sort, StoreMod, StorePage};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
@@ -20,7 +20,7 @@ fn library(state: &State<'_, AppState>) -> ModLibrary {
 }
 
 /// The library as the UI shows it.
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryState {
     pub mods: Vec<LibraryMod>,
@@ -31,6 +31,8 @@ pub struct LibraryState {
     /// Set when applying the library to the game failed (e.g. the game is
     /// running and holds the files open).
     pub sync_error: Option<String>,
+    /// Mods the launcher switched off on its own after a bad start.
+    pub auto_fix: Option<AutoFix>,
 }
 
 fn snapshot(lib: &ModLibrary, info: &DeadlockInfo, sync_error: Option<String>) -> LibraryState {
@@ -46,6 +48,7 @@ fn snapshot(lib: &ModLibrary, info: &DeadlockInfo, sync_error: Option<String>) -
         mods,
         unmanaged,
         sync_error,
+        auto_fix: lib.auto_fix(),
     }
 }
 
@@ -199,6 +202,11 @@ pub fn deadlock_adopt(state: State<'_, AppState>) -> Result<LibraryState, String
 
 /// Launch Deadlock with the library's mods, or vanilla. Vanilla only takes
 /// the addons path out of `gameinfo.gi`; every mod stays installed.
+///
+/// A modded launch on a new game build first switches off mods that replace
+/// game configs (they stop the game at start after big updates), then the
+/// launch is watched: if Deadlock dies on start, the next likely culprits go
+/// and the home page says which (`deadlock-library` carries the new state).
 #[tauri::command]
 pub fn deadlock_launch(app: AppHandle, state: State<'_, AppState>, modded: bool) -> Result<u32, String> {
     let info = deadlock::detect();
@@ -206,20 +214,100 @@ pub fn deadlock_launch(app: AppHandle, state: State<'_, AppState>, modded: bool)
         return Err("Deadlock is not installed".into());
     }
     let lib = library(&state);
+    let build = deadlock::game_build();
     if modded {
+        // A build that hasn't run cleanly with mods yet (or a first launch
+        // since this check existed) gets the check too.
+        if lib.last_good_build() != build || build.is_none() {
+            // The gameinfo.gi backup belongs to the old build.
+            let _ = std::fs::remove_file(lib.root().join("backup").join("gameinfo.gi.original"));
+            if let Err(e) = lib.repair(info.addons_dir.as_deref(), false) {
+                eprintln!("[deadlock] update check: {e}");
+            }
+        }
         if let Some(addons) = info.addons_dir.as_deref() {
             lib.sync(addons).map_err(err)?;
         }
     }
     deadlock::set_mods_active(&info, modded, &lib.root().join("backup")).map_err(err)?;
     let info = deadlock::detect();
+    let started = std::time::SystemTime::now();
     let pid = deadlock::launch(&deadlock::launch_args(&info, &lib.launch_options())).map_err(err)?;
+    if modded {
+        watch_start(app.clone(), state.paths.data_dir.clone(), build, started);
+    }
     crate::stats::record_session(&state.paths.data_dir, "game:deadlock", "Deadlock", "deadlock", None, pid);
     crate::updates::game_launched("deadlock", pid);
     crate::discord::set_playing("Playing Deadlock", "via Kawma Launcher");
     let detail = Some(if modded { "With mods" } else { "Without mods" }.to_string());
     crate::activity::game_started(&app, "deadlock", "Deadlock", detail, pid);
     Ok(pid)
+}
+
+/// How long Deadlock has to stay up for a modded start to count as good.
+const START_OK: std::time::Duration = std::time::Duration::from_secs(10 * 60);
+/// An exit sooner than this after the window appears is a failed start even
+/// without a crash dump (the fatal error box closes the game on OK).
+const QUICK_EXIT: std::time::Duration = std::time::Duration::from_secs(60);
+
+fn deadlock_running(sys: &mut sysinfo::System) -> bool {
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+    sys.processes().values().any(|p| p.name().eq_ignore_ascii_case("deadlock.exe"))
+}
+
+/// Watch a modded launch: a clean run marks this build as good; a death on
+/// start switches off the likely culprits.
+fn watch_start(app: AppHandle, data_dir: std::path::PathBuf, build: Option<String>, started: std::time::SystemTime) {
+    use std::time::{Duration, Instant};
+    tauri::async_runtime::spawn(async move {
+        let mut sys = sysinfo::System::new();
+        // Steam can take a while (updates, the anti-cheat) to start the game.
+        let wait_until = Instant::now() + Duration::from_secs(180);
+        while !deadlock_running(&mut sys) {
+            if Instant::now() > wait_until {
+                return;
+            }
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        }
+        let seen = Instant::now();
+        while deadlock_running(&mut sys) {
+            if seen.elapsed() > START_OK {
+                let _ = ModLibrary::new(&data_dir).set_last_good_build(build);
+                return;
+            }
+            tokio::time::sleep(Duration::from_secs(3)).await;
+        }
+        let info = deadlock::detect();
+        let crashed = seen.elapsed() < QUICK_EXIT || deadlock::crash_dumps_since(&info, started) > 0;
+        if !crashed {
+            return;
+        }
+        let lib = ModLibrary::new(&data_dir);
+        match lib.repair(info.addons_dir.as_deref(), true) {
+            Ok(Some(_)) => {
+                let _ = app.emit("deadlock-library", apply(&lib));
+            }
+            Ok(None) => {}
+            Err(e) => eprintln!("[deadlock] auto fix: {e}"),
+        }
+    });
+}
+
+#[tauri::command]
+pub fn deadlock_dismiss_fix(state: State<'_, AppState>) -> Result<LibraryState, String> {
+    let lib = library(&state);
+    lib.dismiss_fix().map_err(err)?;
+    Ok(snapshot(&lib, &deadlock::detect(), None))
+}
+
+/// Switch back on what the last auto fix turned off.
+#[tauri::command]
+pub fn deadlock_undo_fix(state: State<'_, AppState>) -> Result<LibraryState, String> {
+    let lib = library(&state);
+    lib.undo_fix().map_err(err)?;
+    // The player vouched for these mods on this build: don't check again.
+    lib.set_last_good_build(deadlock::game_build()).map_err(err)?;
+    Ok(apply(&lib))
 }
 
 #[derive(Serialize)]

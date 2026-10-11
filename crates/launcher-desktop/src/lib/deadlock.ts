@@ -5,7 +5,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 import { call, isTauri, listen } from "./api";
-import type { DlCategory, DlExtras, DlLibrary, DlLibraryMod, DlModDetail, DlSort, DlStoreMod, DlStorePage } from "./types";
+import type { DlAutoFix, DlCategory, DlExtras, DlLibrary, DlLibraryMod, DlModDetail, DlSort, DlStoreMod, DlStorePage } from "./types";
 
 /** Deadlock's heroes (matches launcher-core's gamebanana::HEROES). */
 export const HEROES = [
@@ -164,6 +164,16 @@ let mockLibrary: DlLibraryMod[] = [
     ],
   }),
 ];
+// Shown in previews so the auto-fix banner can be seen; ?fix=0 hides it.
+let mockFix: DlAutoFix | null =
+  typeof location !== "undefined" && new URLSearchParams(location.search).get("fix") === "0"
+    ? null
+    : {
+        at: Math.floor(Date.now() / 1000),
+        trigger: "crash",
+        disabled: [{ id: "gb-1", name: "Custom Keybinds Pack", risk: "config" }],
+        note: null,
+      };
 let mockUnmanaged = ["pak42_dir.vpk", "pak43_dir.vpk"];
 let mockExtras: DlExtras = {
   autoexec: "// Kawma Launcher autoexec\nfps_max 240\nengine_no_focus_sleep 0\n",
@@ -180,7 +190,13 @@ let mockExtras: DlExtras = {
 
 function mockState(): DlLibrary {
   const placed = mockLibrary.filter((m) => m.enabled).reduce((a, m) => a + m.files.filter((f) => f.enabled).length, 0);
-  return { mods: mockLibrary.map((m) => ({ ...m })), unmanaged: [...mockUnmanaged], slotsUsed: placed + mockUnmanaged.length, syncError: null };
+  return {
+    mods: mockLibrary.map((m) => ({ ...m })),
+    unmanaged: [...mockUnmanaged],
+    slotsUsed: placed + mockUnmanaged.length,
+    syncError: null,
+    autoFix: mockFix,
+  };
 }
 
 const delay = <T>(v: T, ms = 250) => new Promise<T>((r) => setTimeout(() => r(v), ms));
@@ -328,6 +344,12 @@ export const resetGameinfo = (): Promise<string> => (isTauri ? call("deadlock_re
 export const setModsActive = (active: boolean): Promise<DlExtras> =>
   isTauri ? call("deadlock_set_mods_active", { active }) : delay((mockExtras = { ...mockExtras, modsActive: active }));
 
+export const dismissFix = (): Promise<DlLibrary> =>
+  isTauri ? call("deadlock_dismiss_fix") : mockEdit(() => (mockFix = null));
+
+export const undoFix = (): Promise<DlLibrary> =>
+  isTauri ? call("deadlock_undo_fix") : mockEdit(() => (mockFix = null));
+
 export const clearAddons = (): Promise<string> => (isTauri ? call("deadlock_clear_addons") : delay("Removed 9 addon files from the game"));
 
 /* ------------------------- shared library state -------------------------- */
@@ -342,6 +364,15 @@ const emit = () => subs.forEach((f) => f());
 export function setLibrary(next: DlLibrary) {
   current = next;
   emit();
+}
+
+// The launcher pushes the library when it changes on its own (the auto fix
+// after a failed start).
+let pushListening = false;
+function listenForPushes() {
+  if (pushListening) return;
+  pushListening = true;
+  void listen<DlLibrary>("deadlock-library", setLibrary);
 }
 
 export function reloadLibrary() {
@@ -363,6 +394,7 @@ export function useDeadlockLibrary(): DlLibrary | null {
     () => current,
   );
   useEffect(() => {
+    listenForPushes();
     if (!current) reloadLibrary();
   }, []);
   return lib;
