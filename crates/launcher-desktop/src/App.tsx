@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { LauncherProvider, useLauncher } from "./store";
 import { windowAction, playStats, gameIcons, type PlayRecord } from "./lib/api";
 import { useAutoUpdates } from "./lib/updates";
+import { useDeadlockLibrary } from "./lib/deadlock";
 import type { GameKey } from "./lib/types";
 import { Icon, KawmaMark } from "./components/ui";
 import { KawmaLogo } from "./components/KawmaLogo";
@@ -34,13 +35,14 @@ import {
   CyberpunkCoop,
   CyberpunkMods,
 } from "./components/GamePanels";
+import { DeadlockHome, DeadlockLibrary, DeadlockStore, DeadlockSkins, DeadlockExtras } from "./components/DeadlockPanels";
 import { AccountsPanel, SettingsPanel } from "./components/SystemPanels";
 import { NetworkPanel } from "./components/NetworkPanel";
 
 type Section = GameKey | "home" | "accounts" | "settings" | "network";
 type IconFn = (p: { size?: number }) => JSX.Element;
 
-const GAMES: GameKey[] = ["minecraft", "skyrim", "eldenring", "cyberpunk"];
+const GAMES: GameKey[] = ["minecraft", "skyrim", "eldenring", "cyberpunk", "deadlock"];
 
 /* Each game's identity in the shell: name, maker line and rail icon. */
 const GAME_META: Record<GameKey, { name: string; short: string; maker: string; icon: IconFn }> = {
@@ -48,6 +50,7 @@ const GAME_META: Record<GameKey, { name: string; short: string; maker: string; i
   skyrim: { name: "Skyrim", short: "SK", maker: "The Elder Scrolls V", icon: Icon.skyrim },
   eldenring: { name: "Elden Ring", short: "ER", maker: "FromSoftware", icon: Icon.elden },
   cyberpunk: { name: "Cyberpunk 2077", short: "CP", maker: "CD Projekt Red", icon: Icon.cyberpunk },
+  deadlock: { name: "Deadlock", short: "DL", maker: "Valve", icon: Icon.deadlock },
 };
 
 /* The functions each game exposes on the left rail. The first is the primary one. */
@@ -75,6 +78,15 @@ const GAME_FUNCS: Record<GameKey, { tab: string; icon: IconFn }[]> = {
     { tab: "Setup", icon: Icon.sliders },
     { tab: "Co-op", icon: Icon.coop },
     { tab: "Mods", icon: Icon.mods },
+  ],
+  // Deadlock Mod Manager's sections: play, mods you have, mods to get,
+  // which skin each hero wears, and game tweaks.
+  deadlock: [
+    { tab: "Home", icon: Icon.gamepad },
+    { tab: "Mod Library", icon: Icon.mods },
+    { tab: "Mod Store", icon: Icon.bag },
+    { tab: "Hero Skins", icon: Icon.shirt },
+    { tab: "Extras", icon: Icon.sliders },
   ],
 };
 
@@ -193,8 +205,9 @@ function RemotePill() {
 
 /* What the hero shows for the current section: title, the Play pill and status chips. */
 function useHero(section: Section, lastInstanceId: string | null, onContinue: (r: PlayRecord) => void, recent: PlayRecord | null, choice: Choice): HeroInfo {
-  const { games, instances, servers, serverStatuses, busy, playInstance, launchSkyrim, launchEldenRing, launchCyberpunk, activeAccount, netPeers } =
+  const { games, instances, servers, serverStatuses, busy, playInstance, launchSkyrim, launchEldenRing, launchCyberpunk, launchDeadlock, activeAccount, netPeers } =
     useLauncher();
+  const dlLib = useDeadlockLibrary();
   const running = Object.values(serverStatuses).filter((s) => s.running).length;
 
   switch (section) {
@@ -252,8 +265,22 @@ function useHero(section: Section, lastInstanceId: string | null, onContinue: (r
         ],
       };
     }
+    case "deadlock": {
+      const g = games?.deadlock;
+      const on = dlLib?.mods.filter((m) => m.enabled).length ?? 0;
+      return {
+        title: "Deadlock",
+        kicker: GAME_META.deadlock.maker,
+        play: { label: "Play", disabled: !g?.installed, onClick: () => void launchDeadlock(pickedMode("deadlock", games, choice) === "modded") },
+        stats: [
+          { icon: Icon.folder, label: "Install", value: g?.installed ? "Steam" : "Not found" },
+          { icon: Icon.mods, label: "Mods", value: dlLib ? `${on} of ${dlLib.mods.length} on` : "Loading" },
+          { icon: Icon.gamepad, label: "Play button", value: pickedMode("deadlock", games, choice) === "modded" ? "With mods" : "Without mods" },
+        ],
+      };
+    }
     case "home": {
-      const installed = 1 + [games?.skyrim, games?.eldenRing, games?.cyberpunk].filter((g) => g?.installed).length;
+      const installed = 1 + [games?.skyrim, games?.eldenRing, games?.cyberpunk, games?.deadlock].filter((g) => g?.installed).length;
       return {
         title: "Kawma Launcher",
         kicker: SECTION_KICKER.home,
@@ -281,6 +308,7 @@ function Shell() {
     skyrim: "Play",
     eldenring: "Play",
     cyberpunk: "Play",
+    deadlock: "Home",
   });
   const [recents, setRecents] = useState<PlayRecord[]>([]);
   const [gameArt, setGameArt] = useState<Record<string, string>>({});
@@ -366,6 +394,13 @@ function Shell() {
     } else {
       selectGame(r.kind as GameKey);
     }
+  };
+  // Deadlock's home has its own with/without mods buttons; picking one also
+  // makes it what the hero's Play button does.
+  const { launchDeadlock } = useLauncher();
+  const playDeadlock = (modded: boolean) => {
+    setChoice({ ...choice, deadlock: modded ? "modded" : "vanilla" });
+    void launchDeadlock(modded);
   };
   const rejoin = (s: { id: string; name: string; address: string }) => {
     selectGame("minecraft");
@@ -507,7 +542,7 @@ function Shell() {
                 onSelectGame={selectGame}
                 onContinue={continuePlay}
                 onRejoin={rejoin}
-                home={{ icons: gameArt, choice, onChoice: setChoice, onOpen: openFunc }}
+                home={{ icons: gameArt, choice, onChoice: setChoice, onOpen: openFunc, onPlayDeadlock: playDeadlock }}
               />
             </div>
           </div>
@@ -638,9 +673,17 @@ function Panel({
   onSelectGame: (g: GameKey) => void;
   onContinue: (r: PlayRecord) => void;
   onRejoin: (s: { id: string; name: string; address: string }) => void;
-  home: { icons: Record<string, string>; choice: Choice; onChoice: (c: Choice) => void; onOpen: (tab: string) => void };
+  home: {
+    icons: Record<string, string>;
+    choice: Choice;
+    onChoice: (c: Choice) => void;
+    onOpen: (tab: string) => void;
+    onPlayDeadlock: (modded: boolean) => void;
+  };
 }) {
-  const gameHome = (g: GameKey) => <GameHome game={g} {...home} />;
+  const gameHome = (g: Exclude<GameKey, "deadlock">) => (
+    <GameHome game={g} icons={home.icons} choice={home.choice} onChoice={home.onChoice} onOpen={home.onOpen} />
+  );
   switch (section) {
     case "minecraft":
       if (tab === "Instances") return <InstancesPanel />;
@@ -662,6 +705,12 @@ function Panel({
       if (tab === "Co-op") return <CyberpunkCoop />;
       if (tab === "Mods") return <CyberpunkMods />;
       return gameHome("cyberpunk");
+    case "deadlock":
+      if (tab === "Mod Library") return <DeadlockLibrary onOpen={home.onOpen} />;
+      if (tab === "Mod Store") return <DeadlockStore />;
+      if (tab === "Hero Skins") return <DeadlockSkins onOpen={home.onOpen} />;
+      if (tab === "Extras") return <DeadlockExtras />;
+      return <DeadlockHome onOpen={home.onOpen} onPlay={home.onPlayDeadlock} />;
     case "home":
       return <HomePanel onSelect={onSelectGame} onContinue={onContinue} onRejoin={onRejoin} />;
     case "accounts":

@@ -14,7 +14,7 @@ pub struct PlayRecord {
     /// Stable key, e.g. `instance:<id>` or `game:skyrim`.
     pub key: String,
     pub name: String,
-    /// "instance" | "skyrim" | "eldenring" | "cyberpunk".
+    /// "instance" | "skyrim" | "eldenring" | "cyberpunk" | "deadlock".
     pub kind: String,
     #[serde(default)]
     pub icon: Option<String>,

@@ -3,13 +3,15 @@
 //! Minecraft is *installed* by us (see the rest of the crate). Skyrim and Elden
 //! Ring are Steam-owned games we only *detect, configure, and launch* — plus
 //! wire up their popular co-op mods (Skyrim Together Reborn, Elden Ring
-//! Seamless Co-op).
+//! Seamless Co-op). Deadlock gets a full mod manager over GameBanana.
 //!
 //! Each game module exposes a `detect()` returning a serialisable status the UI
 //! can render (installed? co-op mod present? where?) and `launch_*` helpers.
 
 pub mod cyberpunk;
+pub mod deadlock;
 pub mod eldenring;
+pub mod gamebanana;
 pub mod install;
 pub mod skyrim;
 
@@ -25,6 +27,7 @@ pub enum GameId {
     SkyrimSe,
     EldenRing,
     Cyberpunk2077,
+    Deadlock,
 }
 
 impl GameId {
@@ -34,6 +37,7 @@ impl GameId {
             GameId::SkyrimSe => Some(489830),
             GameId::EldenRing => Some(1245620),
             GameId::Cyberpunk2077 => Some(1091500),
+            GameId::Deadlock => Some(1422450),
             GameId::Minecraft => None,
         }
     }
@@ -44,6 +48,7 @@ impl GameId {
             GameId::SkyrimSe => "Skyrim Special Edition",
             GameId::EldenRing => "Elden Ring",
             GameId::Cyberpunk2077 => "Cyberpunk 2077",
+            GameId::Deadlock => "Deadlock",
         }
     }
 }

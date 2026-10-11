@@ -19,7 +19,7 @@ use tokio::sync::Mutex;
 
 use launcher_core::account::{Account, AccountStore};
 use launcher_core::auth::Auth;
-use launcher_core::games::{cyberpunk, eldenring, skyrim, steam_run_url};
+use launcher_core::games::{cyberpunk, deadlock, eldenring, skyrim, steam_run_url};
 use launcher_core::launch::{self, LaunchOptions};
 use launcher_core::manifest::VersionManifest;
 use launcher_core::modloader::{fabric, quilt};
@@ -321,7 +321,7 @@ pub async fn vpn_join(code: String) -> Result<crate::vpn::JoinPayload, String> {
 pub struct ShareArgs {
     pub name: String,
     pub port: u16,
-    /// "minecraft" | "skyrim" | "eldenring" | "cyberpunk".
+    /// "minecraft" | "skyrim" | "eldenring" | "cyberpunk" | "deadlock".
     pub game: String,
     /// Also set Tailscale access rules so guests reach only this server.
     pub configure_access: bool,
@@ -660,6 +660,7 @@ pub struct GamesStatus {
     pub skyrim: skyrim::SkyrimInfo,
     pub elden_ring: eldenring::EldenRingInfo,
     pub cyberpunk: cyberpunk::CyberpunkInfo,
+    pub deadlock: deadlock::DeadlockInfo,
 }
 
 #[tauri::command]
@@ -668,6 +669,7 @@ pub fn detect_games() -> GamesStatus {
         skyrim: skyrim::detect(),
         elden_ring: eldenring::detect(),
         cyberpunk: cyberpunk::detect(),
+        deadlock: deadlock::detect(),
     }
 }
 
@@ -684,6 +686,7 @@ pub fn game_icons() -> std::collections::HashMap<String, String> {
         ("skyrim", GameId::SkyrimSe),
         ("eldenring", GameId::EldenRing),
         ("cyberpunk", GameId::Cyberpunk2077),
+        ("deadlock", GameId::Deadlock),
     ] {
         let Some(path) = game.steam_app_id().and_then(launcher_core::steam::library_icon) else {
             continue;

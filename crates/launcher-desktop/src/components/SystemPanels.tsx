@@ -472,6 +472,8 @@ export function SettingsPanel() {
               { value: "eldenring", label: "Elden Ring — Play" },
               { value: "eldenring:Co-op", label: "Elden Ring — Co-op" },
               { value: "cyberpunk", label: "Cyberpunk — Play" },
+              { value: "deadlock", label: "Deadlock — Home" },
+              { value: "deadlock:Mod Store", label: "Deadlock — Mod Store" },
               { value: "network", label: "Kawma Net" },
               { value: "settings", label: "Settings" },
             ]}

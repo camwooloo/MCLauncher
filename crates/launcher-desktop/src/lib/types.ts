@@ -160,10 +160,121 @@ export interface CyberpunkInfo {
   mods_dir: string | null;
 }
 
+export interface DeadlockInfo {
+  installed: boolean;
+  install_dir: string | null;
+  citadel_dir: string | null;
+  addons_dir: string | null;
+  /** gameinfo.gi currently loads citadel/addons. */
+  mods_active: boolean;
+  gameinfo_found: boolean;
+  has_autoexec: boolean;
+}
+
 export interface GamesStatus {
   skyrim: SkyrimInfo;
   eldenRing: EldenRingInfo;
   cyberpunk: CyberpunkInfo;
+  deadlock: DeadlockInfo;
+}
+
+/* ------------------------------ Deadlock mods ------------------------------ */
+
+/** A GameBanana mod as the store lists it. */
+export interface DlStoreMod {
+  id: number;
+  name: string;
+  author: string;
+  image: string | null;
+  category: string | null;
+  hero: string | null;
+  likes: number;
+  views: number;
+  downloads: number;
+  nsfw: boolean;
+  added: number;
+  updated: number;
+  url: string;
+  audio: boolean;
+}
+
+export interface DlModFile {
+  id: number;
+  name: string;
+  size: number;
+  url: string;
+  added: number;
+  downloads: number;
+  description: string;
+}
+
+export interface DlModDetail extends DlStoreMod {
+  description: string;
+  images: string[];
+  files: DlModFile[];
+}
+
+export interface DlStorePage {
+  mods: DlStoreMod[];
+  page: number;
+  total: number;
+  complete: boolean;
+}
+
+export interface DlCategory {
+  id: number;
+  name: string;
+  count: number;
+  icon: string | null;
+}
+
+export type DlSort = "newest" | "updated" | "liked" | "viewed";
+
+export interface DlVpk {
+  name: string;
+  label: string;
+  size: number;
+  enabled: boolean;
+}
+
+/** A mod in the launcher's Deadlock library. */
+export interface DlLibraryMod {
+  id: string;
+  gamebananaId: number | null;
+  name: string;
+  author: string;
+  image: string | null;
+  category: string | null;
+  hero: string | null;
+  heroOverride: string | null;
+  nsfw: boolean;
+  enabled: boolean;
+  files: DlVpk[];
+  updated: number;
+  installedAt: number;
+  fileId: number | null;
+  updateAvailable: boolean;
+}
+
+export interface DlLibrary {
+  mods: DlLibraryMod[];
+  /** Addon files the launcher didn't place. */
+  unmanaged: string[];
+  slotsUsed: number;
+  syncError: string | null;
+}
+
+export interface DlExtras {
+  autoexec: string;
+  autoexecPath: string | null;
+  launchOptions: string;
+  effectiveArgs: string;
+  modsActive: boolean;
+  gameinfoFound: boolean;
+  backupExists: boolean;
+  installDir: string | null;
+  addonsDir: string | null;
+  libraryDir: string;
 }
 
 export interface ProgressSnapshot {
@@ -232,7 +343,7 @@ export interface ContentTarget {
   loader: string | null;
 }
 
-export type GameKey = "minecraft" | "skyrim" | "eldenring" | "cyberpunk";
+export type GameKey = "minecraft" | "skyrim" | "eldenring" | "cyberpunk" | "deadlock";
 
 export interface ServerEntry {
   id: string;

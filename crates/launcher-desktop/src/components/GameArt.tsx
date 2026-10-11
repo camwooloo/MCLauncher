@@ -16,6 +16,7 @@ const GLYPH: Record<GameKey, (p: { size?: number }) => JSX.Element> = {
   skyrim: Icon.skyrim,
   eldenring: Icon.elden,
   cyberpunk: Icon.cyberpunk,
+  deadlock: Icon.deadlock,
 };
 
 /** The best icon we have for a game: bundled, else Steam's cached one. */

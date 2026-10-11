@@ -9,6 +9,7 @@
 mod activity;
 mod commands;
 mod content;
+mod deadlock;
 mod discord;
 mod firewall;
 mod instances;
@@ -146,6 +147,27 @@ fn main() {
             commands::launch_elden_ring,
             commands::launch_cyberpunk,
             commands::set_elden_ring_password,
+            deadlock::deadlock_store,
+            deadlock::deadlock_trending,
+            deadlock::deadlock_categories,
+            deadlock::deadlock_mod_detail,
+            deadlock::deadlock_install,
+            deadlock::deadlock_library,
+            deadlock::deadlock_set_enabled,
+            deadlock::deadlock_set_file_enabled,
+            deadlock::deadlock_set_hero,
+            deadlock::deadlock_set_active_skin,
+            deadlock::deadlock_reorder,
+            deadlock::deadlock_remove,
+            deadlock::deadlock_check_updates,
+            deadlock::deadlock_adopt,
+            deadlock::deadlock_launch,
+            deadlock::deadlock_extras,
+            deadlock::deadlock_save_autoexec,
+            deadlock::deadlock_set_launch_options,
+            deadlock::deadlock_reset_gameinfo,
+            deadlock::deadlock_set_mods_active,
+            deadlock::deadlock_clear_addons,
             commands::install_game_tool,
             commands::install_skyrim_together,
             commands::install_skyrim_mod,

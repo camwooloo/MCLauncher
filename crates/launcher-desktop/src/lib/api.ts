@@ -49,12 +49,12 @@ async function callRemote<T>(cmd: string, args?: Record<string, unknown>): Promi
 // Commands that download, install, launch or rewrite files. An automatic
 // launcher update waits while any of these is running (see lib/updates.ts).
 const WORK_CMDS =
-  /^(install_|content_install$|apply_update$|create_backup$|restore_backup$|export_instance$|import_mrpack$|instance_play$|play_minecraft$|create_instance_from|create_server_from|server_start$|start_skyrim_server$|launch_|vpn_install$|vpn_join$|repair_aurora_net$|set_skin|microsoft_login|save_inventory$|write_config_file$)/;
+  /^(install_|content_install$|apply_update$|create_backup$|restore_backup$|export_instance$|import_mrpack$|instance_play$|play_minecraft$|create_instance_from|create_server_from|server_start$|start_skyrim_server$|launch_|deadlock_install$|deadlock_launch$|vpn_install$|vpn_join$|repair_aurora_net$|set_skin|microsoft_login|save_inventory$|write_config_file$)/;
 let workInFlight = 0;
 /** How many download/install/launch commands are running right now. */
 export const workInProgress = () => workInFlight;
 
-async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+export async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (remoteHost && REMOTE_CMDS.has(cmd)) return callRemote<T>(cmd, args);
   const { invoke } = await import("@tauri-apps/api/core");
   if (!WORK_CMDS.test(cmd)) return invoke<T>(cmd, args);
@@ -244,6 +244,15 @@ export const detectGames = (): Promise<GamesStatus> =>
           has_mp: false,
           mp_path: null,
           mods_dir: null,
+        },
+        deadlock: {
+          installed: true,
+          install_dir: "D:\\SteamLibrary\\steamapps\\common\\Deadlock",
+          citadel_dir: "D:\\SteamLibrary\\steamapps\\common\\Deadlock\\game\\citadel",
+          addons_dir: "D:\\SteamLibrary\\steamapps\\common\\Deadlock\\game\\citadel\\addons",
+          mods_active: true,
+          gameinfo_found: true,
+          has_autoexec: true,
         },
       });
 
@@ -454,7 +463,7 @@ export const setSkinFromUrl = (variant: string, url: string) =>
 export interface PlayRecord {
   key: string;
   name: string;
-  kind: string; // "instance" | "skyrim" | "eldenring" | "cyberpunk"
+  kind: string; // "instance" | "skyrim" | "eldenring" | "cyberpunk" | "deadlock"
   icon: string | null;
   lastPlayed: number; // unix seconds
   totalSeconds: number;

@@ -71,13 +71,21 @@ export function launchModes(game: Exclude<GameKey, "minecraft">, g: GamesStatus 
         { id: "mp", label: "CyberpunkMP", sub: "Experimental co-op", ready: !!c?.has_mp },
       ];
     }
+    case "deadlock": {
+      const d = g?.deadlock;
+      return [
+        { id: "modded", label: "With mods", sub: "Your enabled mods", ready: !!d?.installed },
+        { id: "vanilla", label: "Without mods", sub: "Vanilla Deadlock", ready: !!d?.installed },
+      ];
+    }
   }
 }
 
-/** The launch mode Play uses: the one picked, if it is ready, else Vanilla. */
+/** The launch mode Play uses: the one picked, if it is ready, else the
+ *  default (Vanilla; for Deadlock, with mods, like Deadlock Mod Manager). */
 export function pickedMode(game: Exclude<GameKey, "minecraft">, g: GamesStatus | null, choice: Choice): string {
   const modes = launchModes(game, g);
-  return modes.find((m) => m.id === choice[game] && m.ready)?.id ?? "vanilla";
+  return modes.find((m) => m.id === choice[game] && m.ready)?.id ?? (game === "deadlock" ? "modded" : "vanilla");
 }
 
 /* ------------------------------ helpers -------------------------------- */
@@ -312,7 +320,7 @@ export function GameHome({
   onChoice,
   onOpen,
 }: {
-  game: GameKey;
+  game: Exclude<GameKey, "deadlock">;
   icons: Record<string, string>;
   choice: Choice;
   onChoice: (c: Choice) => void;
